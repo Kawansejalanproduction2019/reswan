@@ -1,0 +1,13 @@
+discord.py==2.5.2
+flask
+aiohttp
+Pillow
+python-dotenv
+PyNaCl
+yt-dlp>=2025.06.30
+ffmpeg-python
+lyricsgenius
+pymongo
+spotipy
+spotify
+pytz
