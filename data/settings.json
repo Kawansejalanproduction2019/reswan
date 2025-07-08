@@ -1,0 +1,118 @@
+{
+    "1039509114008649778": {
+        "auto_role_id": null,
+        "welcome_channel_id": null,
+        "welcome_message": "Selamat datang di **{guild_name}**, {user}! 🎉",
+        "log_channel_id": null,
+        "reaction_roles": {},
+        "channel_rules": {
+            "1379762287149187162": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "1379458566452154438": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            }
+        }
+    },
+    "788337048997199882": {
+        "auto_role_id": null,
+        "welcome_channel_id": 788337048997199885,
+        "welcome_message": "Welcome to RTM {user} di {guild_name} jangan lupa ambil role di https://discord.com/channels/788337048997199882/1384603362787590246",
+        "log_channel_id": null,
+        "reaction_roles": {
+            "1384604148053442782": {
+                "👨‍🦱": 1266493929792995438,
+                "👩": 1270461543234146396
+            }
+        },
+        "channel_rules": {
+            "1384603362787590246": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "1382047607702028339": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "788337048997199885": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            }
+        }
+    },
+    "765138959625486357": {
+        "auto_role_id": null,
+        "welcome_channel_id": null,
+        "welcome_message": "Selamat datang di **{guild_name}**, {user}! 🎉",
+        "log_channel_id": null,
+        "reaction_roles": {},
+        "channel_rules": {
+            "765140300145360896": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "1255219778407366688": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "851069782803742720": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": true,
+                "auto_delete_seconds": 0
+            },
+            "1255226119221940265": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "1388480998060331102": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "1389302816031510578": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "965586009859452928": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            }
+        }
+    }
+}

@@ -1,0 +1,389 @@
+{
+    "q1_start": {
+        "text": "Jika kamu punya waktu luang seharian penuh tanpa kewajiban, apa yang paling membuatmu bersemangat untuk melakukannya?",
+        "options": {
+            "berkumpul_dengan_teman_dan_bersosialisasi": {
+                "next_question_id": "q2_sosial_energi",
+                "traits_impact": {"Ekstrovert": 2, "Introvert": -1, "Optimis": 1, "Sosial": 1, "Spontan": 0.5, "Rapi": -0.5}
+            },
+            "menjelajahi_hobi_atau_ide_baru_sendirian": {
+                "next_question_id": "q2_eksplorasi_diri",
+                "traits_impact": {"Terbuka": 2, "Kreatif": 1, "Inovatif": 1, "Introvert": 0.5, "Ekstrovert": -0.5, "DetailOriented": -0.5}
+            },
+            "menyelesaikan_proyek_pribadi_atau_belajar_hal_baru": {
+                "next_question_id": "q2_fokus_tujuan",
+                "traits_impact": {"Terorganisir": 2, "Analitis": 1, "Ambisius": 1, "Introvert": 0.5, "Ekstrovert": -0.5, "Sabar": 0.5}
+            },
+            "bersantai_sepenuhnya_tanpa_melakukan_apa_apa_yang_berat": {
+                "next_question_id": "q2_kenyamanan",
+                "traits_impact": {"Introvert": 2, "Ekstrovert": -1, "PuasDiri": 1, "Santai": 1, "Fleksibel": 0.5, "Perencana": -0.5}
+            }
+        }
+    },
+    "q2_sosial_energi": {
+        "text": "Saat berada di tengah keramaian (pesta, acara), apakah kamu langsung mencari kerumunan untuk berinteraksi, atau menikmati percakapan dari pinggir sambil mengamati?",
+        "options": {
+            "langsung_terjun_ke_pusat_keramaian": {
+                "next_question_id": "q3_peran_kelompok_utama",
+                "traits_impact": {"PercayaDiri": 1, "Ketegasan": 0.5, "Pemimpin": 0.5, "Proaktif": 0.5, "Introvert": -0.5, "Pengikut": -0.5}
+            },
+            "menikmati_dari_pinggir_dan_mengamati": {
+                "next_question_id": "q3_peran_kelompok_samping",
+                "traits_impact": {"Pengamat": 1, "Empati": 0.5, "Sosial": 0.5, "Akomodatif": 0.5, "Ekstrovert": -0.5, "Pemimpin": -0.5}
+            }
+        }
+    },
+    "q2_eksplorasi_diri": {
+        "text": "Ketika mencoba hobi baru atau ide inovatif, apakah kamu fokus pada menguasai teknisnya hingga mahir, atau pada ekspresi diri dan menciptakan sesuatu yang unik tanpa terlalu terikat aturan?",
+        "options": {
+            "menguasai_teknis_dan_keterampilan": {
+                "next_question_id": "q3_pembelajar_teknis",
+                "traits_impact": {"Analitis": 1, "DetailOriented": 1.5, "Praktis": 0.5, "Perencana": 0.5, "Kreatif": -0.5, "Intuitif": -0.5}
+            },
+            "ekspresi_diri_dan_keaslian": {
+                "next_question_id": "q3_pembelajar_ekspresif",
+                "traits_impact": {"Kreatif": 1.5, "Inovatif": 1, "Intuitif": 0.5, "BigPicture": 0.5, "Analitis": -0.5, "DetailOriented": -0.5}
+            }
+        }
+    },
+    "q2_fokus_tujuan": {
+        "text": "Dalam menyelesaikan proyek pribadi yang penting, apakah kamu memiliki rencana terperinci dari awal hingga akhir, atau kamu lebih suka membiarkan alur membimbingmu dan beradaptasi saat berjalan?",
+        "options": {
+            "rencana_terperinci_dan_terstruktur": {
+                "next_question_id": "q3_perencana_detail",
+                "traits_impact": {"Terorganisir": 1.5, "Disiplin": 1, "DetailOriented": 0.5, "Perencana": 0.5, "Spontan": -0.5, "Rapi": 1, "Berantakan": -0.5}
+            },
+            "biarkan_alur_membimbing_dan_beradaptasi": {
+                "next_question_id": "q3_spontan_fleksibel",
+                "traits_impact": {"Spontan": 1.5, "Fleksibel": 1, "Inovatif": 0.5, "Proaktif": 0.5, "Terorganisir": -0.5, "Berantakan": 0.5, "Perencana": -0.5}
+            }
+        }
+    },
+    "q2_kenyamanan": {
+        "text": "Saat bersantai di rumah untuk memulihkan energi, apa yang paling kamu butuhkan untuk merasa nyaman dan tenang?",
+        "options": {
+            "lingkungan_tenang_rapi_dan_teratur": {
+                "next_question_id": "q3_kebutuhan_struktur",
+                "traits_impact": {"Introvert": 0.5, "Sabar": 1, "Fokus": 0.5, "Terorganisir": 0.5, "Rapi": 1, "Berantakan": -0.5}
+            },
+            "kebebasan_melakukan_apapun_sesuai_mood_tanpa_jadwal": {
+                "next_question_id": "q3_kebutuhan_kebebasan",
+                "traits_impact": {"Independen": 1.5, "Spontan": 0.5, "Impulsif": 0.5, "Fleksibel": 0.5, "Terorganisir": -0.5, "Berantakan": 0.5, "Perencana": -0.5}
+            }
+        }
+    },
+
+    "q3_peran_kelompok_utama": {
+        "text": "Jika terjadi konflik dalam sebuah tim, kamu cenderung...",
+        "options": {
+            "langsung_mencari_solusi_konkret_dan_memimpin_diskusi": {
+                "next_question_id": "q4_solusi_konflik",
+                "traits_impact": {"PemecahMasalah": 1.5, "Pragmatis": 0.5, "Ketegasan": 0.5, "Proaktif": 0.5, "Pemarah": 0.5, "Penyabar": -0.5}
+            },
+            "menjembatani_pihak_pihak_yang_berselisih_dan_mencari_kompromi": {
+                "next_question_id": "q4_resolusi_konflik",
+                "traits_impact": {"Empati": 1.5, "Kolaboratif": 0.5, "Sosial": 0.5, "Akomodatif": 0.5, "Penyabar": 0.5, "Pemarah": -0.5}
+            }
+        }
+    },
+    "q3_peran_kelompok_samping": {
+        "text": "Ketika ada proyek tim, kamu lebih suka memberikan ide-ide inovatif dan melihat gambaran besar, atau memastikan rencana berjalan lancar dan efisien dengan fokus pada detail?",
+        "options": {
+            "memberikan_ide_inovatif_dan_visi_besar": {
+                "next_question_id": "q4_kontribusi_ide",
+                "traits_impact": {"Kreatif": 1.5, "Inovatif": 1, "BigPicture": 0.5, "Terbuka": 0.5, "DetailOriented": -0.5, "Praktis": -0.5}
+            },
+            "memastikan_rencana_berjalan_lancar_dan_efisien": {
+                "next_question_id": "q4_kontribusi_eksekusi",
+                "traits_impact": {"Terorganisir": 1.5, "DetailOriented": 1, "Praktis": 0.5, "Perencana": 0.5, "BigPicture": -0.5, "Kreatif": -0.5}
+            }
+        }
+    },
+    "q3_pembelajar_teknis": {
+        "text": "Bagaimana kamu memastikan proyek atau hasil karyamu berkualitas tinggi?",
+        "options": {
+            "memeriksa_setiap_detail_berkali_kali_untuk_kesempurnaan": {
+                "next_question_id": "q4_kualitas_kontrol",
+                "traits_impact": {"Analitis": 1, "DetailOriented": 1.5, "Perfeksionis": 1, "Sabar": 0.5, "CukupBaik": -0.5, "Spontan": -0.5}
+            },
+            "mencari_feedback_dari_ahli_dan_siap_merevisi_berulang_kali": {
+                "next_question_id": "q4_kualitas_feedback",
+                "traits_impact": {"Terbuka": 1, "Fleksibel": 0.5, "Pembelajar": 1.5, "Kolaboratif": 0.5, "CukupBaik": 0.5, "Perfeksionis": -0.5}
+            }
+        }
+    },
+    "q3_pembelajar_ekspresif": {
+        "text": "Dalam menghadapi kritik terhadap karyamu yang bersifat kreatif, kamu cenderung...",
+        "options": {
+            "merasa_sedih_atau_tersinggung_tapi_mencoba_memahami": {
+                "next_question_id": "q4_reaksi_kritik_emosional",
+                "traits_impact": {"Empati": 1, "Intuitif": 0.5, "Sensitif": 1.5, "Resilien": -0.5, "Logis": -0.5}
+            },
+            "menganalisis_kritik_untuk_perbaikan_tanpa_melibatkan_emosi": {
+                "next_question_id": "q4_reaksi_kritik_rasional",
+                "traits_impact": {"Analitis": 1, "Logis": 1.5, "Praktis": 0.5, "Resilien": 0.5, "Sensitif": -0.5, "Empati": -0.5}
+            }
+        }
+    },
+    "q3_perencana_detail": {
+        "text": "Ketika ada perubahan rencana mendadak di menit terakhir, reaksimu adalah...",
+        "options": {
+            "merasa_frustrasi_tapi_cepat_menyusun_rencana_baru_yang_efisien": {
+                "next_question_id": "q4_adaptasi_perencana",
+                "traits_impact": {"Terorganisir": -0.5, "Logis": 1, "Fleksibel": 1.5, "Resilien": 0.5, "Pemarah": 0.5, "Penyabar": -0.5, "Tradisional": -0.5}
+            },
+            "kesal_dan_perlu_waktu_untuk_menerima_dan_menyesuaikan_diri": {
+                "next_question_id": "q4_resistensi_perubahan",
+                "traits_impact": {"Terorganisir": 0.5, "Impulsif": 0.5, "Tradisional": 1, "Kaku": 0.5, "Pemarah": 1, "Penyabar": -1, "Fleksibel": -0.5}
+            }
+        }
+    },
+    "q3_spontan_fleksibel": {
+        "text": "Jika kamu harus memilih antara rutinitas yang terstruktur dengan baik atau kebebasan tak terbatas untuk melakukan apa saja, mana yang akan kamu pilih?",
+        "options": {
+            "rutinitas_yang_terstruktur_memberi_rasa_aman": {
+                "next_question_id": "q4_pilihan_struktur",
+                "traits_impact": {"Spontan": -1, "Terorganisir": 1, "Disiplin": 1, "Perencana": 0.5, "Rapi": 0.5, "Berantakan": -0.5}
+            },
+            "kebebasan_tak_terbatas_adalah_kunci_kebahagiaan": {
+                "next_question_id": "q4_pilihan_kebebasan",
+                "traits_impact": {"Spontan": 1.5, "Independen": 1, "Terbuka": 0.5, "Impulsif": 0.5, "Terorganisir": -0.5, "Berantakan": 0.5, "Perencana": -0.5}
+            }
+        }
+    },
+    "q3_kebutuhan_struktur": {
+        "text": "Dalam pekerjaan atau studi, kamu lebih memilih lingkungan yang jelas dan terstruktur dengan aturan yang tegas, atau yang memberi ruang inovasi dan eksplorasi?",
+        "options": {
+            "jelas_dan_terstruktur_dengan_aturan_tegas": {
+                "next_question_id": "q4_preferensi_lingkungan_terstruktur",
+                "traits_impact": {"Terorganisir": 1.5, "Disiplin": 1, "Tradisional": 0.5, "Fokus": 0.5, "Rapi": 1, "Berantakan": -0.5, "Spontan": -0.5}
+            },
+            "memberi_ruang_inovasi_dan_eksplorasi": {
+                "next_question_id": "q4_preferensi_lingkungan_inovatif",
+                "traits_impact": {"Kreatif": 0.5, "Terbuka": 1, "Fleksibel": 0.5, "BigPicture": 0.5, "Tradisional": -0.5, "Terorganisir": -0.5}
+            }
+        }
+    },
+    "q3_kebutuhan_kebebasan": {
+        "text": "Bagaimana caramu mengambil keputusan penting dalam hidupmu?",
+        "options": {
+            "mengikuti_kata_hati_dan_intuisi_meskipun_tidak_logis": {
+                "next_question_id": "q4_keputusan_intuitif",
+                "traits_impact": {"Intuitif": 1.5, "Empati": 0.5, "Independen": 1, "Impulsif": 0.5, "Logis": -0.5, "Analitis": -0.5, "HatiHati": -0.5}
+            },
+            "menganalisis_semua_data_dan_fakta_dengan_cermat": {
+                "next_question_id": "q4_keputusan_rasional",
+                "traits_impact": {"Logis": 1.5, "Analitis": 1, "Praktis": 0.5, "DetailOriented": 0.5, "Intuitif": -0.5, "Empati": -0.5, "Spontan": -0.5}
+            }
+        }
+    },
+
+    "q4_solusi_konflik": {
+        "text": "Setelah konflik selesai dan solusi ditemukan, kamu lebih suka langsung melanjutkan pekerjaan atau memastikan semua pihak merasa baik-baik saja dan tidak ada dendam?",
+        "options": {
+            "langsung_melanjutkan_pekerjaan": {
+                "final_result_key": "pragmatic_focused_resolver",
+                "traits_impact": {"Pragmatis": 1, "Fokus": 0.5, "Ketegasan": 0.5, "Pemarah": 0.5, "Penyabar": -0.5, "Empati": -0.5}
+            },
+            "memastikan_semua_baik_baik_saja": {
+                "final_result_key": "empathetic_collaborative_harmonizer",
+                "traits_impact": {"Empati": 1, "Kolaboratif": 0.5, "Sosial": 0.5, "Penyabar": 0.5, "Pemarah": -0.5, "Pragmatis": -0.5}
+            }
+        }
+    },
+    "q4_resolusi_konflik": {
+        "text": "Dalam mencari kompromi, kamu cenderung lebih fokus pada...",
+        "options": {
+            "mencari_solusi_win_win_yang_adil_dan_logis": {
+                "final_result_key": "logical_fair_negotiator",
+                "traits_impact": {"Empati": 1, "Logis": 0.5, "Sabar": 0.5, "Pragmatis": 0.5, "Akomodatif": -0.5, "Sensitif": -0.5}
+            },
+            "memastikan_semua_pihak_terdengar_dan_merasa_didengar": {
+                "final_result_key": "empathetic_listener_harmonizer",
+                "traits_impact": {"Empati": 1.5, "Sosial": 0.5, "Kontemplatif": 0.5, "Akomodatif": 0.5, "Ketegasan": -0.5, "Pragmatis": -0.5}
+            }
+        }
+    },
+    "q4_kontribusi_ide": {
+        "text": "Ketika idemu yang inovatif ditolak atau tidak diterima, kamu cenderung...",
+        "options": {
+            "mencari_cara_lain_untuk_mewujudkan_atau_mengembangkannya": {
+                "final_result_key": "resilient_innovator",
+                "traits_impact": {"Inovatif": 1, "Resilien": 1, "Optimis": 0.5, "Proaktif": 0.5, "Kritis": 0.5, "Sensitif": -0.5}
+            },
+            "merasa_kecewa_tapi_menerima_dan_mencari_ide_lain": {
+                "final_result_key": "flexible_creative_adapter",
+                "traits_impact": {"Kreatif": 0.5, "Fleksibel": 1, "Empati": 0.5, "Akomodatif": 0.5, "Sensitif": 0.5, "Resilien": -0.5}
+            }
+        }
+    },
+    "q4_kontribusi_eksekusi": {
+        "text": "Bagaimana caramu menghadapi penundaan atau hambatan tak terduga dalam proyek yang sedang kamu kerjakan?",
+        "options": {
+            "langsung_mencari_solusi_alternatif_dan_bertindak_cepat": {
+                "final_result_key": "proactive_adaptive_solver",
+                "traits_impact": {"PemecahMasalah": 1, "Adaptif": 1.5, "Praktis": 0.5, "Proaktif": 0.5, "Impulsif": 0.5, "Perencana": -0.5}
+            },
+            "merasa_frustrasi_tapi_tetap_fokus_pada_rencana_awal_dan_mencari_akar_masalah": {
+                "final_result_key": "persistent_detailed_planner",
+                "traits_impact": {"Perencana": 0.5, "Disiplin": 1, "Impulsif": 0.5, "DetailOriented": 0.5, "Pemarah": 0.5, "Penyabar": -0.5, "Fleksibel": -0.5}
+            }
+        }
+    },
+    "q4_kualitas_kontrol": {
+        "text": "Dalam mencapai kualitas, apakah kamu lebih percaya pada sistem dan prosedur yang sudah terbukti atau lebih suka menciptakan metode baru untuk meningkatkan kualitas?",
+        "options": {
+            "sistem_dan_prosedur_yang_sudah_terbukti": {
+                "final_result_key": "traditional_quality_controller",
+                "traits_impact": {"Tradisional": 1, "DetailOriented": 1, "Analitis": 0.5, "Perencana": 0.5, "Rapi": 1, "Inovatif": -0.5, "Terbuka": -0.5}
+            },
+            "menciptakan_metode_baru_untuk_meningkatkan_kualitas": {
+                "final_result_key": "innovative_quality_creator",
+                "traits_impact": {"Inovatif": 1, "Kreatif": 0.5, "Analitis": 0.5, "Terbuka": 0.5, "CukupBaik": 0.5, "Tradisional": -0.5, "Perfeksionis": -0.5}
+            }
+        }
+    },
+    "q4_kualitas_feedback": {
+        "text": "Setelah mendapatkan masukan atau kritik terhadap pekerjaanmu, kamu lebih fokus pada...",
+        "options": {
+            "implikasi_emosional_atau_bagaimana_perasaanmu_terhadap_kritik_itu": {
+                "final_result_key": "emotional_feedback_processor",
+                "traits_impact": {"Sensitif": 1, "Empati": 0.5, "Intuitif": 0.5, "Kontemplatif": 0.5, "Resilien": -0.5, "Logis": -0.5}
+            },
+            "langkah_langkah_praktis_dan_logis_untuk_perbaikan": {
+                "final_result_key": "practical_logical_improver",
+                "traits_impact": {"Pembelajar": 1, "Praktis": 1, "Logis": 0.5, "Resilien": 0.5, "Sensitif": -0.5, "Empati": -0.5}
+            }
+        }
+    },
+    "q4_reaksi_kritik_emosional": {
+        "text": "Bagaimana kamu pulih dari kegagalan atau kekecewaan besar?",
+        "options": {
+            "membutuhkan_waktu_untuk_merenung_dan_memproses_secara_pribadi": {
+                "final_result_key": "reflective_resilient_introvert",
+                "traits_impact": {"Kontemplatif": 1, "Introvert": 0.5, "Sensitif": 0.5, "Mandiri": 0.5, "Resilien": -0.5, "Sosial": -0.5}
+            },
+            "mencari_dukungan_dan_berbagi_cerita_dengan_orang_terdekat": {
+                "final_result_key": "social_support_seeker",
+                "traits_impact": {"Sosial": 1, "Empati": 0.5, "Resilien": 0.5, "Akomodatif": 0.5, "Sensitif": 0.5, "Introvert": -0.5}
+            }
+        }
+    },
+    "q4_reaksi_kritik_rasional": {
+        "text": "Jika kritik diberikan, kamu lebih menghargai...",
+        "options": {
+            "analisis_data_dan_bukti_kuat_yang_mendukung_kritik_tersebut": {
+                "final_result_key": "logical_data_critic",
+                "traits_impact": {"Logis": 1.5, "Analitis": 1, "DetailOriented": 0.5, "Fokus": 0.5, "Empati": -0.5, "Intuitif": -0.5}
+            },
+            "perspektif_baru_yang_belum_pernah_kamu_pikirkan_sebelumnya": {
+                "final_result_key": "open_minded_learner",
+                "traits_impact": {"Terbuka": 1.5, "Inovatif": 0.5, "Fleksibel": 0.5, "Pembelajar": 0.5, "Tradisional": -0.5, "Kritis": -0.5}
+            }
+        }
+    },
+    "q4_adaptasi_perencana": {
+        "text": "Dalam menghadapi ketidakpastian atau situasi yang tidak terduga, kamu cenderung...",
+        "options": {
+            "merasa_penasaran_dan_siap_beradaptasi_dengan_cepat": {
+                "final_result_key": "curious_adaptive_proactive",
+                "traits_impact": {"Adaptif": 1.5, "Terbuka": 1, "Optimis": 0.5, "Proaktif": 0.5, "HatiHati": -0.5, "Perencana": -0.5}
+            },
+            "mencoba_mencari_pola_atau_informasi_tambahan_untuk_mengurangi_risiko": {
+                "final_result_key": "analytical_cautious_planner",
+                "traits_impact": {"Analitis": 1, "Perencana": 0.5, "Fokus": 0.5, "HatiHati": 0.5, "Spontan": -0.5, "Berani": -0.5}
+            }
+        }
+    },
+    "q4_resistensi_perubahan": {
+        "text": "Bagaimana kamu menghadapi tradisi, kebiasaan lama, atau cara-cara yang sudah mapan?",
+        "options": {
+            "sangat_menghargai_dan_berusaha_melestarikannya": {
+                "final_result_key": "traditional_preserver",
+                "traits_impact": {"Tradisional": 1.5, "Terorganisir": 0.5, "Disiplin": 0.5, "Rapi": 0.5, "Terbuka": -0.5, "Inovatif": -0.5}
+            },
+            "terbuka_untuk_memperbarui_jika_ada_yang_lebih_baik_dan_efisien": {
+                "final_result_key": "open_minded_reformer",
+                "traits_impact": {"Terbuka": 1, "Fleksibel": 0.5, "Praktis": 0.5, "Inovatif": 0.5, "Tradisional": -0.5, "Kaku": -0.5}
+            }
+        }
+    },
+    "q4_pilihan_struktur": {
+        "text": "Dalam sebuah tim, kamu lebih suka menjadi...",
+        "options": {
+            "orang_yang_membuat_rencana_dan_memastikan_aturan_dijalankan": {
+                "final_result_key": "structured_rule_enforcer",
+                "traits_impact": {"Perencana": 1, "Terorganisir": 1, "DetailOriented": 0.5, "Ketegasan": 0.5, "Akomodatif": -0.5, "Spontan": -0.5}
+            },
+            "orang_yang_menjaga_keseimbangan_dan_mendukung_anggota_lain": {
+                "final_result_key": "balanced_supportive_collaborator",
+                "traits_impact": {"Kolaboratif": 1, "Empati": 1, "Sosial": 0.5, "Akomodatif": 0.5, "Ketegasan": -0.5, "Kritis": -0.5}
+            }
+        }
+    },
+    "q4_pilihan_kebebasan": {
+        "text": "Apa yang paling kamu hargai dalam sebuah pekerjaan atau proyek jangka panjang?",
+        "options": {
+            "kebebasan_berkreasi_dan_inovasi_tanpa_batas": {
+                "final_result_key": "creative_innovative_freedom_seeker",
+                "traits_impact": {"Kreatif": 1, "Inovatif": 1, "Independen": 0.5, "Terbuka": 0.5, "Terorganisir": -0.5, "Praktis": -0.5}
+            },
+            "lingkungan_yang_santai_dan_tidak_terlalu_banyak_aturan_atau_tekanan": {
+                "final_result_key": "relaxed_spontaneous_freedom_lover",
+                "traits_impact": {"Spontan": 1, "Santai": 1, "Fleksibel": 0.5, "PuasDiri": 0.5, "Ambisius": -0.5, "Terorganisir": -0.5, "Perencana": -0.5}
+            }
+        }
+    },
+    "q4_preferensi_lingkungan_terstruktur": {
+        "text": "Dalam lingkungan kerja/studi yang terstruktur, kamu merasa...",
+        "options": {
+            "nyaman_dan_bisa_fokus_penuh_pada_tugas": {
+                "final_result_key": "comfortable_focused_worker",
+                "traits_impact": {"Terorganisir": 1, "Fokus": 1, "Disiplin": 0.5, "Praktis": 0.5, "Berantakan": -0.5, "Spontan": -0.5}
+            },
+            "kadang_terkekang_tapi_efisien_dan_produktif": {
+                "final_result_key": "efficient_structured_adapter",
+                "traits_impact": {"Praktis": 1, "Logis": 0.5, "Sabar": 0.5, "Fleksibel": 0.5, "Kreatif": -0.5, "Spontan": -0.5}
+            }
+        }
+    },
+    "q4_preferensi_lingkungan_inovatif": {
+        "text": "Ketika diberi kebebasan berinovasi, kamu cenderung...",
+        "options": {
+            "langsung_mencoba_ide_baru_dengan_semangat_dan_berani_ambil_risiko": {
+                "final_result_key": "enthusiastic_innovative_risk_taker",
+                "traits_impact": {"Inovatif": 1.5, "Kreatif": 1, "Berani": 0.5, "Proaktif": 0.5, "HatiHati": -0.5, "Realis": -0.5}
+            },
+            "mempertimbangkan_berbagai_sudut_pandang_sebelum_bertindak_untuk_memastikan_keberhasilan": {
+                "final_result_key": "strategic_cautious_innovator",
+                "traits_impact": {"Analitis": 1, "BigPicture": 1, "Perencana": 0.5, "HatiHati": 0.5, "Impulsif": -0.5, "Berani": -0.5}
+            }
+        }
+    },
+    "q4_keputusan_intuitif": {
+        "text": "Setelah membuat keputusan penting berdasarkan intuisi (kata hati), bagaimana perasaanmu?",
+        "options": {
+            "yakin_dan_puas_meski_tanpa_banyak_data_eksternal": {
+                "final_result_key": "confident_intuitive_decision_maker",
+                "traits_impact": {"Intuitif": 1, "PercayaDiri": 1, "Independen": 0.5, "Logis": -0.5, "Analitis": -0.5}
+            },
+            "sedikit_cemas_tapi_tetap_merasa_itu_yang_benar_untukmu": {
+                "final_result_key": "anxious_intuitive_reflector",
+                "traits_impact": {"Intuitif": 0.5, "Sensitif": 0.5, "Kontemplatif": 0.5, "Resilien": -0.5, "PercayaDiri": -0.5}
+            }
+        }
+    },
+    "q4_keputusan_rasional": {
+        "text": "Dalam menghadapi situasi yang sangat emosional, kamu cenderung...",
+        "options": {
+            "mencari_fakta_dan_solusi_logis_untuk_mengurai_masalah": {
+                "final_result_key": "logical_calm_problem_solver",
+                "traits_impact": {"Logis": 1, "Analitis": 1, "Pragmatis": 0.5, "Fokus": 0.5, "Empati": -0.5, "Sensitif": -0.5}
+            },
+            "memberikan_ruang_bagi_emosi_sebelum_mencari_solusi": {
+                "final_result_key": "empathetic_rational_observer",
+                "traits_impact": {"Empati": 1, "Sabar": 0.5, "Kontemplatif": 0.5, "Akomodatif": 0.5, "Logis": -0.5, "Pragmatis": -0.5}
+            }
+        }
+    }
+}

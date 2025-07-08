@@ -1,0 +1,19 @@
+{
+    "1039509114008649778": {
+        "bad_words": [
+            "anjing",
+            "babi"
+        ],
+        "link_patterns": [
+            "discord.gg/",
+            "http://bit.ly", 
+            "steamcommunity.com"
+        ]
+    },
+    "998877665544332211": {
+        "bad_words": [
+            "bodoh"
+        ],
+        "link_patterns": []
+    }
+}

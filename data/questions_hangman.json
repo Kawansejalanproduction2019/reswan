@@ -1,0 +1,2632 @@
+[
+    {
+        "word": "Komodo",
+        "category": "Binatang",
+        "clue": "Kisi-kisi: Reptil besar endemik dari Indonesia."
+    },
+    {
+        "word": "Psikolog",
+        "category": "Profesi",
+        "clue": "Kisi-kisi: Pekerjaan yang menangani perilaku dan kesehatan mental seseorang."
+    },
+    {
+        "word": "Bulutangkis",
+        "category": "Olahraga",
+        "clue": "Kisi-kisi: Olahraga raket yang sangat populer di Indonesia."
+    },
+    {
+        "word": "Introvert",
+        "category": "Psikologi Kepribadian",
+        "clue": "Kisi-kisi: Kepribadian yang cenderung menikmati waktu sendiri dibanding keramaian."
+    },
+    {
+        "word": "Aichmophobia",
+        "category": "Phobia",
+        "clue": "Kisi-kisi: Rasa takut berlebihan terhadap benda tajam."
+    },
+    {
+        "word": "Mangga",
+        "category": "Buah Sayuran",
+        "clue": "Kisi-kisi: Buah tropis yang biasanya manis dan berwarna kuning."
+    },
+    {
+        "word": "Borobudur",
+        "category": "Monumen",
+        "clue": "Kisi-kisi: Situs candi Buddha terbesar di dunia yang berada di Indonesia."
+    },
+    {
+        "word": "Harimau",
+        "category": "Binatang",
+        "clue": "Kisi-kisi: Hewan karnivora besar dengan belang khas di tubuhnya."
+    },
+    {
+        "word": "Dokter Gigi",
+        "category": "Profesi",
+        "clue": "Kisi-kisi: Profesional medis yang menangani masalah pada mulut dan gusi."
+    },
+    {
+        "word": "Panahan",
+        "category": "Olahraga",
+        "clue": "Kisi-kisi: Olahraga ketepatan menggunakan alat dengan anak panah."
+    },
+    {
+        "word": "Ekstrovert",
+        "category": "Psikologi Kepribadian",
+        "clue": "Kisi-kisi: Tipe kepribadian yang cenderung energik di lingkungan sosial."
+    },
+    {
+        "word": "Nyctophobia",
+        "category": "Phobia",
+        "clue": "Kisi-kisi: Ketakutan berlebih terhadap kegelapan."
+    },
+    {
+        "word": "Evaporasi",
+        "category": "IPA Dasar",
+        "clue": "Kisi-kisi: Proses perubahan zat cair menjadi gas karena pemanasan."
+    },
+    {
+        "word": "Semangka",
+        "category": "Buah Sayuran",
+        "clue": "Kisi-kisi: Buah besar dengan kulit hijau dan daging berwarna merah."
+    },
+    {
+        "word": "Terong",
+        "category": "Buah Sayuran",
+        "clue": "Kisi-kisi: Sayur ungu yang sering dijadikan lalapan atau digoreng."
+    },
+    {
+        "word": "Monas",
+        "category": "Monumen",
+        "clue": "Kisi-kisi: Tugu peringatan nasional yang berada di pusat Jakarta."
+    },
+    {
+        "word": "Orangutan",
+        "category": "Binatang",
+        "clue": "Kisi-kisi: Primata cerdas yang hidup di hutan tropis Kalimantan dan Sumatra."
+    },
+    {
+        "word": "Pilot",
+        "category": "Profesi",
+        "clue": "Kisi-kisi: Pekerjaan yang mengendalikan kendaraan udara."
+    },
+    {
+        "word": "Sepak Takraw",
+        "category": "Olahraga",
+        "clue": "Kisi-kisi: Olahraga yang dimainkan dengan bola rotan dan menggunakan kaki."
+    },
+    {
+        "word": "Ambivert",
+        "category": "Psikologi Kepribadian",
+        "clue": "Kisi-kisi: Kombinasi dari tipe kepribadian tertutup dan terbuka."
+    },
+    {
+        "word": "Trypophobia",
+        "category": "Phobia",
+        "clue": "Kisi-kisi: Ketakutan terhadap pola lubang kecil berulang."
+    },
+    {
+        "word": "Kondensasi",
+        "category": "IPA Dasar",
+        "clue": "Kisi-kisi: Perubahan gas menjadi cair karena suhu turun."
+    },
+    {
+        "word": "Durian",
+        "category": "Buah Sayuran",
+        "clue": "Kisi-kisi: Buah dengan aroma menyengat dan kulit berduri."
+    },
+    {
+        "word": "Sawi",
+        "category": "Buah Sayuran",
+        "clue": "Kisi-kisi: Sayuran hijau yang sering ditumis atau dimasukkan ke mie."
+    },
+    {
+        "word": "Tugu Pahlawan",
+        "category": "Monumen",
+        "clue": "Kisi-kisi: Monumen bersejarah di Surabaya yang menghormati pejuang kemerdekaan."
+    },
+    {
+        "word": "Gajah",
+        "category": "Binatang",
+        "clue": "Kisi-kisi: Mamalia besar dengan belalai panjang."
+    },
+    {
+        "word": "Arsitek",
+        "category": "Profesi",
+        "clue": "Kisi-kisi: Orang yang merancang dan menggambar bangunan."
+    },
+    {
+        "word": "Gulat",
+        "category": "Olahraga",
+        "clue": "Kisi-kisi: Olahraga fisik yang melibatkan pegangan dan lemparan."
+    },
+    {
+        "word": "Sensitif",
+        "category": "Psikologi Kepribadian",
+        "clue": "Kisi-kisi: Kepribadian yang mudah merasa atau merespons emosi secara intens."
+    },
+    {
+        "word": "Claustrophobia",
+        "category": "Phobia",
+        "clue": "Kisi-kisi: Ketakutan terhadap ruang tertutup atau sempit."
+    },
+    {
+        "word": "Konduktor",
+        "category": "IPA Dasar",
+        "clue": "Kisi-kisi: Bahan yang dapat menghantarkan panas atau listrik dengan baik."
+    },
+    {
+        "word": "Salak",
+        "category": "Buah Sayuran",
+        "clue": "Kisi-kisi: Buah bersisik dengan rasa manis dan daging berwarna putih."
+    },
+    {
+        "word": "Tomat",
+        "category": "Buah Sayuran",
+        "clue": "Kisi-kisi: Buah merah yang juga sering dianggap sayur."
+    },
+    {
+        "word": "Candi Prambanan",
+        "category": "Monumen",
+        "clue": "Kisi-kisi: Kompleks candi Hindu terbesar di Indonesia."
+    },
+    {
+        "word": "Kucing",
+        "category": "Binatang",
+        "clue": "Kisi-kisi: Hewan peliharaan yang sering mengeong dan berbulu lembut."
+    },
+    {
+        "word": "Guru",
+        "category": "Profesi",
+        "clue": "Kisi-kisi: Orang yang memberikan ilmu dan pendidikan di sekolah."
+    },
+    {
+        "word": "Renang",
+        "category": "Olahraga",
+        "clue": "Kisi-kisi: Olahraga air yang dilakukan di kolam atau laut."
+    },
+    {
+        "word": "Optimis",
+        "category": "Psikologi Kepribadian",
+        "clue": "Kisi-kisi: Sifat yang melihat segala sesuatu dari sisi baiknya."
+    },
+    {
+        "word": "Aerophobia",
+        "category": "Phobia",
+        "clue": "Kisi-kisi: Rasa takut untuk bepergian menggunakan pesawat terbang."
+    },
+    {
+        "word": "Isolator",
+        "category": "IPA Dasar",
+        "clue": "Kisi-kisi: Bahan yang tidak bisa menghantarkan panas atau listrik."
+    },
+    {
+        "word": "Bekantan",
+        "category": "Binatang",
+        "clue": "Kisi-kisi: Primata berhidung panjang yang hanya ditemukan di Kalimantan."
+    },
+    {
+        "word": "Psikiater",
+        "category": "Profesi",
+        "clue": "Kisi-kisi: Dokter spesialis kesehatan jiwa yang dapat meresepkan obat."
+    },
+    {
+        "word": "Tenis Meja",
+        "category": "Olahraga",
+        "clue": "Kisi-kisi: Olahraga menggunakan bola kecil dan raket di atas meja."
+    },
+    {
+        "word": "Melankolis",
+        "category": "Psikologi Kepribadian",
+        "clue": "Kisi-kisi: Kepribadian yang analitis, perfeksionis, dan sensitif."
+    },
+    {
+        "word": "Acrophobia",
+        "category": "Phobia",
+        "clue": "Kisi-kisi: Ketakutan berlebih terhadap ketinggian."
+    },
+    {
+        "word": "Transpirasi",
+        "category": "IPA Dasar",
+        "clue": "Kisi-kisi: Proses penguapan air dari permukaan daun tumbuhan."
+    },
+    {
+        "word": "Nanas",
+        "category": "Buah Sayuran",
+        "clue": "Kisi-kisi: Buah tropis dengan mahkota daun dan rasa asam-manis."
+    },
+    {
+        "word": "Kacang Panjang",
+        "category": "Buah Sayuran",
+        "clue": "Kisi-kisi: Sayur hijau yang bentuknya panjang dan sering dibuat oseng."
+    },
+    {
+        "word": "Kelelawar",
+        "category": "Binatang",
+        "clue": "Kisi-kisi: Mamalia yang bisa terbang dan aktif di malam hari."
+    },
+    {
+        "word": "Peneliti",
+        "category": "Profesi",
+        "clue": "Kisi-kisi: Orang yang mencari data dan fakta melalui observasi atau eksperimen."
+    },
+    {
+        "word": "Wushu",
+        "category": "Olahraga",
+        "clue": "Kisi-kisi: Seni bela diri asal Tiongkok dengan gerakan indah dan cepat."
+    },
+    {
+        "word": "Sanguinis",
+        "category": "Psikologi Kepribadian",
+        "clue": "Kisi-kisi: Kepribadian yang ceria, ekstrovert, dan penuh semangat."
+    },
+    {
+        "word": "Thanatophobia",
+        "category": "Phobia",
+        "clue": "Kisi-kisi: Ketakutan ekstrem terhadap kematian atau hal-hal terkait kematian."
+    },
+    {
+        "word": "Sublimasi",
+        "category": "IPA Dasar",
+        "clue": "Kisi-kisi: Proses perubahan zat padat langsung menjadi gas tanpa melewati cair."
+    },
+    {
+        "word": "Pepaya",
+        "category": "Buah Sayuran",
+        "clue": "Kisi-kisi: Buah lunak berwarna oranye yang sering dikonsumsi untuk pencernaan."
+    },
+    {
+        "word": "Kol",
+        "category": "Buah Sayuran",
+        "clue": "Kisi-kisi: Sayur berlapis-lapis yang sering digunakan dalam sup atau salad."
+    },
+    {
+        "word": "Patung GWK",
+        "category": "Monumen",
+        "clue": "Kisi-kisi: Ikon pariwisata di Bali yang menggambarkan dewa Hindu besar."
+    },
+    {
+        "word": "Cendrawasih",
+        "category": "Binatang",
+        "clue": "Kisi-kisi: Burung eksotis dari Papua dengan bulu indah yang memesona."
+    },
+    {
+        "word": "Fotografer",
+        "category": "Profesi",
+        "clue": "Kisi-kisi: Orang yang mengambil gambar sebagai seni atau pekerjaan."
+    },
+    {
+        "word": "Kriket",
+        "category": "Olahraga",
+        "clue": "Kisi-kisi: Olahraga populer di negara persemakmuran dengan bola dan pemukul."
+    },
+    {
+        "word": "Koleris",
+        "category": "Psikologi Kepribadian",
+        "clue": "Kisi-kisi: Tipe kepribadian yang tegas, logis, dan berorientasi pada hasil."
+    },
+    {
+        "word": "Hydrophobia",
+        "category": "Phobia",
+        "clue": "Kisi-kisi: Rasa takut berlebihan terhadap air atau tenggelam."
+    },
+    {
+        "word": "Difusi",
+        "category": "IPA Dasar",
+        "clue": "Kisi-kisi: Penyebaran partikel dari konsentrasi tinggi ke rendah."
+    },
+    {
+        "word": "Jeruk",
+        "category": "Buah Sayuran",
+        "clue": "Kisi-kisi: Buah berwarna oranye dengan rasa asam-manis dan kaya vitamin C."
+    },
+    {
+        "word": "Labu",
+        "category": "Buah Sayuran",
+        "clue": "Kisi-kisi: Sayur berkulit keras, daging oranye, sering dibuat kolak."
+    },
+    {
+        "word": "Museum Fatahillah",
+        "category": "Monumen",
+        "clue": "Kisi-kisi: Gedung bersejarah di Kota Tua Jakarta yang menjadi tempat wisata edukasi."
+    },
+    {
+        "word": "Belalang",
+        "category": "Binatang",
+        "clue": "Kisi-kisi: Serangga yang terkenal karena lompatannya dan bunyi gesekan sayap."
+    },
+    {
+        "word": "Wartawan",
+        "category": "Profesi",
+        "clue": "Kisi-kisi: Orang yang mencari dan melaporkan berita kepada publik."
+    },
+    {
+        "word": "Realistis",
+        "category": "Psikologi Kepribadian",
+        "clue": "Kisi-kisi: Sifat yang berpikir praktis dan melihat segala hal apa adanya."
+    },
+    {
+        "word": "Entomophobia",
+        "category": "Phobia",
+        "clue": "Kisi-kisi: Rasa takut yang berlebihan terhadap serangga."
+    },
+    {
+        "word": "Inhalasi",
+        "category": "IPA Dasar",
+        "clue": "Kisi-kisi: Masuknya udara ke dalam paru-paru saat bernapas."
+    },
+    {
+        "word": "Apel",
+        "category": "Buah Sayuran",
+        "clue": "Kisi-kisi: Buah renyah dan manis yang populer dijadikan camilan sehat."
+    },
+    {
+        "word": "Brokoli",
+        "category": "Buah Sayuran",
+        "clue": "Kisi-kisi: Sayuran hijau berbentuk menyerupai pohon kecil, kaya vitamin."
+    },
+    {
+        "word": "Lawang Sewu",
+        "category": "Monumen",
+        "clue": "Kisi-kisi: Bangunan peninggalan Belanda di Semarang yang dikenal angker."
+    },
+    {
+        "word": "Unta",
+        "category": "Binatang",
+        "clue": "Kisi-kisi: Hewan padang pasir dengan punuk untuk menyimpan lemak."
+    },
+    {
+        "word": "Perawat",
+        "category": "Profesi",
+        "clue": "Kisi-kisi: Orang yang membantu dokter dalam perawatan pasien."
+    },
+    {
+        "word": "Basket",
+        "category": "Olahraga",
+        "clue": "Kisi-kisi: Olahraga beregu yang bertujuan memasukkan bola ke ring."
+    },
+    {
+        "word": "Perfeksionis",
+        "category": "Psikologi Kepribadian",
+        "clue": "Kisi-kisi: Sifat yang selalu menginginkan segala hal serba ideal."
+    },
+    {
+        "word": "Agoraphobia",
+        "category": "Phobia",
+        "clue": "Kisi-kisi: Rasa takut terhadap tempat terbuka atau keramaian."
+    },
+    {
+        "word": "Fotosfer",
+        "category": "IPA Dasar",
+        "clue": "Kisi-kisi: Lapisan permukaan matahari yang dapat terlihat oleh mata."
+    },
+    {
+        "word": "Tapir",
+        "category": "Binatang",
+        "clue": "Kisi-kisi: Mamalia berhidung panjang yang hidup di hutan tropis."
+    },
+    {
+        "word": "Pustakawan",
+        "category": "Profesi",
+        "clue": "Kisi-kisi: Pengelola informasi dan koleksi buku di sebuah institusi."
+    },
+    {
+        "word": "Futsal",
+        "category": "Olahraga",
+        "clue": "Kisi-kisi: Sepak bola versi indoor dengan jumlah pemain lebih sedikit."
+    },
+    {
+        "word": "Plegmatis",
+        "category": "Psikologi Kepribadian",
+        "clue": "Kisi-kisi: Tipe kepribadian yang tenang, sabar, dan tidak mudah panik."
+    },
+    {
+        "word": "Ophidiophobia",
+        "category": "Phobia",
+        "clue": "Kisi-kisi: Ketakutan berlebih terhadap ular."
+    },
+    {
+        "word": "Refraksi",
+        "category": "IPA Dasar",
+        "clue": "Kisi-kisi: Pembelokan arah cahaya saat melewati medium berbeda."
+    },
+    {
+        "word": "Srikaya",
+        "category": "Buah Sayuran",
+        "clue": "Kisi-kisi: Buah tropis berdaging putih manis dengan biji hitam kecil."
+    },
+    {
+        "word": "Kangkung",
+        "category": "Buah Sayuran",
+        "clue": "Kisi-kisi: Sayur hijau air yang sering ditumis atau dijadikan pecel."
+    },
+    {
+        "word": "Tugu Yogyakarta",
+        "category": "Monumen",
+        "clue": "Kisi-kisi: Simbol kota pelajar yang berdiri di perempatan ikonik."
+    },
+    {
+        "word": "Anoa",
+        "category": "Binatang",
+        "clue": "Kisi-kisi: Satwa endemik Sulawesi yang mirip kerbau kecil."
+    },
+    {
+        "word": "Notaris",
+        "category": "Profesi",
+        "clue": "Kisi-kisi: Pejabat yang membuat akta autentik dalam urusan hukum."
+    },
+    {
+        "word": "Pencak Silat",
+        "category": "Olahraga",
+        "clue": "Kisi-kisi: Seni bela diri asli Indonesia dengan unsur budaya dan etika."
+    },
+    {
+        "word": "Introversi",
+        "category": "Psikologi Kepribadian",
+        "clue": "Kisi-kisi: Sifat dominan yang lebih nyaman dalam kesendirian."
+    },
+    {
+        "word": "Coulrophobia",
+        "category": "Phobia",
+        "clue": "Kisi-kisi: Ketakutan ekstrem terhadap badut."
+    },
+    {
+        "word": "Konduksi",
+        "category": "IPA Dasar",
+        "clue": "Kisi-kisi: Perpindahan panas tanpa perpindahan partikel zat."
+    },
+    {
+        "word": "Belimbing",
+        "category": "Buah Sayuran",
+        "clue": "Kisi-kisi: Buah berbentuk bintang jika dipotong melintang."
+    },
+    {
+        "word": "Oyong",
+        "category": "Buah Sayuran",
+        "clue": "Kisi-kisi: Sayur berbentuk lonjong dan beralur, sering digunakan dalam sayur bening."
+    },
+    {
+        "word": "Tugu Pancasila Sakti",
+        "category": "Monumen",
+        "clue": "Kisi-kisi: Monumen di Lubang Buaya untuk mengenang peristiwa G30S."
+    },
+    {
+        "word": "Kuskus",
+        "category": "Binatang",
+        "clue": "Kisi-kisi: Mamalia arboreal malam dari Papua dengan ekor panjang."
+    },
+    {
+        "word": "Konsultan",
+        "category": "Profesi",
+        "clue": "Kisi-kisi: Pekerjaan yang memberikan saran profesional pada klien."
+    },
+    {
+        "word": "Bola Voli",
+        "category": "Olahraga",
+        "clue": "Kisi-kisi: Olahraga beregu yang dimainkan dengan tangan dan net tengah."
+    },
+    {
+        "word": "Neurotik",
+        "category": "Psikologi Kepribadian",
+        "clue": "Kisi-kisi: Kepribadian dengan kecenderungan cemas dan emosi tidak stabil."
+    },
+    {
+        "word": "Autophobia",
+        "category": "Phobia",
+        "clue": "Kisi-kisi: Ketakutan terhadap kesendirian atau ditinggal sendiri."
+    },
+    {
+        "word": "Katalis",
+        "category": "IPA Dasar",
+        "clue": "Kisi-kisi: Zat yang mempercepat reaksi kimia tanpa ikut bereaksi."
+    },
+    {
+        "word": "Jambu Air",
+        "category": "Buah Sayuran",
+        "clue": "Kisi-kisi: Buah berair, bentuk lonceng, sering dimakan segar."
+    },
+    {
+        "word": "Pakis",
+        "category": "Buah Sayuran",
+        "clue": "Kisi-kisi: Sayur dari tanaman liar yang sering dimasak santan atau digoreng."
+    },
+    {
+        "word": "Candi Singosari",
+        "category": "Monumen",
+        "clue": "Kisi-kisi: Candi peninggalan kerajaan Hindu di Jawa Timur."
+    },
+    {
+        "word": "Burung Hantu",
+        "category": "Binatang",
+        "clue": "Kisi-kisi: Predator malam yang dapat memutar kepalanya hampir 270 derajat."
+    },
+    {
+        "word": "Penerjemah",
+        "category": "Profesi",
+        "clue": "Kisi-kisi: Orang yang mengubah bahasa lisan atau tulisan ke bahasa lain."
+    },
+    {
+        "word": "Polo",
+        "category": "Olahraga",
+        "clue": "Kisi-kisi: Olahraga berkuda yang menggunakan pemukul untuk menggiring bola."
+    },
+    {
+        "word": "Empatik",
+        "category": "Psikologi Kepribadian",
+        "clue": "Kisi-kisi: Kemampuan memahami dan merasakan emosi orang lain."
+    },
+    {
+        "word": "Xenophobia",
+        "category": "Phobia",
+        "clue": "Kisi-kisi: Rasa takut atau benci terhadap orang asing atau budaya lain."
+    },
+    {
+        "word": "Ionisasi",
+        "category": "IPA Dasar",
+        "clue": "Kisi-kisi: Proses pembentukan ion dari atom netral."
+    },
+    {
+        "word": "Kesemek",
+        "category": "Buah Sayuran",
+        "clue": "Kisi-kisi: Buah yang sering disebut 'apel Jawa', kulitnya dilapisi bedak putih."
+    },
+    {
+        "word": "Kembang Kol",
+        "category": "Buah Sayuran",
+        "clue": "Kisi-kisi: Sayuran putih berbentuk kuncup yang biasa ditumis atau digoreng."
+    },
+    {
+        "word": "Tugu Adipura",
+        "category": "Monumen",
+        "clue": "Kisi-kisi: Monumen yang melambangkan penghargaan kebersihan suatu kota."
+    },
+    {
+        "word": "Tarsius",
+        "category": "Binatang",
+        "clue": "Kisi-kisi: Primata kecil bermata besar, aktif di malam hari di Sulawesi."
+    },
+    {
+        "word": "Editor",
+        "category": "Profesi",
+        "clue": "Kisi-kisi: Orang yang menyunting dan memperbaiki naskah atau video."
+    },
+    {
+        "word": "Bridge",
+        "category": "Olahraga",
+        "clue": "Kisi-kisi: Permainan kartu strategi yang diakui sebagai cabang olahraga resmi."
+    },
+    {
+        "word": "Fleksibel",
+        "category": "Psikologi Kepribadian",
+        "clue": "Kisi-kisi: Sifat mudah menyesuaikan diri dengan perubahan situasi."
+    },
+    {
+        "word": "Glossophobia",
+        "category": "Phobia",
+        "clue": "Kisi-kisi: Ketakutan berlebihan berbicara di depan umum."
+    },
+    {
+        "word": "Fotosintat",
+        "category": "IPA Dasar",
+        "clue": "Kisi-kisi: Hasil akhir dari proses fotosintesis dalam tumbuhan."
+    },
+    {
+        "word": "Karate",
+        "category": "Olahraga",
+        "clue": "Kisi-kisi: Seni bela diri asal Jepang yang mengandalkan pukulan dan tendangan cepat."
+    },
+    {
+        "word": "Markisa",
+        "category": "Buah Sayuran",
+        "clue": "Kisi-kisi: Buah dengan biji berair asam segar, sering dijadikan sirup."
+    },
+    {
+        "word": "Bayam",
+        "category": "Buah Sayuran",
+        "clue": "Kisi-kisi: Sayuran daun hijau kaya zat besi, sering dibuat sayur bening."
+    },
+    {
+        "word": "Ikan Pari",
+        "category": "Binatang",
+        "clue": "Kisi-kisi: Ikan pipih bertulang rawan dengan ekor panjang seperti cambuk."
+    },
+    {
+        "word": "Kurator",
+        "category": "Profesi",
+        "clue": "Kisi-kisi: Pengelola pameran seni atau koleksi museum."
+    },
+    {
+        "word": "Fotosintesis",
+        "category": "IPA Dasar",
+        "clue": "Kisi-kisi: Proses pembuatan makanan oleh tumbuhan menggunakan cahaya matahari."
+    },
+    {
+        "word": "Patung Dirgantara",
+        "category": "Monumen",
+        "clue": "Kisi-kisi: Monumen ikonik Jakarta berbentuk manusia terbang."
+    },
+    {
+        "word": "Kijang",
+        "category": "Binatang",
+        "clue": "Kisi-kisi: Hewan berkaki empat yang lincah dan hidup di hutan Indonesia."
+    },
+    {
+        "word": "Desainer",
+        "category": "Profesi",
+        "clue": "Kisi-kisi: Orang yang merancang sesuatu dari segi bentuk dan visual."
+    },
+    {
+        "word": "Duku",
+        "category": "Buah Sayuran",
+        "clue": "Kisi-kisi: Buah kecil manis, berkulit tipis kekuningan, populer di Sumatera."
+    },
+    {
+        "word": "Daun Singkong",
+        "category": "Buah Sayuran",
+        "clue": "Kisi-kisi: Daun yang sering dimasak santan, berasal dari tanaman umbi."
+    },
+    {
+        "word": "Patung Diponegoro",
+        "category": "Monumen",
+        "clue": "Kisi-kisi: Patung tokoh pahlawan Jawa yang menunggang kuda."
+    },
+    {
+        "word": "Trenggiling",
+        "category": "Binatang",
+        "clue": "Kisi-kisi: Mamalia bersisik yang menggulung diri saat terancam."
+    },
+    {
+        "word": "Ilmuwan",
+        "category": "Profesi",
+        "clue": "Kisi-kisi: Peneliti yang melakukan eksperimen untuk mengembangkan pengetahuan."
+    },
+    {
+        "word": "Gasing",
+        "category": "Olahraga",
+        "clue": "Kisi-kisi: Permainan tradisional yang diputar menggunakan tali."
+    },
+    {
+        "word": "Rasional",
+        "category": "Psikologi Kepribadian",
+        "clue": "Kisi-kisi: Sifat yang mengedepankan logika dalam mengambil keputusan."
+    },
+    {
+        "word": "Sawo",
+        "category": "Buah Sayuran",
+        "clue": "Kisi-kisi: Buah berwarna coklat, rasa manis, daging lunak."
+    },
+    {
+        "word": "Petai",
+        "category": "Buah Sayuran",
+        "clue": "Kisi-kisi: Sayuran dengan bau khas yang sering jadi lalapan."
+    },
+    {
+        "word": "Harimau Sumatera",
+        "category": "Binatang",
+        "clue": "Kisi-kisi: Subspesies kucing besar yang terancam punah dan endemik Indonesia."
+    },
+    {
+        "word": "Apoteker",
+        "category": "Profesi",
+        "clue": "Kisi-kisi: Tenaga kesehatan yang ahli dalam meracik dan menyediakan obat."
+    },
+    {
+        "word": "Lari Estafet",
+        "category": "Olahraga",
+        "clue": "Kisi-kisi: Lomba lari bergantian yang menggunakan tongkat."
+    },
+    {
+        "word": "Kritis",
+        "category": "Psikologi Kepribadian",
+        "clue": "Kisi-kisi: Sifat suka menganalisis dan mempertanyakan segala hal."
+    },
+    {
+        "word": "Zoophobia",
+        "category": "Phobia",
+        "clue": "Kisi-kisi: Ketakutan ekstrem terhadap hewan secara umum."
+    },
+    {
+        "word": "Kalor",
+        "category": "IPA Dasar",
+        "clue": "Kisi-kisi: Energi panas yang berpindah dari benda bersuhu tinggi ke rendah."
+    },
+    {
+        "word": "Lompat Galah",
+        "category": "Olahraga",
+        "clue": "Kisi-kisi: Cabang atletik menggunakan tongkat panjang untuk melewati mistar tinggi."
+    },
+    {
+        "word": "Inersia",
+        "category": "IPA Dasar",
+        "clue": "Kisi-kisi: Sifat benda yang mempertahankan keadaan diam atau geraknya."
+    },
+    {
+        "word": "Jamblang",
+        "category": "Buah Sayuran",
+        "clue": "Kisi-kisi: Buah kecil keunguan, sering meninggalkan warna di lidah."
+    },
+    {
+        "word": "Daun Katuk",
+        "category": "Buah Sayuran",
+        "clue": "Kisi-kisi: Daun berwarna hijau tua, dikenal melancarkan ASI."
+    },
+    {
+        "word": "Monumen Yogya Kembali",
+        "category": "Monumen",
+        "clue": "Kisi-kisi: Monumen berbentuk kerucut untuk mengenang perjuangan merebut ibu kota."
+    },
+    {
+        "word": "Flegmatis",
+        "category": "Psikologi Kepribadian",
+        "clue": "Kisi-kisi: Kepribadian tenang, pendiam, dan tidak mudah terguncang."
+    },
+    {
+        "word": "Pyrophobia",
+        "category": "Phobia",
+        "clue": "Kisi-kisi: Ketakutan ekstrem terhadap api atau benda terbakar."
+    },
+    {
+        "word": "Kapilaritas",
+        "category": "IPA Dasar",
+        "clue": "Kisi-kisi: Peristiwa naiknya zat cair dalam pipa kecil tanpa tekanan luar."
+    },
+    {
+        "word": "Kacang Merah",
+        "category": "Buah Sayuran",
+        "clue": "Kisi-kisi: Legum berwarna merah tua yang sering dibuat sup manis."
+    },
+    {
+        "word": "Tugu Muda",
+        "category": "Monumen",
+        "clue": "Kisi-kisi: Monumen Semarang untuk mengenang Pertempuran Lima Hari."
+    },
+    {
+        "word": "Kasuari",
+        "category": "Binatang",
+        "clue": "Kisi-kisi: Burung besar tak bisa terbang dari Papua, berkepala tanduk."
+    },
+    {
+        "word": "Empati",
+        "category": "Psikologi Kepribadian",
+        "clue": "Kisi-kisi: Kemampuan merasakan dan memahami emosi orang lain."
+    },
+    {
+        "word": "Mysophobia",
+        "category": "Phobia",
+        "clue": "Kisi-kisi: Ketakutan berlebihan terhadap kuman atau kebersihan."
+    },
+    {
+        "word": "Hukum Pascal",
+        "category": "IPA Dasar",
+        "clue": "Kisi-kisi: Prinsip bahwa tekanan dalam fluida diam merata ke segala arah."
+    },
+    {
+        "word": "Mentimun",
+        "category": "Buah Sayuran",
+        "clue": "Kisi-kisi: Sayuran hijau berair, segar, sering jadi lalapan atau acar."
+    },
+    {
+        "word": "Monumen Palagan Ambarawa",
+        "category": "Monumen",
+        "clue": "Kisi-kisi: Monumen pertempuran penting di Jawa Tengah melawan Belanda."
+    },
+    {
+        "word": "Pramugari",
+        "category": "Profesi",
+        "clue": "Kisi-kisi: Petugas layanan penumpang dalam pesawat terbang."
+    },
+    {
+        "word": "Panahan Tradisional",
+        "category": "Olahraga",
+        "clue": "Kisi-kisi: Olahraga ketepatan dari zaman kerajaan, menggunakan busur kayu."
+    },
+    {
+        "word": "Tegas",
+        "category": "Psikologi Kepribadian",
+        "clue": "Kisi-kisi: Sifat jelas dalam bersikap dan tidak ragu mengambil keputusan."
+    },
+    {
+        "word": "Anthophobia",
+        "category": "Phobia",
+        "clue": "Kisi-kisi: Ketakutan terhadap bunga."
+    },
+    {
+        "word": "Kalorimeter",
+        "category": "IPA Dasar",
+        "clue": "Kisi-kisi: Alat untuk mengukur jumlah panas dalam reaksi kimia."
+    },
+    {
+        "word": "Jengkol",
+        "category": "Buah Sayuran",
+        "clue": "Kisi-kisi: Buah beraroma menyengat tapi digemari sebagian masyarakat."
+    },
+    {
+        "word": "Pare",
+        "category": "Buah Sayuran",
+        "clue": "Kisi-kisi: Sayur hijau berbentuk lonjong dengan rasa pahit khas."
+    },
+    {
+        "word": "Tugu Proklamasi",
+        "category": "Monumen",
+        "clue": "Kisi-kisi: Monumen tempat pembacaan teks kemerdekaan Indonesia."
+    },
+    {
+        "word": "Astronom",
+        "category": "Profesi",
+        "clue": "Kisi-kisi: Ilmuwan yang mempelajari benda-benda langit dan alam semesta."
+    },
+    {
+        "word": "Petanque",
+        "category": "Olahraga",
+        "clue": "Kisi-kisi: Permainan dari Prancis menggunakan bola logam di atas tanah."
+    },
+    {
+        "word": "Noctiphobia",
+        "category": "Phobia",
+        "clue": "Kisi-kisi: Ketakutan berlebihan terhadap malam hari atau gelap."
+    },
+    {
+        "word": "Spektrofotometer",
+        "category": "IPA Dasar",
+        "clue": "Kisi-kisi: Alat untuk mengukur intensitas cahaya yang diserap larutan."
+    },
+    {
+        "word": "Anemon Laut",
+        "category": "Binatang",
+        "clue": "Kisi-kisi: Hewan laut mirip tumbuhan, hidup menempel di batu karang."
+    },
+    {
+        "word": "Karambol",
+        "category": "Olahraga",
+        "clue": "Kisi-kisi: Permainan papan dan bidak kecil yang ditembak menggunakan jari."
+    },
+    {
+        "word": "Kelengkeng",
+        "category": "Buah Sayuran",
+        "clue": "Kisi-kisi: Buah kecil bulat, daging transparan dan rasa manis seperti leci."
+    },
+    {
+        "word": "Kacang Tunggak",
+        "category": "Buah Sayuran",
+        "clue": "Kisi-kisi: Jenis kacang berwarna coklat kemerahan, sering dibuat sayur lodeh."
+    },
+    {
+        "word": "Monumen Pancasila Sakti",
+        "category": "Monumen",
+        "clue": "Kisi-kisi: Tempat bersejarah mengenang korban G30S/PKI di Lubang Buaya."
+    },
+    {
+        "word": "Lumba-Lumba",
+        "category": "Binatang",
+        "clue": "Kisi-kisi: Mamalia laut cerdas yang sering muncul di permukaan air dan melompat."
+    },
+    {
+        "word": "Kabaddi",
+        "category": "Olahraga",
+        "clue": "Kisi-kisi: Olahraga kontak asal India, pemain menyerbu sambil mengucap nama olahraga itu."
+    },
+    {
+        "word": "Getaran",
+        "category": "IPA Dasar",
+        "clue": "Kisi-kisi: Gerakan bolak-balik cepat pada suatu benda, seperti dawai gitar."
+    },
+    {
+        "word": "Kecipir",
+        "category": "Buah Sayuran",
+        "clue": "Kisi-kisi: Sayuran panjang beralur-alur, sering dipepes atau dibuat sayur asam."
+    },
+    {
+        "word": "Terong Ungu",
+        "category": "Buah Sayuran",
+        "clue": "Kisi-kisi: Sayuran berwarna ungu, daging lembut, biasa dibakar atau ditumis."
+    },
+    {
+        "word": "Tugu Soekarno",
+        "category": "Monumen",
+        "clue": "Kisi-kisi: Monumen di Blitar sebagai penghormatan kepada Presiden pertama RI."
+    },
+    {
+        "word": "Binturong",
+        "category": "Binatang",
+        "clue": "Kisi-kisi: Mamalia bertubuh besar, berbau seperti popcorn, hidup di hutan Asia Tenggara."
+    },
+    {
+        "word": "Wiraswasta",
+        "category": "Profesi",
+        "clue": "Kisi-kisi: Pekerjaan yang dijalankan sendiri, menciptakan usaha dan peluang kerja."
+    },
+    {
+        "word": "Spontan",
+        "category": "Psikologi Kepribadian",
+        "clue": "Kisi-kisi: Sifat bertindak cepat tanpa terlalu banyak perhitungan atau rencana."
+    },
+    {
+        "word": "Bunga Turi",
+        "category": "Buah Sayuran",
+        "clue": "Kisi-kisi: Bunga berwarna putih atau merah, sering dimasak sayur pecel."
+    },
+    {
+        "word": "Ubi Jalar",
+        "category": "Buah Sayuran",
+        "clue": "Kisi-kisi: Umbi berwarna ungu atau oranye yang manis jika dikukus."
+    },
+    {
+        "word": "Patung Amungme",
+        "category": "Monumen",
+        "clue": "Kisi-kisi: Monumen kebudayaan di Papua sebagai penghormatan masyarakat adat."
+    },
+    {
+        "word": "Ahli Gizi",
+        "category": "Profesi",
+        "clue": "Kisi-kisi: Pekerja kesehatan yang mengatur pola makan seimbang."
+    },
+    {
+        "word": "Tolak Peluru",
+        "category": "Olahraga",
+        "clue": "Kisi-kisi: Cabang atletik melempar bola logam sejauh mungkin dari bahu."
+    },
+    {
+        "word": "Berani Ambil Risiko",
+        "category": "Psikologi Kepribadian",
+        "clue": "Kisi-kisi: Ciri orang yang tidak takut mencoba hal baru meski berisiko."
+    },
+    {
+        "word": "Cacophobia",
+        "category": "Phobia",
+        "clue": "Kisi-kisi: Ketakutan terhadap sesuatu yang dianggap jelek atau buruk rupa."
+    },
+    {
+        "word": "Sawi Putih",
+        "category": "Buah Sayuran",
+        "clue": "Kisi-kisi: Sayur daun besar berwarna pucat, sering digunakan dalam capcay."
+    },
+    {
+        "word": "Monumen Perjuangan Rakyat",
+        "category": "Monumen",
+        "clue": "Kisi-kisi: Monumen tinggi bergaya artistik di Bandung, simbol semangat kemerdekaan."
+    },
+    {
+        "word": "Burung Rangkong",
+        "category": "Binatang",
+        "clue": "Kisi-kisi: Burung besar dengan paruh melengkung besar dan suara bergema dari hutan."
+    },
+    {
+        "word": "Analis Data",
+        "category": "Profesi",
+        "clue": "Kisi-kisi: Orang yang bekerja mengolah dan menafsirkan informasi angka."
+    },
+    {
+        "word": "Woodball",
+        "category": "Olahraga",
+        "clue": "Kisi-kisi: Olahraga memukul bola kayu melewati gawang kecil menggunakan stik khusus."
+    },
+    {
+        "word": "Atom",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Unit terkecil penyusun materi yang masih memiliki sifat unsur tersebut."
+    },
+    {
+        "word": "Anjing Laut",
+        "category": "Binatang",
+        "clue": "Kisi-kisi: Mamalia laut dengan sirip besar, suka muncul di daerah kutub."
+    },
+    {
+        "word": "Bartender",
+        "category": "Profesi",
+        "clue": "Kisi-kisi: Orang yang meracik minuman di bar atau lounge."
+    },
+    {
+        "word": "Reaksi Endoterm",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Jenis reaksi kimia yang menyerap panas dari lingkungan."
+    },
+    {
+        "word": "Tugu Pers Nasional",
+        "category": "Monumen",
+        "clue": "Kisi-kisi: Monumen penghargaan bagi insan media, terletak di Surakarta."
+    },
+    {
+        "word": "Beruang Madu",
+        "category": "Binatang",
+        "clue": "Kisi-kisi: Jenis beruang terkecil di dunia, hidup di hutan tropis Indonesia."
+    },
+    {
+        "word": "Thalassophobia",
+        "category": "Phobia",
+        "clue": "Kisi-kisi: Ketakutan terhadap laut dalam atau ruang perairan luas."
+    },
+    {
+        "word": "Ikatan Ion",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Jenis ikatan antara atom logam dan non-logam melalui transfer elektron."
+    },
+    {
+        "word": "Tomat Ceri",
+        "category": "Buah Sayuran",
+        "clue": "Kisi-kisi: Varietas tomat kecil berbentuk bulat dan sering digunakan dalam salad."
+    },
+    {
+        "word": "Monumen Trikora",
+        "category": "Monumen",
+        "clue": "Kisi-kisi: Monumen untuk mengenang perjuangan pembebasan Irian Barat."
+    },
+    {
+        "word": "Musang",
+        "category": "Binatang",
+        "clue": "Kisi-kisi: Mamalia pemakan buah, dikenal juga sebagai penghasil kopi luwak."
+    },
+    {
+        "word": "Logis",
+        "category": "Psikologi Kepribadian",
+        "clue": "Kisi-kisi: Gaya berpikir yang berdasarkan penalaran dan akal sehat."
+    },
+    {
+        "word": "Ikatan Kovalen",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Ikatan kimia yang terbentuk dari pasangan elektron yang dibagi bersama."
+    },
+    {
+        "word": "Sawi Hijau",
+        "category": "Buah Sayuran",
+        "clue": "Kisi-kisi: Sayuran daun dengan warna hijau gelap, sering dipakai dalam mie ayam."
+    },
+    {
+        "word": "Patung Garuda Wisnu Kencana",
+        "category": "Monumen",
+        "clue": "Kisi-kisi: Patung raksasa di Bali yang menggambarkan dewa dan burung tunggangannya."
+    },
+    {
+        "word": "Gurita",
+        "category": "Binatang",
+        "clue": "Kisi-kisi: Hewan laut bertentakel delapan dan mampu menyemburkan tinta."
+    },
+    {
+        "word": "Juru Kamera",
+        "category": "Profesi",
+        "clue": "Kisi-kisi: Orang yang mengoperasikan kamera dalam produksi film atau siaran."
+    },
+    {
+        "word": "Hoki Es",
+        "category": "Olahraga",
+        "clue": "Kisi-kisi: Olahraga tim yang dimainkan di atas es menggunakan stik dan puck."
+    },
+    {
+        "word": "Cuek",
+        "category": "Psikologi Kepribadian",
+        "clue": "Kisi-kisi: Sifat tidak mudah terganggu atau terpengaruh oleh sekitar."
+    },
+    {
+        "word": "Chemophobia",
+        "category": "Phobia",
+        "clue": "Kisi-kisi: Ketakutan irasional terhadap zat kimia atau bahan buatan."
+    },
+    {
+        "word": "Larutan Elektrolit",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Larutan yang dapat menghantarkan listrik karena mengandung ion bebas."
+    },
+    {
+        "word": "Bayam Merah",
+        "category": "Buah Sayuran",
+        "clue": "Kisi-kisi: Sayuran daun berwarna ungu kemerahan, kaya zat besi."
+    },
+    {
+        "word": "Tugu Lawet",
+        "category": "Monumen",
+        "clue": "Kisi-kisi: Monumen burung walet sebagai ikon kebanggaan Kota Kebumen."
+    },
+    {
+        "word": "Baseball",
+        "category": "Olahraga",
+        "clue": "Kisi-kisi: Permainan memukul bola kecil dan berlari mengelilingi base."
+    },
+    {
+        "word": "Sabar",
+        "category": "Psikologi Kepribadian",
+        "clue": "Kisi-kisi: Sifat mampu menahan diri dalam situasi sulit atau tidak menyenangkan."
+    },
+    {
+        "word": "Tropophobia",
+        "category": "Phobia",
+        "clue": "Kisi-kisi: Ketakutan terhadap perubahan atau berpindah tempat."
+    },
+    {
+        "word": "Zat Pelarut",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Komponen utama dalam larutan yang melarutkan zat lain."
+    },
+    {
+        "word": "Tugu Khatulistiwa",
+        "category": "Monumen",
+        "clue": "Kisi-kisi: Monumen di Pontianak yang menandai garis lintang nol derajat."
+    },
+    {
+        "word": "Analis Keuangan",
+        "category": "Profesi",
+        "clue": "Kisi-kisi: Profesional yang mempelajari laporan keuangan dan tren pasar untuk memberi saran bisnis."
+    },
+    {
+        "word": "Petugas Damkar",
+        "category": "Profesi",
+        "clue": "Kisi-kisi: Orang yang bekerja memadamkan kebakaran dan mengevakuasi korban."
+    },
+    {
+        "word": "Decathlon",
+        "category": "Olahraga",
+        "clue": "Kisi-kisi: Cabang atletik yang menggabungkan sepuluh jenis perlombaan."
+    },
+    {
+        "word": "Psikopat",
+        "category": "Psikologi Kepribadian",
+        "clue": "Kisi-kisi: Seseorang yang cenderung manipulatif dan kurang empati ekstrem."
+    },
+    {
+        "word": "Bibliophobia",
+        "category": "Phobia",
+        "clue": "Kisi-kisi: Ketakutan irasional terhadap buku atau membaca."
+    },
+    {
+        "word": "Reaksi Eksoterm",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Proses kimia yang melepaskan panas ke lingkungan sekitar."
+    },
+    {
+        "word": "Korosi",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Proses perusakan logam karena reaksi kimia, biasanya dengan air dan oksigen."
+    },
+    {
+        "word": "Guru BK",
+        "category": "Profesi",
+        "clue": "Kisi-kisi: Pekerja pendidikan yang membimbing siswa dalam masalah non-akademik."
+    },
+    {
+        "word": "Phonophobia",
+        "category": "Phobia",
+        "clue": "Kisi-kisi: Ketakutan berlebihan terhadap suara keras atau tiba-tiba."
+    },
+    {
+        "word": "pH",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Ukuran tingkat keasaman atau kebasaan suatu larutan."
+    },
+    {
+        "word": "Monumen Nasional",
+        "category": "Monumen",
+        "clue": "Kisi-kisi: Tugu ikonik di Jakarta yang melambangkan perjuangan rakyat Indonesia."
+    },
+    {
+        "word": "Renang Indah",
+        "category": "Olahraga",
+        "clue": "Kisi-kisi: Olahraga air yang menggabungkan tari, musik, dan koordinasi di dalam air."
+    },
+    {
+        "word": "Introversi Ekstrem",
+        "category": "Psikologi Kepribadian",
+        "clue": "Kisi-kisi: Bentuk kepribadian tertutup yang sangat menghindari interaksi sosial."
+    },
+    {
+        "word": "Chronophobia",
+        "category": "Phobia",
+        "clue": "Kisi-kisi: Ketakutan terhadap berlalunya waktu atau masa depan."
+    },
+    {
+        "word": "Ion",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Partikel bermuatan listrik yang terbentuk dari kehilangan atau penambahan elektron."
+    },
+    {
+        "word": "Atom Hidrogen",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Unsur pertama dalam tabel periodik dan unsur paling ringan."
+    },
+    {
+        "word": "Psikolog Klinis",
+        "category": "Profesi",
+        "clue": "Kisi-kisi: Profesional yang menangani gangguan mental dan perilaku lewat terapi non-medis."
+    },
+    {
+        "word": "Panjat Tebing",
+        "category": "Olahraga",
+        "clue": "Kisi-kisi: Olahraga ekstrem yang menantang ketinggian dan teknik memanjat permukaan vertikal."
+    },
+    {
+        "word": "Atychiphobia",
+        "category": "Phobia",
+        "clue": "Kisi-kisi: Rasa takut yang ekstrem terhadap kegagalan atau tidak berhasil."
+    },
+    {
+        "word": "Zat Asam",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Senyawa yang memberi pH rendah dan memiliki rasa masam."
+    },
+    {
+        "word": "Larutan Penyangga",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Larutan yang mempertahankan pH meskipun ditambah sedikit asam atau basa."
+    },
+    {
+        "word": "Arkeolog",
+        "category": "Profesi",
+        "clue": "Kisi-kisi: Ilmuwan yang meneliti peninggalan masa lalu dari artefak atau situs sejarah."
+    },
+    {
+        "word": "Fencing",
+        "category": "Olahraga",
+        "clue": "Kisi-kisi: Olahraga duel dengan pedang yang menekankan kecepatan dan teknik."
+    },
+    {
+        "word": "Haphephobia",
+        "category": "Phobia",
+        "clue": "Kisi-kisi: Ketakutan irasional terhadap sentuhan fisik dari orang lain."
+    },
+    {
+        "word": "Tabel Periodik",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Susunan unsur-unsur kimia berdasarkan nomor atom dan sifatnya."
+    },
+    {
+        "word": "Mol",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Satuan jumlah zat dalam kimia yang setara dengan 6,02 x 10^23 partikel."
+    },
+    {
+        "word": "Peneliti Biomedis",
+        "category": "Profesi",
+        "clue": "Kisi-kisi: Ilmuwan yang meneliti interaksi antara biologi dan pengobatan modern."
+    },
+    {
+        "word": "Street Workout",
+        "category": "Olahraga",
+        "clue": "Kisi-kisi: Latihan fisik menggunakan berat badan yang dilakukan di tempat umum."
+    },
+    {
+        "word": "Gerascophobia",
+        "category": "Phobia",
+        "clue": "Kisi-kisi: Ketakutan berlebihan terhadap proses penuaan."
+    },
+    {
+        "word": "Gugus Fungsional",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Bagian dari molekul organik yang menentukan sifat reaksi senyawa tersebut."
+    },
+    {
+        "word": "Reaksi Redoks",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Reaksi yang melibatkan transfer elektron antara dua zat."
+    },
+    {
+        "word": "Konsultan Hukum",
+        "category": "Profesi",
+        "clue": "Kisi-kisi: Ahli hukum yang memberikan pendapat atau strategi hukum kepada klien."
+    },
+    {
+        "word": "Balap Karung",
+        "category": "Olahraga",
+        "clue": "Kisi-kisi: Permainan tradisional Indonesia yang sering dimainkan saat 17 Agustusan."
+    },
+    {
+        "word": "Big Ben",
+        "category": "Monumen Dunia",
+        "clue": "Kisi-kisi: Jam ikonik yang terletak di sebelah Gedung Parlemen London."
+    },
+    {
+        "word": "Philosopher",
+        "category": "Profesi",
+        "clue": "Kisi-kisi: Pemikir yang mengeksplorasi hakikat eksistensi, pengetahuan, dan moralitas."
+    },
+    {
+        "word": "Curling",
+        "category": "Olahraga",
+        "clue": "Kisi-kisi: Olahraga musim dingin yang dimainkan di atas es menggunakan batu granit."
+    },
+    {
+        "word": "Ergophobia",
+        "category": "Phobia",
+        "clue": "Kisi-kisi: Ketakutan ekstrem terhadap dunia kerja atau pekerjaan."
+    },
+    {
+        "word": "Menara Eiffel",
+        "category": "Monumen Dunia",
+        "clue": "Kisi-kisi: Struktur besi terkenal di Paris yang dibangun untuk World's Fair."
+    },
+    {
+        "word": "Diplomat",
+        "category": "Profesi",
+        "clue": "Kisi-kisi: Wakil resmi suatu negara dalam hubungan internasional."
+    },
+    {
+        "word": "Cricket",
+        "category": "Olahraga",
+        "clue": "Kisi-kisi: Olahraga pukul bola yang sangat populer di India dan Inggris."
+    },
+    {
+        "word": "Narsistik",
+        "category": "Psikologi Kepribadian",
+        "clue": "Kisi-kisi: Kepribadian dengan rasa cinta berlebihan terhadap diri sendiri."
+    },
+    {
+        "word": "Neophobia",
+        "category": "Phobia",
+        "clue": "Kisi-kisi: Ketakutan terhadap hal-hal baru atau pengalaman baru."
+    },
+    {
+        "word": "Statue of Liberty",
+        "category": "Monumen Dunia",
+        "clue": "Kisi-kisi: Patung hadiah dari Prancis kepada Amerika Serikat, simbol kebebasan."
+    },
+    {
+        "word": "Pilot Tempur",
+        "category": "Profesi",
+        "clue": "Kisi-kisi: Anggota militer yang menerbangkan pesawat jet bersenjata."
+    },
+    {
+        "word": "Lacrosse",
+        "category": "Olahraga",
+        "clue": "Kisi-kisi: Olahraga tim dengan tongkat berjaring, populer di Amerika Utara."
+    },
+    {
+        "word": "INTJ",
+        "category": "Psikologi Kepribadian",
+        "clue": "Kisi-kisi: Tipe MBTI strategis, logis, dan independen dalam berpikir."
+    },
+    {
+        "word": "Colosseum",
+        "category": "Monumen Dunia",
+        "clue": "Kisi-kisi: Amfiteater kuno di Roma yang dulu digunakan untuk pertarungan gladiator."
+    },
+    {
+        "word": "Arsitek Lanskap",
+        "category": "Profesi",
+        "clue": "Kisi-kisi: Perancang ruang terbuka seperti taman kota dan taman botani."
+    },
+    {
+        "word": "Bobsleigh",
+        "category": "Olahraga",
+        "clue": "Kisi-kisi: Olahraga kecepatan dengan kereta luncur di lintasan es."
+    },
+    {
+        "word": "Overthinker",
+        "category": "Psikologi Kepribadian",
+        "clue": "Kisi-kisi: Orang yang cenderung terlalu lama menganalisis segala sesuatu."
+    },
+    {
+        "word": "Petra",
+        "category": "Monumen Dunia",
+        "clue": "Kisi-kisi: Kota kuno di Yordania yang terukir di bebatuan merah."
+    },
+    {
+        "word": "Data Scientist",
+        "category": "Profesi",
+        "clue": "Kisi-kisi: Profesional yang menganalisis dan menginterpretasi data kompleks."
+    },
+    {
+        "word": "INFP",
+        "category": "Psikologi Kepribadian",
+        "clue": "Kisi-kisi: Tipe MBTI yang idealis, sensitif, dan berorientasi nilai."
+    },
+    {
+        "word": "Technophobia",
+        "category": "Phobia",
+        "clue": "Kisi-kisi: Ketakutan terhadap teknologi modern atau perangkat baru."
+    },
+    {
+        "word": "Sydney Opera House",
+        "category": "Monumen Dunia",
+        "clue": "Kisi-kisi: Bangunan megah di Australia yang terkenal dengan desain atap uniknya."
+    },
+    {
+        "word": "Logis Analitis",
+        "category": "Psikologi Kepribadian",
+        "clue": "Kisi-kisi: Gaya berpikir berbasis logika, sistematis, dan data."
+    },
+    {
+        "word": "Barophobia",
+        "category": "Phobia",
+        "clue": "Kisi-kisi: Ketakutan irasional terhadap gravitasi."
+    },
+    {
+        "word": "Machu Picchu",
+        "category": "Monumen Dunia",
+        "clue": "Kisi-kisi: Situs Inca kuno di pegunungan Peru, terkenal akan misterinya."
+    },
+    {
+        "word": "Kriptografer",
+        "category": "Profesi",
+        "clue": "Kisi-kisi: Ahli dalam menyandi dan mengamankan komunikasi digital."
+    },
+    {
+        "word": "Hurling",
+        "category": "Olahraga",
+        "clue": "Kisi-kisi: Olahraga tradisional Irlandia yang mirip hockey namun lebih cepat dan fisik."
+    },
+    {
+        "word": "Dominan",
+        "category": "Psikologi Kepribadian",
+        "clue": "Kisi-kisi: Sifat yang cenderung memimpin, tegas, dan percaya diri."
+    },
+    {
+        "word": "Automatonophobia",
+        "category": "Phobia",
+        "clue": "Kisi-kisi: Ketakutan terhadap boneka, robot, atau patung manusia tiruan."
+    },
+    {
+        "word": "Stonehenge",
+        "category": "Monumen Dunia",
+        "clue": "Kisi-kisi: Struktur batu misterius dari prasejarah yang terletak di Inggris."
+    },
+    {
+        "word": "Ahli Geopolitik",
+        "category": "Profesi",
+        "clue": "Kisi-kisi: Spesialis yang meneliti hubungan antara geografi dan dinamika politik global."
+    },
+    {
+        "word": "Handball",
+        "category": "Olahraga",
+        "clue": "Kisi-kisi: Olahraga tim di dalam ruangan yang menggunakan tangan untuk mencetak gol."
+    },
+    {
+        "word": "Pemikir Reflektif",
+        "category": "Psikologi Kepribadian",
+        "clue": "Kisi-kisi: Seseorang yang sering merenung dalam memproses pengalaman hidup."
+    },
+    {
+        "word": "Pogonophobia",
+        "category": "Phobia",
+        "clue": "Kisi-kisi: Ketakutan yang tidak biasa terhadap janggut atau orang berjanggut."
+    },
+    {
+        "word": "Moai",
+        "category": "Monumen Dunia",
+        "clue": "Kisi-kisi: Patung kepala besar di Pulau Paskah yang misterius asal-usulnya."
+    },
+    {
+        "word": "Paleontolog",
+        "category": "Profesi",
+        "clue": "Kisi-kisi: Ilmuwan yang mempelajari fosil dan kehidupan prasejarah."
+    },
+    {
+        "word": "Ski Jumping",
+        "category": "Olahraga",
+        "clue": "Kisi-kisi: Olahraga musim dingin yang menilai jarak dan gaya saat melompat dari landasan es."
+    },
+    {
+        "word": "Christ the Redeemer",
+        "category": "Monumen Dunia",
+        "clue": "Kisi-kisi: Patung besar Yesus di puncak bukit Rio de Janeiro."
+    },
+    {
+        "word": "Cybersecurity Analyst",
+        "category": "Profesi",
+        "clue": "Kisi-kisi: Pekerja yang bertugas menjaga sistem komputer dari serangan digital."
+    },
+    {
+        "word": "Parkour",
+        "category": "Olahraga",
+        "clue": "Kisi-kisi: Aktivitas fisik ekstrem melewati rintangan kota dengan kelincahan dan kecepatan."
+    },
+    {
+        "word": "Visioner",
+        "category": "Psikologi Kepribadian",
+        "clue": "Kisi-kisi: Tipe pemikir jangka panjang dengan ide besar dan imajinasi tinggi."
+    },
+    {
+        "word": "Taj Mahal",
+        "category": "Monumen Dunia",
+        "clue": "Kisi-kisi: Bangunan megah berwarna putih di India yang dibangun sebagai lambang cinta."
+    },
+    {
+        "word": "Etolog",
+        "category": "Profesi",
+        "clue": "Kisi-kisi: Ilmuwan yang mempelajari perilaku hewan dalam konteks lingkungan alami mereka."
+    },
+    {
+        "word": "Airsoft",
+        "category": "Olahraga",
+        "clue": "Kisi-kisi: Olahraga simulasi militer menggunakan replika senjata dan peluru plastik."
+    },
+    {
+        "word": "Great Wall",
+        "category": "Monumen Dunia",
+        "clue": "Kisi-kisi: Struktur panjang yang dibangun di Tiongkok untuk pertahanan dari serangan."
+    },
+    {
+        "word": "Arsitek Perkotaan",
+        "category": "Profesi",
+        "clue": "Kisi-kisi: Orang yang mendesain perencanaan tata ruang kota dan kawasan hunian."
+    },
+    {
+        "word": "Snowboarding",
+        "category": "Olahraga",
+        "clue": "Kisi-kisi: Olahraga luncur di atas salju dengan papan, sering dilakukan di pegunungan."
+    },
+    {
+        "word": "Adaptif",
+        "category": "Psikologi Kepribadian",
+        "clue": "Kisi-kisi: Kemampuan untuk menyesuaikan diri dengan cepat terhadap perubahan."
+    },
+    {
+        "word": "Angkor Wat",
+        "category": "Monumen Dunia",
+        "clue": "Kisi-kisi: Kompleks candi terbesar di dunia yang terletak di Kamboja."
+    },
+    {
+        "word": "Kriminolog",
+        "category": "Profesi",
+        "clue": "Kisi-kisi: Ahli yang mempelajari penyebab dan dampak kejahatan dalam masyarakat."
+    },
+    {
+        "word": "Skeleton",
+        "category": "Olahraga",
+        "clue": "Kisi-kisi: Olahraga musim dingin di mana atlet meluncur dengan kepala menghadap depan."
+    },
+    {
+        "word": "Sagrada Familia",
+        "category": "Monumen Dunia",
+        "clue": "Kisi-kisi: Gereja ikonik di Barcelona yang dirancang oleh Antoni Gaudí."
+    },
+    {
+        "word": "Paleograf",
+        "category": "Profesi",
+        "clue": "Kisi-kisi: Ahli yang mempelajari tulisan-tulisan kuno dan sejarah naskah."
+    },
+    {
+        "word": "Parkour Freestyle",
+        "category": "Olahraga",
+        "clue": "Kisi-kisi: Versi ekstrem dari gerakan bebas melompati rintangan dengan akrobatik."
+    },
+    {
+        "word": "Visioner Introvert",
+        "category": "Psikologi Kepribadian",
+        "clue": "Kisi-kisi: Tipe kepribadian pemikir besar namun tidak suka menonjolkan diri."
+    },
+    {
+        "word": "Mount Rushmore",
+        "category": "Monumen Dunia",
+        "clue": "Kisi-kisi: Monumen pahatan wajah empat presiden Amerika di Dakota Selatan."
+    },
+    {
+        "word": "Peneliti Pasar",
+        "category": "Profesi",
+        "clue": "Kisi-kisi: Profesional yang menganalisis perilaku konsumen dan tren industri."
+    },
+    {
+        "word": "Bandy",
+        "category": "Olahraga",
+        "clue": "Kisi-kisi: Olahraga mirip hoki yang dimainkan di atas es dengan bola, bukan keping."
+    },
+    {
+        "word": "Analitis Ekstrovert",
+        "category": "Psikologi Kepribadian",
+        "clue": "Kisi-kisi: Tipe yang suka berdiskusi logis dan bergaul aktif."
+    },
+    {
+        "word": "Neuschwanstein",
+        "category": "Monumen Dunia",
+        "clue": "Kisi-kisi: Kastil megah di Jerman yang menginspirasi istana Disney."
+    },
+    {
+        "word": "Aktuaris",
+        "category": "Profesi",
+        "clue": "Kisi-kisi: Ahli matematika yang menghitung risiko di bidang asuransi dan keuangan."
+    },
+    {
+        "word": "Penyendiri Rasional",
+        "category": "Psikologi Kepribadian",
+        "clue": "Kisi-kisi: Sifat introvert yang cenderung memilih logika daripada emosi."
+    },
+    {
+        "word": "Brandenburg Gate",
+        "category": "Monumen Dunia",
+        "clue": "Kisi-kisi: Gerbang bersejarah di Berlin yang menjadi simbol reunifikasi Jerman."
+    },
+    {
+        "word": "Diplomat Perdagangan",
+        "category": "Profesi",
+        "clue": "Kisi-kisi: Orang yang menjembatani hubungan ekonomi antarnegara."
+    },
+    {
+        "word": "Slamball",
+        "category": "Olahraga",
+        "clue": "Kisi-kisi: Versi ekstrem dari bola basket yang dimainkan dengan trampolin."
+    },
+    {
+        "word": "Pencemas Kronis",
+        "category": "Psikologi Kepribadian",
+        "clue": "Kisi-kisi: Tipe kepribadian yang terlalu sering memikirkan kemungkinan buruk."
+    },
+    {
+        "word": "Dendrophobia",
+        "category": "Phobia",
+        "clue": "Kisi-kisi: Ketakutan terhadap pohon atau hutan lebat."
+    },
+    {
+        "word": "St. Basil Cathedral",
+        "category": "Monumen Dunia",
+        "clue": "Kisi-kisi: Gereja penuh warna di Moskwa yang tampak seperti bangunan dari dongeng."
+    },
+    {
+        "word": "Etis Komunikator",
+        "category": "Profesi",
+        "clue": "Kisi-kisi: Praktisi PR yang menjunjung keterbukaan dan nilai moral dalam berkomunikasi."
+    },
+    {
+        "word": "Bossaball",
+        "category": "Olahraga",
+        "clue": "Kisi-kisi: Olahraga campuran voli, sepak bola, dan trampolin dari Spanyol."
+    },
+    {
+        "word": "Pemimpi Aktif",
+        "category": "Psikologi Kepribadian",
+        "clue": "Kisi-kisi: Orang dengan ide-ide besar yang juga mampu mengeksekusi tindakan."
+    },
+    {
+        "word": "Asthenophobia",
+        "category": "Phobia",
+        "clue": "Kisi-kisi: Ketakutan terhadap kelemahan fisik atau perasaan lemah."
+    },
+    {
+        "word": "Golden Gate Bridge",
+        "category": "Monumen Dunia",
+        "clue": "Kisi-kisi: Jembatan gantung merah yang terkenal di San Francisco, AS."
+    },
+    {
+        "word": "Teknokrat",
+        "category": "Profesi",
+        "clue": "Kisi-kisi: Pemimpin atau ahli yang membuat keputusan berdasarkan ilmu dan data."
+    },
+    {
+        "word": "Inline Skating",
+        "category": "Olahraga",
+        "clue": "Kisi-kisi: Aktivitas bergerak di atas roda sepatu sejajar yang sering dilakukan di perkotaan."
+    },
+    {
+        "word": "Pendiam Analitis",
+        "category": "Psikologi Kepribadian",
+        "clue": "Kisi-kisi: Orang yang jarang bicara tapi berpikir dalam dan kritis."
+    },
+    {
+        "word": "Louvre",
+        "category": "Monumen Dunia",
+        "clue": "Kisi-kisi: Museum seni terbesar di dunia yang terletak di Paris, Prancis."
+    },
+    {
+        "word": "Negosiator Internasional",
+        "category": "Profesi",
+        "clue": "Kisi-kisi: Orang yang bertugas mencapai kesepakatan antara negara atau perusahaan multinasional."
+    },
+    {
+        "word": "Underwater Rugby",
+        "category": "Olahraga",
+        "clue": "Kisi-kisi: Olahraga tim yang dimainkan di dasar kolam renang dengan bola berisi air garam."
+    },
+    {
+        "word": "Kasur",
+        "category": "Benda",
+        "clue": "Kisi-kisi: Perabot untuk tidur."
+    },
+    {
+        "word": "Angklung",
+        "category": "Alat Musik Indonesia",
+        "clue": "Kisi-kisi: Alat musik dari bambu khas Sunda yang dimainkan dengan cara digoyangkan."
+    },
+    {
+        "word": "Jupiter",
+        "category": "Tata Surya",
+        "clue": "Kisi-kisi: Planet terbesar di Tata Surya kita."
+    },
+    {
+        "word": "Sumpah Pemuda",
+        "category": "Sejarah Indonesia",
+        "clue": "Kisi-kisi: Ikrar persatuan yang diucapkan pada 28 Oktober 1928."
+    },
+    {
+        "word": "Jantung",
+        "category": "Bagian Tubuh",
+        "clue": "Kisi-kisi: Organ yang berfungsi memompa darah ke seluruh tubuh."
+    },
+    {
+        "word": "Gamelan",
+        "category": "Alat Musik Indonesia",
+        "clue": "Kisi-kisi: Ansambel musik yang terdiri dari berbagai alat musik pukul, khas Jawa dan Bali."
+    },
+    {
+        "word": "Proklamasi",
+        "category": "Sejarah Indonesia",
+        "clue": "Kisi-kisi: Pernyataan kemerdekaan bangsa Indonesia pada 17 Agustus 1945."
+    },
+    {
+        "word": "Paru-paru",
+        "category": "Bagian Tubuh",
+        "clue": "Kisi-kisi: Organ utama dalam sistem pernapasan manusia."
+    },
+    {
+        "word": "Surabaya",
+        "category": "Kota di Indonesia",
+        "clue": "Kisi-kisi: Dikenal dengan julukan 'Kota Pahlawan'."
+    },
+    {
+        "word": "Saturnus",
+        "category": "Tata Surya",
+        "clue": "Kisi-kisi: Planet yang terkenal karena memiliki cincin."
+    },
+    {
+        "word": "Puncak Jaya Wijaya",
+        "category": "Geografi Indonesia",
+        "clue": "Kisi-kisi: Puncak gunung tertinggi di Indonesia yang memiliki salju abadi."
+    },
+    {
+        "word": "Otak",
+        "category": "Bagian Tubuh",
+        "clue": "Kisi-kisi: Pusat kendali sistem saraf."
+    },
+    {
+        "word": "Gajah Mada",
+        "category": "Sejarah Indonesia",
+        "clue": "Kisi-kisi: Mahapatih Majapahit yang terkenal dengan Sumpah Palapa."
+    },
+    {
+        "word": "Gravitasi",
+        "category": "Pengetahuan Umum",
+        "clue": "Kisi-kisi: Gaya tarik yang menyebabkan benda jatuh ke bawah."
+    },
+    {
+        "word": "Air",
+        "category": "Peribahasa",
+        "clue": "Kisi-kisi: ... beriak tanda tak dalam."
+    },
+    {
+        "word": "Sasando",
+        "category": "Alat Musik Indonesia",
+        "clue": "Kisi-kisi: Alat musik petik dari daun lontar khas Pulau Rote, NTT."
+    },
+    {
+        "word": "Wortel",
+        "category": "Sayur",
+        "clue": "Kisi-kisi: Sayuran berwarna oranye yang baik untuk mata."
+    },
+    {
+        "word": "Ekuator",
+        "category": "Geografi",
+        "clue": "Kisi-kisi: Garis khayal yang membagi bumi menjadi belahan utara dan selatan."
+    },
+    {
+        "word": "Yogyakarta",
+        "category": "Kota di Indonesia",
+        "clue": "Kisi-kisi: Dikenal dengan julukan 'Kota Pelajar' dan 'Kota Gudeg'."
+    },
+    {
+        "word": "Lambung",
+        "category": "Bagian Tubuh",
+        "clue": "Kisi-kisi: Organ pencernaan yang berfungsi mencerna makanan."
+    },
+    {
+        "word": "Bandung Lautan Api",
+        "category": "Sejarah Indonesia",
+        "clue": "Kisi-kisi: Peristiwa pembumihangusan kota Bandung oleh pejuang kemerdekaan."
+    },
+    {
+        "word": "Merkurius",
+        "category": "Tata Surya",
+        "clue": "Kisi-kisi: Planet terdekat dengan Matahari."
+    },
+    {
+        "word": "Keris",
+        "category": "Budaya Indonesia",
+        "clue": "Kisi-kisi: Senjata tikam tradisional Indonesia yang sering dianggap memiliki kekuatan magis."
+    },
+    {
+        "word": "Alpukat",
+        "category": "Buah",
+        "clue": "Kisi-kisi: Buah berdaging lembut dengan biji besar di tengah."
+    },
+    {
+        "word": "DNA",
+        "category": "Pengetahuan Umum",
+        "clue": "Kisi-kisi: Molekul yang membawa materi genetik."
+    },
+    {
+        "word": "Hati",
+        "category": "Bagian Tubuh",
+        "clue": "Kisi-kisi: Organ yang berfungsi menyaring racun dari darah."
+    },
+    {
+        "word": "Candi Borobudur",
+        "category": "Sejarah Indonesia",
+        "clue": "Kisi-kisi: Candi Buddha terbesar di dunia yang berada di Magelang."
+    },
+    {
+        "word": "Ular",
+        "category": "Hewan",
+        "clue": "Kisi-kisi: Reptil melata yang tidak memiliki kaki."
+    },
+    {
+        "word": "Mars",
+        "category": "Tata Surya",
+        "clue": "Kisi-kisi: Planet yang dijuluki 'Planet Merah'."
+    },
+    {
+        "word": "Medan",
+        "category": "Kota di Indonesia",
+        "clue": "Kisi-kisi: Ibu kota provinsi Sumatra Utara."
+    },
+    {
+        "word": "Soekarno",
+        "category": "Tokoh Indonesia",
+        "clue": "Kisi-kisi: Presiden pertama Republik Indonesia, sang Proklamator."
+    },
+    {
+        "word": "Gurun Sahara",
+        "category": "Geografi",
+        "clue": "Kisi-kisi: Gurun pasir terluas di dunia."
+    },
+    {
+        "word": "Tifa",
+        "category": "Alat Musik Indonesia",
+        "clue": "Kisi-kisi: Gendang tradisional khas dari wilayah Papua dan Maluku."
+    },
+    {
+        "word": "Oksigen",
+        "category": "Pengetahuan Umum",
+        "clue": "Kisi-kisi: Gas yang kita butuhkan untuk bernapas."
+    },
+    {
+        "word": "Api",
+        "category": "Peribahasa",
+        "clue": "Kisi-kisi: Bermain ... hangus, bermain air basah."
+    },
+    {
+        "word": "Ginjal",
+        "category": "Bagian Tubuh",
+        "clue": "Kisi-kisi: Sepasang organ yang berfungsi menyaring darah dan memproduksi urin."
+    },
+    {
+        "word": "Pisang",
+        "category": "Buah",
+        "clue": "Kisi-kisi: Buah berwarna kuning yang disukai monyet."
+    },
+    {
+        "word": "Neptunus",
+        "category": "Tata Surya",
+        "clue": "Kisi-kisi: Planet terjauh dari Matahari."
+    },
+    {
+        "word": "Bendera Merah Putih",
+        "category": "Sejarah Indonesia",
+        "clue": "Kisi-kisi: Nama lain untuk bendera pusaka Indonesia adalah Sang Saka."
+    },
+    {
+        "word": "Telinga",
+        "category": "Bagian Tubuh",
+        "clue": "Kisi-kisi: Organ yang berfungsi untuk mendengar."
+    },
+    {
+        "word": "Bandung",
+        "category": "Kota di Indonesia",
+        "clue": "Kisi-kisi: Dikenal dengan julukan 'Kota Kembang' atau 'Paris van Java'."
+    },
+    {
+        "word": "Buaya",
+        "category": "Hewan",
+        "clue": "Kisi-kisi: Reptil predator yang hidup di air dan darat."
+    },
+    {
+        "word": "Matahari",
+        "category": "Tata Surya",
+        "clue": "Kisi-kisi: Pusat dari sistem tata surya kita."
+    },
+    {
+        "word": "R.A. Kartini",
+        "category": "Tokoh Indonesia",
+        "clue": "Kisi-kisi: Pahlawan emansipasi wanita Indonesia."
+    },
+    {
+        "word": "Lidah",
+        "category": "Bagian Tubuh",
+        "clue": "Kisi-kisi: Indera pengecap rasa."
+    },
+    {
+        "word": "Atmosfer",
+        "category": "Pengetahuan Umum",
+        "clue": "Kisi-kisi: Lapisan gas yang menyelimuti planet."
+    },
+    {
+        "word": "Jerapah",
+        "category": "Hewan",
+        "clue": "Kisi-kisi: Hewan darat tertinggi dengan leher yang sangat panjang."
+    },
+    {
+        "word": "Kolintang",
+        "category": "Alat Musik Indonesia",
+        "clue": "Kisi-kisi: Alat musik pukul dari bilah-bilah kayu khas Minahasa, Sulawesi Utara."
+    },
+    {
+        "word": "Bulan",
+        "category": "Tata Surya",
+        "clue": "Kisi-kisi: Satelit alami yang mengorbit Bumi."
+    },
+    {
+        "word": "Kulit",
+        "category": "Bagian Tubuh",
+        "clue": "Kisi-kisi: Organ terluar yang melindungi seluruh tubuh."
+    },
+    {
+        "word": "Jakarta",
+        "category": "Kota di Indonesia",
+        "clue": "Kisi-kisi: Ibu kota negara Republik Indonesia."
+    },
+    {
+        "word": "Pinguin",
+        "category": "Hewan",
+        "clue": "Kisi-kisi: Burung yang tidak bisa terbang dan hidup di kutub selatan."
+    },
+    {
+        "word": "Batik",
+        "category": "Budaya Indonesia",
+        "clue": "Kisi-kisi: Kain bergambar khas Indonesia yang diakui UNESCO sebagai warisan budaya."
+    },
+    {
+        "word": "VOC",
+        "category": "Sejarah Indonesia",
+        "clue": "Kisi-kisi: Kongsi dagang Belanda yang pernah menguasai nusantara."
+    },
+    {
+        "word": "Hidung",
+        "category": "Bagian Tubuh",
+        "clue": "Kisi-kisi: Indera penciuman."
+    },
+    {
+        "word": "Kangguru",
+        "category": "Hewan",
+        "clue": "Kisi-kisi: Mamalia berkantung dari Australia yang melompat-lompat."
+    },
+    {
+        "word": "Sepandai-pandainya",
+        "category": "Peribahasa",
+        "clue": "Kisi-kisi: ... tupai melompat, akhirnya jatuh juga."
+    },
+    {
+        "word": "Vaksin",
+        "category": "Pengetahuan Umum",
+        "clue": "Kisi-kisi: Zat yang dimasukkan ke tubuh untuk membentuk kekebalan terhadap penyakit."
+    },
+    {
+        "word": "Suling",
+        "category": "Alat Musik Indonesia",
+        "clue": "Kisi-kisi: Alat musik tiup tradisional yang terbuat dari bambu."
+    },
+    {
+        "word": "Tulang",
+        "category": "Bagian Tubuh",
+        "clue": "Kisi-kisi: Kerangka keras yang menopang tubuh."
+    },
+    {
+        "word": "Denpasar",
+        "category": "Kota di Indonesia",
+        "clue": "Kisi-kisi: Ibu kota provinsi Bali."
+    },
+    {
+        "word": "Bima Sakti",
+        "category": "Tata Surya",
+        "clue": "Kisi-kisi: Nama galaksi tempat sistem tata surya kita berada (Milky Way)."
+    },
+    {
+        "word": "Kupu-kupu",
+        "category": "Hewan",
+        "clue": "Kisi-kisi: Serangga dengan sayap indah yang berasal dari ulat."
+    },
+    {
+        "word": "B.J. Habibie",
+        "category": "Tokoh Indonesia",
+        "clue": "Kisi-kisi: Presiden ke-3 Indonesia yang juga seorang ahli pesawat terbang."
+    },
+    {
+        "word": "Anggur",
+        "category": "Buah",
+        "clue": "Kisi-kisi: Buah kecil yang tumbuh bergerombol, bisa dibuat menjadi kismis."
+    },
+    {
+        "word": "Otot",
+        "category": "Bagian Tubuh",
+        "clue": "Kisi-kisi: Jaringan dalam tubuh yang berfungsi sebagai alat gerak aktif."
+    },
+    {
+        "word": "Gempa Bumi",
+        "category": "Pengetahuan Umum",
+        "clue": "Kisi-kisi: Getaran atau guncangan yang terjadi di permukaan bumi."
+    },
+    {
+        "word": "Panda",
+        "category": "Hewan",
+        "clue": "Kisi-kisi: Beruang dari Tiongkok yang makanannya adalah bambu."
+    },
+    {
+        "word": "Makassar",
+        "category": "Kota di Indonesia",
+        "clue": "Kisi-kisi: Ibu kota Sulawesi Selatan, terkenal dengan Pantai Losari."
+    },
+    {
+        "word": "Uranus",
+        "category": "Tata Surya",
+        "clue": "Kisi-kisi: Planet ketujuh dari Matahari yang berotasi miring."
+    },
+    {
+        "word": "Cut Nyak Dien",
+        "category": "Tokoh Indonesia",
+        "clue": "Kisi-kisi: Pahlawan wanita dari Aceh yang gigih melawan penjajahan Belanda."
+    },
+    {
+        "word": "Bagai",
+        "category": "Peribahasa",
+        "clue": "Kisi-kisi: ... pinang dibelah dua (sangat mirip)."
+    },
+    {
+        "word": "Tsunami",
+        "category": "Geografi",
+        "clue": "Kisi-kisi: Gelombang laut dahsyat yang disebabkan oleh gempa di dasar laut."
+    },
+    {
+        "word": "Koala",
+        "category": "Hewan",
+        "clue": "Kisi-kisi: Mamalia berkantung dari Australia yang suka tidur dan makan daun eukaliptus."
+    },
+    {
+        "word": "Rambut",
+        "category": "Bagian Tubuh",
+        "clue": "Kisi-kisi: Tumbuh di kepala dan berfungsi sebagai mahkota."
+    },
+    {
+        "word": "Garuda Pancasila",
+        "category": "Sejarah Indonesia",
+        "clue": "Kisi-kisi: Lambang negara Republik Indonesia."
+    },
+    {
+        "word": "Stroberi",
+        "category": "Buah",
+        "clue": "Kisi-kisi: Buah kecil berwarna merah dengan bintik-bintik di luarnya."
+    },
+    {
+        "word": "Hiu",
+        "category": "Hewan",
+        "clue": "Kisi-kisi: Ikan predator puncak di lautan."
+    },
+    {
+        "word": "Bogor",
+        "category": "Kota di Indonesia",
+        "clue": "Kisi-kisi: Dikenal dengan julukan 'Kota Hujan'."
+    },
+    {
+        "word": "Venus",
+        "category": "Tata Surya",
+        "clue": "Kisi-kisi: Planet kedua dari Matahari yang sering disebut Bintang Fajar."
+    },
+    {
+        "word": "Gigi",
+        "category": "Bagian Tubuh",
+        "clue": "Kisi-kisi: Bagian keras di dalam mulut untuk mengunyah makanan."
+    },
+    {
+        "word": "Gunung Krakatau",
+        "category": "Geografi Indonesia",
+        "clue": "Kisi-kisi: Gunung berapi di Selat Sunda yang letusannya sangat dahsyat pada 1883."
+    },
+    {
+        "word": "Nyamuk",
+        "category": "Hewan",
+        "clue": "Kisi-kisi: Serangga penghisap darah yang bisa menyebarkan penyakit."
+    },
+    {
+        "word": "Wayang Kulit",
+        "category": "Budaya Indonesia",
+        "clue": "Kisi-kisi: Seni pertunjukan bayangan dari kulit, khas Jawa dan Bali."
+    },
+    {
+        "word": "Evolusi",
+        "category": "Pengetahuan Umum",
+        "clue": "Kisi-kisi: Perubahan sifat terwariskan suatu populasi dari satu generasi ke generasi berikutnya."
+    },
+    {
+        "word": "Cacing",
+        "category": "Hewan",
+        "clue": "Kisi-kisi: Hewan bertubuh lunak dan panjang yang hidup di tanah."
+    },
+    {
+        "word": "Pangeran Diponegoro",
+        "category": "Tokoh Indonesia",
+        "clue": "Kisi-kisi: Pahlawan Nasional yang memimpin Perang Jawa melawan Belanda."
+    },
+    {
+        "word": "Palembang",
+        "category": "Kota di Indonesia",
+        "clue": "Kisi-kisi: Terkenal dengan Jembatan Ampera dan makanan pempek."
+    },
+    {
+        "word": "Keringat",
+        "category": "Bagian Tubuh",
+        "clue": "Kisi-kisi: Cairan yang dikeluarkan tubuh untuk mendinginkan suhu."
+    },
+    {
+        "word": "Abdurrahman Wahid",
+        "category": "Tokoh Indonesia",
+        "clue": "Kisi-kisi: Presiden ke-4 Indonesia, sering disapa Gus Dur."
+    },
+    {
+        "word": "Ayam",
+        "category": "Hewan",
+        "clue": "Kisi-kisi: Unggas yang diternakkan untuk diambil daging dan telurnya."
+    },
+    {
+        "word": "Tong",
+        "category": "Peribahasa",
+        "clue": "Kisi-kisi: ... kosong nyaring bunyinya."
+    },
+    {
+        "word": "Samudra Hindia",
+        "category": "Geografi",
+        "clue": "Kisi-kisi: Samudra yang berbatasan dengan pantai selatan Pulau Jawa."
+    },
+    {
+        "word": "Tari Saman",
+        "category": "Budaya Indonesia",
+        "clue": "Kisi-kisi: Tarian dari Gayo, Aceh, dengan gerakan tangan yang sangat cepat dan kompak."
+    },
+    {
+        "word": "Tupai",
+        "category": "Hewan",
+        "clue": "Kisi-kisi: Hewan pengerat yang pandai melompat antar pohon."
+    },
+    {
+        "word": "Relativitas",
+        "category": "Pengetahuan Umum",
+        "clue": "Kisi-kisi: Teori fisika terkenal yang dikemukakan oleh Albert Einstein."
+    },
+    {
+        "word": "Kadal",
+        "category": "Hewan",
+        "clue": "Kisi-kisi: Reptil bersisik yang bisa memutuskan ekornya."
+    },
+    {
+        "word": "Badak Jawa",
+        "category": "Hewan Endemik",
+        "clue": "Kisi-kisi: Mamalia langka bercula satu yang hanya ditemukan di Taman Nasional Ujung Kulon."
+    },
+    {
+        "word": "Klorofil",
+        "category": "Pengetahuan Umum",
+        "clue": "Kisi-kisi: Zat hijau daun yang berperan dalam fotosintesis."
+    },
+    {
+        "word": "Danau Toba",
+        "category": "Geografi Indonesia",
+        "clue": "Kisi-kisi: Danau vulkanik terbesar di Indonesia yang terletak di Sumatra Utara."
+    },
+    {
+        "word": "Kalajengking",
+        "category": "Hewan",
+        "clue": "Kisi-kisi: Hewan berbisa dengan capit dan sengat di ekornya."
+    },
+    {
+        "word": "Jayapura",
+        "category": "Kota di Indonesia",
+        "clue": "Kisi-kisi: Ibu kota provinsi Papua."
+    },
+    {
+        "word": "Katak",
+        "category": "Hewan",
+        "clue": "Kisi-kisi: Amfibi yang mengalami metamorfosis dari berudu."
+    },
+    {
+        "word": "Kerajaan Majapahit",
+        "category": "Sejarah Indonesia",
+        "clue": "Kisi-kisi: Kerajaan Hindu-Buddha terbesar di nusantara dengan pusat di Jawa Timur."
+    },
+    {
+        "word": "Kecapi",
+        "category": "Alat Musik Indonesia",
+        "clue": "Kisi-kisi: Alat musik petik dari Sunda, sering dimainkan bersama suling."
+    },
+    {
+        "word": "Kumis",
+        "category": "Bagian Tubuh",
+        "clue": "Kisi-kisi: Rambut yang tumbuh di atas bibir atas pria."
+    },
+    {
+        "word": "Raja Ampat",
+        "category": "Geografi Indonesia",
+        "clue": "Kisi-kisi: Gugusan kepulauan di Papua Barat yang terkenal dengan keindahan bawah lautnya."
+    },
+    {
+        "word": "Besar",
+        "category": "Peribahasa",
+        "clue": "Kisi-kisi: ... pasak daripada tiang."
+    },
+    {
+        "word": "Pulau Kalimantan",
+        "category": "Geografi Indonesia",
+        "clue": "Kisi-kisi: Di dunia internasional dikenal sebagai Borneo, tempat bagi tiga negara."
+    },
+    {
+        "word": "Kuda",
+        "category": "Hewan",
+        "clue": "Kisi-kisi: Hewan berkaki empat yang sering digunakan untuk transportasi atau olahraga."
+    },
+    {
+        "word": "Saluang",
+        "category": "Alat Musik Indonesia",
+        "clue": "Kisi-kisi: Seruling bambu tipis khas Minangkabau, Sumatra Barat."
+    },
+    {
+        "word": "Bensin",
+        "category": "Pengetahuan Umum",
+        "clue": "Kisi-kisi: Bahan bakar cair untuk sebagian besar kendaraan bermotor."
+    },
+    {
+        "word": "Ki Hajar Dewantara",
+        "category": "Tokoh Indonesia",
+        "clue": "Kisi-kisi: Bapak Pendidikan Nasional Indonesia."
+    },
+    {
+        "word": "Semarang",
+        "category": "Kota di Indonesia",
+        "clue": "Kisi-kisi: Ibu kota Jawa Tengah, terkenal dengan Lawang Sewu dan lumpia."
+    },
+    {
+        "word": "Udang",
+        "category": "Hewan",
+        "clue": "Kisi-kisi: Hewan air dengan tubuh melengkung yang berubah warna saat dimasak."
+    },
+    {
+        "word": "Jenggot",
+        "category": "Bagian Tubuh",
+        "clue": "Kisi-kisi: Rambut yang tumbuh di dagu dan pipi."
+    },
+    {
+        "word": "Mohammad Hatta",
+        "category": "Tokoh Indonesia",
+        "clue": "Kisi-kisi: Wakil Presiden pertama Indonesia, dikenal sebagai Bapak Koperasi."
+    },
+    {
+        "word": "Rambutan",
+        "category": "Buah",
+        "clue": "Kisi-kisi: Buah dengan kulit berambut."
+    },
+    {
+        "word": "Kendang",
+        "category": "Alat Musik Indonesia",
+        "clue": "Kisi-kisi: Gendang dua sisi yang menjadi pengatur irama dalam musik gamelan."
+    },
+    {
+        "word": "Bumi",
+        "category": "Tata Surya",
+        "clue": "Kisi-kisi: Planet ketiga dari Matahari, tempat kita tinggal."
+    },
+    {
+        "word": "Rumah Gadang",
+        "category": "Budaya Indonesia",
+        "clue": "Kisi-kisi: Rumah adat Minangkabau dengan atap runcing seperti tanduk kerbau."
+    },
+    {
+        "word": "Laba-laba",
+        "category": "Hewan",
+        "clue": "Kisi-kisi: Hewan berkaki delapan yang membuat jaring untuk menangkap mangsa."
+    },
+    {
+        "word": "Ada",
+        "category": "Peribahasa",
+        "clue": "Kisi-kisi: ... udang di balik batu."
+    },
+    {
+        "word": "Hujan Asam",
+        "category": "Pengetahuan Umum",
+        "clue": "Kisi-kisi: Hujan dengan tingkat keasaman tinggi akibat polusi udara."
+    },
+    {
+        "word": "Pulau Bali",
+        "category": "Geografi Indonesia",
+        "clue": "Kisi-kisi: Pulau yang dikenal dengan sebutan 'Pulau Dewata'."
+    },
+    {
+        "word": "Rebab",
+        "category": "Alat Musik Indonesia",
+        "clue": "Kisi-kisi: Alat musik gesek mirip biola, bagian penting dalam Gamelan."
+    },
+    {
+        "word": "Kuku",
+        "category": "Bagian Tubuh",
+        "clue": "Kisi-kisi: Bagian keras yang melindungi ujung jari tangan dan kaki."
+    },
+    {
+        "word": "Kerajaan Sriwijaya",
+        "category": "Sejarah Indonesia",
+        "clue": "Kisi-kisi: Kerajaan maritim besar yang berpusat di Sumatra."
+    },
+    {
+        "word": "Bintang Laut",
+        "category": "Hewan",
+        "clue": "Kisi-kisi: Hewan laut berbentuk bintang dengan lima lengan."
+    },
+    {
+        "word": "Rafflesia Arnoldii",
+        "category": "Tumbuhan Endemik",
+        "clue": "Kisi-kisi: Bunga raksasa berbau busuk yang ditemukan di hutan Sumatra dan Kalimantan."
+    },
+    {
+        "word": "Kelapa",
+        "category": "Buah",
+        "clue": "Kisi-kisi: Buah serbaguna, airnya bisa diminum, dagingnya bisa dibuat santan."
+    },
+    {
+        "word": "Anjing",
+        "category": "Hewan",
+        "clue": "Kisi-kisi: Hewan peliharaan yang dikenal sebagai sahabat manusia."
+    },
+    {
+        "word": "Padang",
+        "category": "Kota di Indonesia",
+        "clue": "Kisi-kisi: Ibu kota Sumatra Barat, terkenal dengan masakan rendangnya."
+    },
+    {
+        "word": "Meteor",
+        "category": "Tata Surya",
+        "clue": "Kisi-kisi: Batuan luar angkasa yang terbakar saat memasuki atmosfer Bumi, disebut juga bintang jatuh."
+    },
+    {
+        "word": "Fatmawati",
+        "category": "Tokoh Indonesia",
+        "clue": "Kisi-kisi: Ibu Negara pertama Indonesia, penjahit Bendera Pusaka."
+    },
+    {
+        "word": "Terumbu Karang",
+        "category": "Ekosistem",
+        "clue": "Kisi-kisi: Ekosistem bawah laut yang menjadi rumah bagi banyak spesies ikan."
+    },
+    {
+        "word": "Jalak Bali",
+        "category": "Hewan Endemik",
+        "clue": "Kisi-kisi: Burung endemik Bali berwarna putih bersih dengan jambul di kepalanya."
+    },
+    {
+        "word": "Sambil",
+        "category": "Peribahasa",
+        "clue": "Kisi-kisi: ... menyelam minum air."
+    },
+    {
+        "word": "Sudirman",
+        "category": "Tokoh Indonesia",
+        "clue": "Kisi-kisi: Panglima Besar Tentara Nasional Indonesia pertama."
+    },
+    {
+        "word": "Bonang",
+        "category": "Alat Musik Indonesia",
+        "clue": "Kisi-kisi: Bagian dari gamelan, berbentuk seperti gong kecil yang diletakkan berderet."
+    },
+    {
+        "word": "Lidah Buaya",
+        "category": "Tumbuhan",
+        "clue": "Kisi-kisi: Tumbuhan dengan daun berdaging tebal, gelnya bermanfaat untuk kulit dan rambut."
+    },
+    {
+        "word": "Tikus",
+        "category": "Hewan",
+        "clue": "Kisi-kisi: Hewan pengerat yang sering dianggap hama di rumah dan sawah."
+    },
+    {
+        "word": "Upacara Ngaben",
+        "category": "Budaya Indonesia",
+        "clue": "Kisi-kisi: Upacara pembakaran jenazah umat Hindu di Bali."
+    },
+    {
+        "word": "Sistem Tanam Paksa",
+        "category": "Sejarah Indonesia",
+        "clue": "Kisi-kisi: Kebijakan pemerintah kolonial Belanda yang mewajibkan petani menanam komoditas ekspor."
+    },
+    {
+        "word": "Ambon",
+        "category": "Kota di Indonesia",
+        "clue": "Kisi-kisi: Dikenal sebagai 'Kota Musik', ibu kota provinsi Maluku."
+    },
+    {
+        "word": "Megawati Soekarnoputri",
+        "category": "Tokoh Indonesia",
+        "clue": "Kisi-kisi: Presiden wanita pertama di Indonesia."
+    },
+    {
+        "word": "Spons",
+        "category": "Hewan",
+        "clue": "Kisi-kisi: Hewan laut sederhana yang tubuhnya berpori-pori."
+    },
+    {
+        "word": "Tari Kecak",
+        "category": "Budaya Indonesia",
+        "clue": "Kisi-kisi: Tarian dari Bali yang penarinya meneriakkan 'cak-cak-cak'."
+    },
+    {
+        "word": "Sedia",
+        "category": "Peribahasa",
+        "clue": "Kisi-kisi: ... payung sebelum hujan."
+    },
+    {
+        "word": "Kambing",
+        "category": "Hewan",
+        "clue": "Kisi-kisi: Hewan ternak yang sering dijadikan sate atau gulai."
+    },
+    {
+        "word": "Konferensi Meja Bundar",
+        "category": "Sejarah Indonesia",
+        "clue": "Kisi-kisi: Perundingan di Den Haag yang menghasilkan pengakuan kedaulatan Indonesia oleh Belanda."
+    },
+    {
+        "word": "Selat Malaka",
+        "category": "Geografi Indonesia",
+        "clue": "Kisi-kisi: Jalur pelayaran tersibuk, memisahkan Pulau Sumatra dan Semenanjung Malaya."
+    },
+    {
+        "word": "Sapi",
+        "category": "Hewan",
+        "clue": "Kisi-kisi: Hewan ternak penghasil susu dan daging."
+    },
+    {
+        "word": "Komet",
+        "category": "Tata Surya",
+        "clue": "Kisi-kisi: Benda langit berekor yang mengorbit Matahari."
+    },
+    {
+        "word": "Padi",
+        "category": "Peribahasa",
+        "clue": "Kisi-kisi: Ilmu ... , semakin berisi semakin merunduk."
+    },
+    {
+        "word": "Joko Widodo",
+        "category": "Tokoh Indonesia",
+        "clue": "Kisi-kisi: Presiden ke-7 Republik Indonesia, sering disapa Jokowi."
+    },
+    {
+        "word": "Banjarmasin",
+        "category": "Kota di Indonesia",
+        "clue": "Kisi-kisi: Dikenal dengan julukan 'Kota Seribu Sungai'."
+    },
+    {
+        "word": "Timun",
+        "category": "Sayur",
+        "clue": "Kisi-kisi: Sayuran hijau panjang yang menyegarkan, sering jadi lalapan."
+    },
+    {
+        "word": "Gong",
+        "category": "Alat Musik Indonesia",
+        "clue": "Kisi-kisi: Alat musik pukul besar dan bundar, penanda akhir dalam Gamelan."
+    },
+    {
+        "word": "Manggis",
+        "category": "Buah",
+        "clue": "Kisi-kisi: Buah dengan kulit ungu tebal dan daging putih manis."
+    },
+    {
+        "word": "Maleo",
+        "category": "Hewan Endemik",
+        "clue": "Kisi-kisi: Burung endemik Sulawesi yang tidak mengerami telurnya sendiri."
+    },
+    {
+        "word": "Jembatan Suramadu",
+        "category": "Bangunan",
+        "clue": "Kisi-kisi: Jembatan yang menghubungkan Pulau Jawa dan Pulau Madura."
+    },
+    {
+        "word": "Soeharto",
+        "category": "Tokoh Indonesia",
+        "clue": "Kisi-kisi: Presiden ke-2 Indonesia, dikenal sebagai Bapak Pembangunan."
+    },
+    {
+        "word": "Mata",
+        "category": "Bagian Tubuh",
+        "clue": "Kisi-kisi: Organ yang berfungsi untuk melihat."
+    },
+    {
+        "word": "Samudra Pasifik",
+        "category": "Geografi",
+        "clue": "Kisi-kisi: Samudra terluas di dunia."
+    },
+    {
+        "word": "Hemat",
+        "category": "Peribahasa",
+        "clue": "Kisi-kisi: ... pangkal kaya."
+    },
+    {
+        "word": "Reog Ponorogo",
+        "category": "Budaya Indonesia",
+        "clue": "Kisi-kisi: Kesenian dari Jawa Timur dengan topeng singa besar berhias bulu merak."
+    },
+    {
+        "word": "Kelinci",
+        "category": "Hewan",
+        "clue": "Kisi-kisi: Mamalia dengan telinga panjang yang suka makan wortel."
+    },
+    {
+        "word": "Pulau Komodo",
+        "category": "Geografi Indonesia",
+        "clue": "Kisi-kisi: Habitat asli hewan Komodo, bagian dari Taman Nasional."
+    },
+    {
+        "word": "Cengkeh",
+        "category": "Rempah",
+        "clue": "Kisi-kisi: Rempah asli Indonesia, sering digunakan dalam rokok dan masakan."
+    },
+    {
+        "word": "Kerbau",
+        "category": "Hewan",
+        "clue": "Kisi-kisi: Hewan besar bertanduk yang sering digunakan untuk membajak sawah."
+    },
+    {
+        "word": "Pontianak",
+        "category": "Kota di Indonesia",
+        "clue": "Kisi-kisi: Kota yang dilalui oleh Garis Khatulistiwa."
+    },
+    {
+        "word": "Sutan Sjahrir",
+        "category": "Tokoh Indonesia",
+        "clue": "Kisi-kisi: Perdana Menteri pertama Indonesia."
+    },
+    {
+        "word": "Bambu",
+        "category": "Peribahasa",
+        "clue": "Kisi-kisi: Bagai air di daun talas atau seperti ... runcing."
+    },
+    {
+        "word": "Pulau Sumatra",
+        "category": "Geografi Indonesia",
+        "clue": "Kisi-kisi: Pulau besar di bagian barat Indonesia."
+    },
+    {
+        "word": "Terasi",
+        "category": "Bumbu",
+        "clue": "Kisi-kisi: Bumbu dari fermentasi udang, bahan utama sambal."
+    },
+    {
+        "word": "Ondel-ondel",
+        "category": "Budaya Indonesia",
+        "clue": "Kisi-kisi: Boneka raksasa khas Betawi (Jakarta)."
+    },
+    {
+        "word": "Nasi",
+        "category": "Peribahasa",
+        "clue": "Kisi-kisi: Sudah menjadi bubur."
+    },
+    {
+        "word": "Kemerdekaan",
+        "category": "Lagu Wajib",
+        "clue": "Kisi-kisi: Judul lagu: Hari ..."
+    },
+    {
+        "word": "Lebah",
+        "category": "Hewan",
+        "clue": "Kisi-kisi: Serangga penghasil madu."
+    },
+    {
+        "word": "Papan",
+        "category": "Kebutuhan Pokok",
+        "clue": "Kisi-kisi: Salah satu dari tiga kebutuhan primer manusia: sandang, pangan, dan ..."
+    },
+    {
+        "word": "Tari Piring",
+        "category": "Budaya Indonesia",
+        "clue": "Kisi-kisi: Tarian dari Minangkabau yang menggunakan piring sebagai properti."
+    },
+    {
+        "word": "Presiden",
+        "category": "Pemerintahan",
+        "clue": "Kisi-kisi: Jabatan untuk kepala negara dan kepala pemerintahan di Indonesia."
+    },
+    {
+        "word": "Selat Sunda",
+        "category": "Geografi Indonesia",
+        "clue": "Kisi-kisi: Selat yang memisahkan Pulau Jawa dan Pulau Sumatra."
+    },
+    {
+        "word": "Ikan",
+        "category": "Hewan",
+        "clue": "Kisi-kisi: Hewan yang hidup di air dan bernapas dengan insang."
+    },
+    {
+        "word": "Indonesia Raya",
+        "category": "Lagu Wajib",
+        "clue": "Kisi-kisi: Lagu kebangsaan Republik Indonesia."
+    }
+]
