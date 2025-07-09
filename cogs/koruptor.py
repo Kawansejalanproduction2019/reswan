@@ -532,7 +532,7 @@ class EconomyEvents(commands.Cog):
             "start_time": datetime.utcnow().isoformat(),
             "last_update_time": datetime.utcnow().isoformat(),
             "phase": "announcement",
-            "collected_funds": 0
+            "collected_funds": 0 # Funds collected specifically for this project
         }
         save_project_data(self.active_projects)
         log.debug(f"Project '{project_name}' state saved.")
@@ -556,7 +556,7 @@ class EconomyEvents(commands.Cog):
         log.debug("Bank data saved after project fund collection.")
 
         config = load_economy_config()
-        config["server_funds_balance"] += collected_from_users
+        config["server_funds_balance"] += collected_from_users # Add collected funds to overall server funds
         save_economy_config(config)
         log.info(f"Added {collected_from_users} to server funds for project '{project_name}'. New server funds: {config['server_funds_balance']}.")
 
