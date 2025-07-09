@@ -11,6 +11,51 @@ import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials
 from datetime import datetime # Import datetime untuk timestamp logging
 
+# --- Helper Functions (Wajib ada di awal module untuk akses path root) ---
+def load_json_from_root(file_path, default_value=None):
+    """
+    Memuat data JSON dari file yang berada di root direktori proyek bot.
+    Menambahkan `default_value` yang lebih fleksibel.
+    """
+    try:
+        # Menyesuaikan path agar selalu relatif ke root proyek jika cog berada di subfolder
+        base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+        full_path = os.path.join(base_dir, file_path)
+        os.makedirs(os.path.dirname(full_path), exist_ok=True) # Pastikan direktori ada
+        with open(full_path, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except FileNotFoundError:
+        print(f"[{datetime.now()}] [DEBUG HELPER] Peringatan: File {full_path} tidak ditemukan. Mengembalikan nilai default.")
+        if default_value is not None:
+            save_json_to_root(default_value, file_path) # Coba buat file dengan default
+            return default_value
+        # Default value untuk tipe data umum jika file tidak ditemukan
+        if 'questions.json' in file_path:
+            return {"questions": []}
+        if 'scores.json' in file_path or 'level_data.json' in file_path or 'bank_data.json' in file_path:
+            return {}
+        return {} # Fallback
+    except json.JSONDecodeError as e:
+        print(f"[{datetime.now()}] [DEBUG HELPER] Peringatan: File {full_path} rusak (JSON tidak valid). Error: {e}. Mengembalikan nilai default.")
+        if default_value is not None:
+            save_json_to_root(default_value, file_path) # Coba buat ulang file dengan default jika rusak
+            return default_value
+        if 'questions.json' in file_path:
+            return {"questions": []}
+        if 'scores.json' in file_path or 'level_data.json' in file_path or 'bank_data.json' in file_path:
+            return {}
+        return {}
+
+
+def save_json_to_root(data, file_path):
+    """Menyimpan data ke file JSON di root direktori proyek."""
+    base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+    full_path = os.path.join(base_dir, file_path)
+    os.makedirs(os.path.dirname(full_path), exist_ok=True)
+    with open(full_path, 'w', encoding='utf-8') as f:
+        json.dump(data, f, indent=4)
+
+
 # Konfigurasi Genius API untuk lirik
 GENIUS_API_TOKEN = os.getenv("GENIUS_API")
 # Pastikan API token sudah diatur di environment variable atau langsung di sini
@@ -365,11 +410,13 @@ class Music(commands.Cog):
             # Jika antrean kosong, update pesan musik terakhir dan disconnect
             if guild_id in self.current_music_message:
                 try:
-                    message_id = self.current_music_message.pop(guild_id) # Hapus ID pesan setelah diambil
-                    # Pesan harus di-fetch dari channel aslinya
-                    channel_where_message_sent = ctx.bot.get_channel(message_id) # Fetch channel object first
+                    # Ambil ID pesan dari dictionary
+                    message_id = self.current_music_message.pop(guild_id) 
+                    # Fetch channel dan pesan menggunakan ID yang disimpan
+                    # Asumsi ctx.channel adalah channel terakhir bot berinteraksi
+                    channel_where_message_sent = ctx.bot.get_channel(ctx.channel.id) 
                     if channel_where_message_sent:
-                        msg = await channel_where_message_sent.fetch_message(message_id) # Fetch message by ID
+                        msg = await channel_where_message_sent.fetch_message(message_id)
                         view_instance = MusicControlView(self, original_message=msg)
                         for item in view_instance.children:
                             item.disabled = True # Menonaktifkan tombol
@@ -415,13 +462,15 @@ class Music(commands.Cog):
             message_sent = None
             if guild_id in self.current_music_message:
                 try:
-                    # Ambil pesan lama
+                    # Ambil ID pesan dari dictionary. Perlu diingat, ini hanya ID pesan.
+                    # Asumsi pesan dikirim di channel yang sama dengan command terakhir.
                     old_message_id = self.current_music_message[guild_id]
-                    old_message_channel = ctx.bot.get_channel(old_message_id.channel.id) # Perlu channel ID dari object pesan
+                    # Fetch channel dari ctx.channel.id karena kemungkinan pesan "now playing" ada di sana
+                    old_message_channel = ctx.bot.get_channel(ctx.channel.id) 
                     if old_message_channel:
-                         old_message = await old_message_channel.fetch_message(old_message_id.id)
+                         old_message = await old_message_channel.fetch_message(old_message_id) # Fetch message by ID
                          view_instance = MusicControlView(self, original_message=old_message)
-                         # Set tombol play/pause ke ▶️ (resume) dan aktifkan semua tombol
+                         # Reset play/pause button state and enable all buttons
                          for item in view_instance.children:
                              if item.custom_id == "music:play_pause":
                                  item.emoji = "▶️"
@@ -429,18 +478,18 @@ class Music(commands.Cog):
                              item.disabled = False
                          await old_message.edit(embed=embed, view=view_instance)
                          message_sent = old_message
-                except (discord.NotFound, discord.HTTPException):
-                    print(f"[{datetime.now()}] [Music Cog] Old music message not found or failed to edit. Sending new one.")
+                except (discord.NotFound, discord.HTTPException) as e:
+                    print(f"[{datetime.now()}] [Music Cog] Old music message not found or failed to edit ({e}). Sending new one.")
                     message_sent = await ctx.send(embed=embed, view=MusicControlView(self))
             else:
                 message_sent = await ctx.send(embed=embed, view=MusicControlView(self))
             
             if message_sent:
-                self.current_music_message[guild_id] = message_sent.id # Simpan ID pesan baru
+                self.current_music_message[guild_id] = message_sent.id # Simpan ID pesan "now playing"
                 print(f"[{datetime.now()}] [Music Cog] Now playing message updated to {message_sent.id}.")
 
         except Exception as e:
-            await ctx.send(f'Gagal memutar lagu: {e}')
+            await ctx.send(f'Gagal memutar lagu: {e}', ephemeral=True)
             print(f"[{datetime.now()}] [Music Cog] Error playing song from queue: {e}")
             # Lanjutkan ke lagu berikutnya jika ada error pada lagu saat ini
             asyncio.run_coroutine_threadsafe(self.play_next(ctx), self.bot.loop)
@@ -448,7 +497,7 @@ class Music(commands.Cog):
     async def _after_play_handler(self, ctx, error):
         if error:
             print(f"[{datetime.now()}] [Music Cog] Player error in after_play_handler: {error}")
-            await ctx.send(f"Terjadi error saat memutar: {error}")
+            await ctx.send(f"Terjadi error saat memutar: {error}", ephemeral=False) # Kirim error di channel umum
         
         # Beri sedikit jeda sebelum memutar lagu berikutnya
         await asyncio.sleep(1) 
@@ -558,20 +607,22 @@ class Music(commands.Cog):
                 message_sent = None
                 if ctx.guild.id in self.current_music_message:
                     try:
+                        # Ambil ID pesan dari dictionary. Perlu diingat, ini hanya ID pesan.
+                        # Asumsi pesan dikirim di channel yang sama dengan command terakhir.
                         old_message_id = self.current_music_message[ctx.guild.id]
-                        # Fetch the message from the channel it was sent in
-                        old_message_channel = ctx.bot.get_channel(ctx.channel.id) # Assume same channel, adjust if music message can be elsewhere
+                        # Fetch channel dari ctx.channel.id karena kemungkinan pesan "now playing" ada di sana
+                        old_message_channel = ctx.bot.get_channel(ctx.channel.id) 
                         if old_message_channel:
-                            old_message = await old_message_channel.fetch_message(old_message_id) # Fetch message by ID
-                            view_instance = MusicControlView(self, original_message=old_message)
-                            # Reset play/pause button state and enable all buttons
-                            for item in view_instance.children:
-                                if item.custom_id == "music:play_pause":
-                                    item.emoji = "▶️"
-                                    item.style = discord.ButtonStyle.primary
-                                item.disabled = False
-                            await old_message.edit(embed=embed, view=view_instance)
-                            message_sent = old_message
+                             old_message = await old_message_channel.fetch_message(old_message_id) # Fetch message by ID
+                             view_instance = MusicControlView(self, original_message=old_message)
+                             # Reset play/pause button state and enable all buttons
+                             for item in view_instance.children:
+                                 if item.custom_id == "music:play_pause":
+                                     item.emoji = "▶️"
+                                     item.style = discord.ButtonStyle.primary
+                                 item.disabled = False
+                             await old_message.edit(embed=embed, view=view_instance)
+                             message_sent = old_message
                     except (discord.NotFound, discord.HTTPException) as e:
                         print(f"[{datetime.now()}] [Music Cog] Old music message not found or failed to edit ({e}). Sending new one.")
                         message_sent = await ctx.send(embed=embed, view=MusicControlView(self))
@@ -759,7 +810,7 @@ class Music(commands.Cog):
         voice_channel = voice_client.channel
         guild_id = member.guild.id
 
-        # Hitung anggota non-bot di channel bot (tidak termasuk yang mute/deafen sendiri)
+        # Hitung anggota non-bot di channel bot (hanya mereka yang tidak mute/deafen diri sendiri)
         human_members_in_vc = [m for m in voice_channel.members if not m.bot and not m.voice.self_deaf and not m.voice.self_mute]
 
         if len(human_members_in_vc) == 0:
@@ -780,13 +831,28 @@ class Music(commands.Cog):
                     # Coba edit pesan musik terakhir jika ada dan masih bisa diakses
                     if guild_id in self.current_music_message:
                         try:
-                            message_id_to_pop = self.current_music_message.pop(guild_id) # Ambil dan hapus ID pesan
-                            # Pesan harus di-fetch dari channel yang benar
+                            # message_id yang disimpan di self.current_music_message[guild_id] adalah ID dari object pesan, bukan object pesan itu sendiri.
+                            # Kita butuh channel ID untuk fetch_message.
                             # Asumsi pesan dikirim di channel teks yang sama dengan ctx.channel
-                            # Jika tidak, kamu perlu menyimpan channel ID dari ctx di play command.
-                            # Untuk saat ini, asumsikan pesan di channel text default guild atau channel bot terakhir join
-                            # Sebagai fallback, coba dapatkan channel dari guild
-                            target_text_channel = voice_channel.guild.system_channel or voice_client.channel.guild.text_channels[0]
+                            # Agar lebih robust, saat menyimpan self.current_music_message, simpan tuple (message.id, message.channel.id)
+                            # Untuk saat ini, kita akan mencoba fetch channel dari guild text channels.
+                            
+                            message_id_to_pop = self.current_music_message.pop(guild_id) # Ambil dan hapus ID pesan
+                            
+                            # Cari channel teks tempat pesan itu dikirim
+                            target_text_channel = None
+                            for tc in voice_channel.guild.text_channels:
+                                try:
+                                    # Coba fetch pesan di setiap channel teks, ini tidak efisien tapi bisa jadi fallback
+                                    # Lebih baik: simpan channel_id di self.current_music_message[guild_id] = (message.id, message.channel.id)
+                                    test_msg = await tc.fetch_message(message_id_to_pop)
+                                    target_text_channel = tc
+                                    break
+                                except discord.NotFound:
+                                    continue
+                                except Exception:
+                                    continue # Skip channel if issue fetching
+                            
                             if target_text_channel:
                                 msg = await target_text_channel.fetch_message(message_id_to_pop)
                                 view_instance = MusicControlView(self, original_message=msg)
@@ -798,13 +864,17 @@ class Music(commands.Cog):
                                 embed.set_footer(text="Semoga hari Anda tidak terlalu hampa.")
                                 embed.set_thumbnail(url=discord.Embed.Empty)
                                 await msg.edit(embed=embed, view=view_instance)
+                            else:
+                                print(f"[{datetime.now()}] [Music Cog] Tidak dapat menemukan channel teks untuk pesan musik ID {message_id_to_pop} saat auto-disconnect.")
                         except discord.NotFound:
                             print(f"[{datetime.now()}] [Music Cog] Pesan musik lama tidak ditemukan saat auto-disconnect.")
                         except Exception as e:
                             print(f"[{datetime.now()}] [Music Cog] Error updating music message on auto-disconnect: {e}")
 
                     print(f"[{datetime.now()}] [Music Cog] Bot keluar dari {voice_channel.name} karena kosong.")
-                del self.disconnect_timers[guild_id] # Hapus timer setelah selesai
+                
+                # Hapus timer setelah selesai, terlepas dari apakah bot disconnect atau tidak
+                del self.disconnect_timers[guild_id] 
 
             self.disconnect_timers[guild_id] = asyncio.create_task(disconnect_countdown())
             print(f"[{datetime.now()}] [Music Cog] Disconnect timer 30 detik dimulai untuk {member.guild.name} di {voice_channel.name}.")
@@ -815,3 +885,6 @@ class Music(commands.Cog):
                 self.disconnect_timers[guild_id].cancel()
                 del self.disconnect_timers[guild_id]
                 print(f"[{datetime.now()}] [Music Cog] Disconnect timer untuk {member.guild.name} dibatalkan (ada user masuk).")
+
+async def setup(bot):
+    await bot.add_cog(Music(bot))
