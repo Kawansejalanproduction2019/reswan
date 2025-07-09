@@ -4,7 +4,7 @@ import asyncio
 import json
 import os
 import logging
-from datetime import datetime # Import datetime untuk logging yang lebih akurat
+from datetime import datetime
 
 log = logging.getLogger(__name__)
 
@@ -178,10 +178,25 @@ class TempVoice(commands.Cog):
             
             # Buat voice channel baru
             try:
+                # Dapatkan role @everyone dan role Administrator
+                everyone_role = guild.default_role
+                admin_role = discord.utils.get(guild.roles, permissions=discord.Permissions(administrator=True))
+                
+                # Buat overrides untuk channel yang baru
+                overwrites = {
+                    everyone_role: discord.PermissionOverwrite(connect=False, speak=False, send_messages=False), # Default: @everyone TIDAK bisa connect/speak/chat
+                    guild.me: discord.PermissionOverwrite(connect=True, speak=True, send_messages=True) # BOT selalu bisa connect/speak/chat
+                }
+                
+                # Tambahkan role Administrator agar bisa connect secara default jika ada
+                if admin_role:
+                    overwrites[admin_role] = discord.PermissionOverwrite(connect=True, speak=True, send_messages=True) # Admin BISA connect/speak/chat
+
                 new_vc = await guild.create_voice_channel(
                     name=new_channel_name,
                     category=category,
                     user_limit=0, # Default unlimited, can be changed by owner
+                    overwrites=overwrites, # Terapkan permission overrides ini
                     reason=f"{member.display_name} created a temporary voice channel."
                 )
                 log.info(f"Created new temporary VC: {new_vc.name} ({new_vc.id}) by {member.display_name}.")
@@ -314,9 +329,10 @@ class TempVoice(commands.Cog):
         """Buka kunci channel suara pribadimu."""
         try:
             vc = ctx.author.voice.channel # Ambil channel dari tempat user berada
-            # Allow @everyone connect permission (reset override)
-            await vc.set_permissions(ctx.guild.default_role, connect=None, reason=f"User {ctx.author.display_name} unlocked VC.")
-            await ctx.send(f"✅ Channel **{vc.name}** telah dibuka. Sekarang siapa pun bisa bergabung.")
+            # Mengizinkan @everyone untuk connect, speak, dan send_messages
+            # Ini akan mengizinkan semua user biasa untuk berbicara dan chat di thread
+            await vc.set_permissions(ctx.guild.default_role, connect=True, speak=True, send_messages=True, reason=f"User {ctx.author.display_name} unlocked VC.")
+            await ctx.send(f"✅ Channel **{vc.name}** telah dibuka. Sekarang siapa pun bisa bergabung, berbicara, dan mengirim pesan.")
             log.info(f"User {ctx.author.display_name} unlocked VC {vc.name}.")
         except discord.Forbidden:
             await ctx.send("❌ Bot tidak memiliki izin untuk membuka kunci channel ini. Pastikan bot memiliki izin 'Manage Permissions'.", ephemeral=True)
