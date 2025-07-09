@@ -1,173 +1,179 @@
 import discord
 from discord.ext import commands
-import os
-import json
+import aiohttp
 import base64
 import logging
-from datetime import datetime
+import os
+import io
+import asyncio
+import json
+from io import BytesIO
 from pymongo import MongoClient
 from dotenv import load_dotenv
+from datetime import datetime
 
-# Muat variabel lingkungan dari file .env
 load_dotenv()
 
-# --- KONFIGURASI LOGGING ---
-# Pastikan logging dikonfigurasi di awal agar semua log tercatat
-# Level INFO akan menampilkan pesan INFO, WARNING, ERROR, CRITICAL.
-# Untuk melihat lebih detail (termasuk DEBUG), ganti level=logging.DEBUG
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-log = logging.getLogger(__name__) # Logger untuk main.py
+logging.basicConfig(level=logging.INFO)
 
-# --- FUNGSI UTILITY GLOBAL ---
 def save_cookies_from_env():
-    """Membaca cookies dari environment variable dan menyimpannya ke file cookies.txt."""
+    """Membaca cookies dari environment variable dan menyimpannya ke file."""
     encoded = os.getenv("COOKIES_BASE64")
     if not encoded:
-        log.error("Environment variable COOKIES_BASE64 not found. Cookies.txt will not be created.")
-        return # Jangan raise error fatal jika ini opsional
-
+        raise ValueError("Environment variable COOKIES_BASE64 not found. Please set it up.")
+    
     try:
         decoded = base64.b64decode(encoded)
         with open("cookies.txt", "wb") as f:
             f.write(decoded)
-        log.info("✅ File cookies.txt successfully created from environment variable.")
+        print("✅ File cookies.txt successfully created from environment variable.")
     except Exception as e:
-        log.error(f"❌ Failed to decode or write cookies.txt: {e}")
+        print(f"❌ Failed to decode cookies: {e}")
 
 # Koneksi ke MongoDB
 mongo_uri = os.getenv("MONGODB_URI")
 if not mongo_uri:
-    log.warning("Environment variable MONGODB_URI not found. MongoDB features will be unavailable.")
-    client = None # Set client ke None jika URI tidak ada
-    db = None
-    collection = None
-else:
-    try:
-        client = MongoClient(mongo_uri)
-        db = client["reSwan"]  # Nama database Anda
-        collection = db["Data collection"]  # Nama koleksi Anda
-        log.info("✅ Connected to MongoDB.")
-    except Exception as e:
-        log.error(f"❌ Failed to connect to MongoDB: {e}")
-        client = None
-        db = None
-        collection = None
+    raise ValueError("Environment variable MONGODB_URI not found. Please set it up.")
+client = MongoClient(mongo_uri)
+db = client["reSwan"]  # Nama database Anda
+collection = db["Data collection"]  # Nama koleksi Anda
 
-# Fungsi keep_alive jika menggunakan Replit
 try:
     from keep_alive import keep_alive
-    log.info("`keep_alive.py` found and imported.")
 except ImportError:
-    log.info("`keep_alive.py` not found. Assuming not running on Replit or similar environment.")
+    print("Peringatan: `keep_alive.py` tidak ditemukan. Jika Anda tidak menggunakan Replit, ini normal.")
     def keep_alive():
-        pass # Fungsi dummy jika tidak ditemukan
+        pass
 
-
-# --- INISIALISASI BOT ---
+# Konfigurasi Intents Discord
 intents = discord.Intents.default()
-intents.message_content = True # Diperlukan untuk membaca konten pesan
+intents.messages = True
+intents.message_content = True
 intents.guilds = True
-intents.members = True # Diperlukan untuk member list di giveallmoney/xpall, dan untuk cek role
-intents.voice_states = True # Diperlukan untuk fitur voice channel di cog leveling
+intents.members = True
+intents.voice_states = True
 
-# Inisialisasi Bot tanpa help_command bawaan
+# Inisialisasi Bot
 bot = commands.Bot(command_prefix="!", intents=intents, help_command=None)
 
-
-# --- EVENT BOT ---
+# Event saat bot siap
 @bot.event
 async def on_ready():
     """Dipanggil ketika bot berhasil terhubung ke Discord."""
-    log.info(f"😎 Bot {bot.user} is now online!")
-    log.info(f"Registered commands: {[command.name for command in bot.commands]}")
-    print(f"😎 Bot {bot.user} is now online!") # Cetak juga ke konsol agar terlihat jelas
+    print(f"😎 Bot {bot.user} is now online!")
+    print(f"Registered commands: {[command.name for command in bot.commands]}")
 
 @bot.event
 async def on_message(message):
-    """
-    Menangani semua pesan yang diterima oleh bot.
-    Ini adalah satu-satunya tempat di mana bot.process_commands(message)
-    seharusnya dipanggil untuk memastikan perintah diproses sekali saja.
-    """
     if message.author.bot:
         return
-
-    # Log pesan masuk (opsional, bisa diubah ke DEBUG jika terlalu banyak)
-    log.debug(f"Pesan dari {message.author}: {message.content} di #{message.channel.name} ({message.guild.name})")
-
-    # Pastikan untuk memproses command setelah listener on_message di cogs selesai.
-    # Namun, karena ini adalah on_message global, ia akan dipanggil setelah listener cogs.
-    # Jika ada listener on_message di cogs (seperti di Leveling.py atau EconomyEvents.py
-    # untuk memantau pesan penjara atau EXP), mereka akan dipanggil dulu.
     await bot.process_commands(message)
 
+# --- COMMAND HELP KUSTOM KHUSUS ADMIN ---
+@bot.command(name="help", aliases=["halp", "h"])
+@commands.has_permissions(administrator=True) # Hanya pengguna dengan izin Administrator
+async def custom_help(ctx, *, command_name: str = None):
+    """
+    Menampilkan informasi bantuan untuk admin.
+    Jika ada command_name, akan menampilkan bantuan untuk command tersebut.
+    Jika tidak, akan menampilkan daftar semua command yang tersedia.
+    """
+    if command_name:
+        cmd = bot.get_command(command_name) or bot.get_cog(command_name.capitalize())
 
-# --- COMMAND UTAMA BOT (Dapat ditambahkan sesuai kebutuhan, contoh: untuk owner/debugging) ---
-@bot.command()
-@commands.is_owner() # Hanya pemilik bot yang bisa menjalankan perintah ini
-async def load(ctx, extension):
-    """[OWNER] Memuat (load) cog baru."""
-    try:
-        await bot.load_extension(f'cogs.{extension}')
-        await ctx.send(f'✅ Cog {extension} berhasil dimuat!')
-        log.info(f"Cog {extension} loaded by {ctx.author}.")
-    except commands.ExtensionAlreadyLoaded:
-        await ctx.send(f'❌ Cog {extension} sudah dimuat.', ephemeral=True)
-        log.warning(f"Attempted to load already loaded cog {extension} by {ctx.author}.")
-    except commands.ExtensionNotFound:
-        await ctx.send(f'❌ Cog {extension} tidak ditemukan.', ephemeral=True)
-        log.warning(f"Cog {extension} not found when attempted to load by {ctx.author}.")
-    except Exception as e:
-        await ctx.send(f'❌ Gagal memuat cog {extension}: {e}', ephemeral=True)
-        log.error(f"Failed to load cog {extension} by {ctx.author}: {e}")
+        if cmd:
+            embed = discord.Embed(
+                title=f"Bantuan untuk `{command_name}`",
+                color=discord.Color.blue()
+            )
+            if isinstance(cmd, commands.Command):
+                embed.add_field(name="Command", value=f"`{ctx.prefix}{cmd.name} {cmd.signature}`", inline=False)
+                if cmd.aliases:
+                    embed.add_field(name="Aliases", value=", ".join([f"`{alias}`" for alias in cmd.aliases]), inline=False)
+                if cmd.help:
+                    embed.description = cmd.help
+                else:
+                    embed.description = "Tidak ada deskripsi untuk command ini."
+            elif isinstance(cmd, commands.Cog):
+                embed.add_field(name="Cog", value=cmd.qualified_name, inline=False)
+                embed.description = f"Command-command di bawah cog `{cmd.qualified_name}`:\n"
+                cog_commands = [f"`{ctx.prefix}{c.name}`" for c in cmd.get_commands()]
+                if cog_commands:
+                    embed.description += ", ".join(cog_commands)
+                else:
+                    embed.description += "Tidak ada command di cog ini."
+            
+            message_sent = await ctx.send(embed=embed)
+            # Hapus pesan setelah 1 menit (60 detik)
+            await message_sent.delete(delay=60) 
+        else:
+            message_sent = await ctx.send(f"Command atau Cog `{command_name}` tidak ditemukan.")
+            await message_sent.delete(delay=60)
+    else:
+        # Tampilkan daftar semua command dan cog
+        embed = discord.Embed(
+            title="Daftar Command Bot (Admin Only)",
+            description="Berikut adalah semua command yang bisa kamu gunakan:",
+            color=discord.Color.green()
+        )
 
-@bot.command()
-@commands.is_owner()
-async def unload(ctx, extension):
-    """[OWNER] Mengeluarkan (unload) cog."""
-    try:
-        await bot.unload_extension(f'cogs.{extension}')
-        await ctx.send(f'✅ Cog {extension} berhasil dikeluarkan!')
-        log.info(f"Cog {extension} unloaded by {ctx.author}.")
-    except commands.ExtensionNotLoaded:
-        await ctx.send(f'❌ Cog {extension} tidak dimuat.', ephemeral=True)
-        log.warning(f"Attempted to unload not loaded cog {extension} by {ctx.author}.")
-    except Exception as e:
-        await ctx.send(f'❌ Gagal mengeluarkan cog {extension}: {e}', ephemeral=True)
-        log.error(f"Failed to unload cog {extension} by {ctx.author}: {e}")
+        for cog_name, cog in bot.cogs.items():
+            if cog_name in ["Jishaku"] :
+                continue
+            
+            commands_in_cog = [f"`{ctx.prefix}{command.name}`" for command in cog.get_commands()]
+            if commands_in_cog:
+                embed.add_field(name=f"__**{cog_name}**__", value=" ".join(commands_in_cog), inline=False)
+            
+        no_cog_commands = [f"`{ctx.prefix}{command.name}`" for command in bot.commands if command.cog is None and not command.hidden]
+        if no_cog_commands:
+            embed.add_field(name="__**Lain-lain**__", value=" ".join(no_cog_commands), inline=False)
 
-@bot.command()
-@commands.is_owner()
-async def reload(ctx, extension):
-    """[OWNER] Memuat ulang (reload) cog."""
-    try:
-        await bot.reload_extension(f'cogs.{extension}')
-        await ctx.send(f'✅ Cog {extension} berhasil dimuat ulang!')
-        log.info(f"Cog {extension} reloaded by {ctx.author}.")
-    except commands.ExtensionNotLoaded:
-        await ctx.send(f'❌ Cog {extension} tidak dimuat, mencoba memuatnya...', ephemeral=True)
-        log.warning(f"Attempted to reload not loaded cog {extension}. Trying to load.")
-        await ctx.invoke(bot.get_command('load'), extension=extension) # Coba load jika belum dimuat
-    except Exception as e:
-        await ctx.send(f'❌ Gagal memuat ulang cog {extension}: {e}', ephemeral=True)
-        log.error(f"Failed to reload cog {extension} by {ctx.author}: {e}")
+        embed.set_footer(text=f"Gunakan {ctx.prefix}help <command> untuk detail. Pesan ini akan hilang dalam 1 menit.")
+        message_sent = await ctx.send(embed=embed)
+        # Hapus pesan setelah 1 menit (60 detik)
+        await message_sent.delete(delay=60) 
 
-# Command untuk backup data ke MongoDB (memastikan MongoDB terhubung)
+@custom_help.error
+async def custom_help_error(ctx, error):
+    """Handler error untuk command help kustom."""
+    if isinstance(error, commands.MissingPermissions):
+        # Pesan menarik untuk non-admin
+        embed = discord.Embed(
+            title="Akses Ditolak! 🚫",
+            description=(
+                "Oops! Sepertinya kamu mencoba mengakses area terlarang.\n"
+                "Command ini hanya untuk mata-mata terpilih yang memiliki izin khusus.\n\n"
+                "Jika kamu merasa ini adalah kesalahan, hubungi petinggi server ya! 😉"
+            ),
+            color=discord.Color.red()
+        )
+        embed.set_thumbnail(url="https://i.imgur.com/example_forbidden_icon.png") # Ganti dengan URL ikon menarik
+        embed.set_footer(text="Tetap semangat menjelajahi fitur lain!")
+        
+        message_sent = await ctx.send(embed=embed)
+        # Opsional: Hapus pesan ini juga setelah beberapa detik agar tidak memenuhi chat
+        await message_sent.delete(delay=15) # Hapus setelah 15 detik
+    elif isinstance(error, commands.NotOwner):
+        await ctx.send("❌ Maaf, command ini hanya bisa digunakan oleh **pemilik bot**.")
+    else:
+        await ctx.send(f"Terjadi error: {error}")
+        print(f"Error di command help: {error}")
+
+
+# Command untuk backup data dari folder root, data/, dan config/
 @bot.command()
 @commands.is_owner()
 async def backupnow(ctx):
     """Membuat backup semua file .json di folder tertentu ke MongoDB."""
-    if collection is None:
-        return await ctx.send("❌ Koneksi MongoDB tidak aktif. Fitur backup tidak tersedia.")
-    
     await ctx.send("Starting backup process...")
     backup_data = {}
 
-    directories_to_scan = ['./data', './config'] # Scan folder data dan config
+    directories_to_scan = ['.', 'data/', 'config/']
 
     for directory in directories_to_scan:
         if not os.path.isdir(directory):
-            log.warning(f"Directory '{directory}' not found, skipping backup.")
+            print(f"Warning: Directory '{directory}' not found, skipping.")
             continue
         
         for filename in os.listdir(directory):
@@ -177,13 +183,12 @@ async def backupnow(ctx):
                     with open(file_path, 'r', encoding='utf-8') as f:
                         json_data = json.load(f)
                         backup_data[file_path] = json_data 
-                        log.info(f"✅ File '{file_path}' successfully read for backup.")
-                except json.JSONDecodeError as e:
-                    await ctx.send(f"❌ Failed to read JSON file: `{file_path}` (Corrupted).")
-                    log.error(f"❌ Failed to read JSON file: {file_path} - {e}")
+                        print(f"✅ File '{file_path}' successfully read.")
+                except json.JSONDecodeError:
+                    await ctx.send(f"❌ Failed to read JSON file: `{file_path}`")
+                    print(f"❌ Failed to read JSON file: {file_path}")
                 except Exception as e:
                     await ctx.send(f"❌ An error occurred while reading `{file_path}`: {e}")
-                    log.error(f"Error reading file {file_path} for backup: {e}")
 
     if backup_data:
         try:
@@ -196,37 +201,30 @@ async def backupnow(ctx):
                 upsert=True
             )
             
-            log.info("✅ Backup data successfully saved to MongoDB.")
+            print("✅ Backup data successfully saved to MongoDB.")
             await ctx.send("✅ Backup data successfully saved to MongoDB!")
 
         except Exception as e:
             await ctx.send(f"❌ Failed to save data to MongoDB: {e}")
-            log.error(f"❌ Failed to save data to MongoDB: {e}")
+            print(f"❌ Failed to save data to MongoDB: {e}")
     else:
         await ctx.send("🤷 No .json files found to backup.")
-        log.info("No JSON files found in specified directories for backup.")
 
-# Command untuk mengirim data backup ke DM (memastikan MongoDB terhubung)
 @bot.command()
 @commands.is_owner()
 async def sendbackup(ctx):
     """Mengirim file backup dari MongoDB ke DM pemilik bot."""
-    if collection is None:
-        return await ctx.send("❌ Koneksi MongoDB tidak aktif. Fitur backup tidak tersedia.")
-
-    user_id = ctx.author.id # Mengirim ke owner yang menjalankan command
+    user_id = 1000737066822410311  # Ganti dengan ID Discord Anda
     user = await bot.fetch_user(user_id)
 
     try:
         stored_data = collection.find_one({"_id": "latest_backup"})
         if not stored_data or 'backup' not in stored_data:
             await ctx.send("❌ No backup data available.")
-            log.info("No backup data found in MongoDB to send.")
             return
 
         backup_data = stored_data["backup"]
         await ctx.send("📬 Sending backup files one by one to DM...")
-        log.info(f"Sending backup files to owner {user.display_name} via DM.")
 
         for file_path, content in backup_data.items():
             filename = os.path.basename(file_path)
@@ -242,28 +240,19 @@ async def sendbackup(ctx):
 
             try:
                 await user.send(content=f"📄 Here's a backup file from `/{file_path}`:", file=file)
-                log.debug(f"Sent backup file {filename} to DM.")
             except discord.HTTPException as e:
-                await ctx.send(f"❌ Failed to send file `{filename}` to DM: {e}")
-                log.error(f"Failed to send backup file {filename} to owner DM: {e}")
+                await ctx.send(f"❌ Failed to send file `{filename}`: {e}")
 
         await ctx.send("✅ All backup files successfully sent to DM!")
-        log.info("All backup files sent to owner DM.")
 
     except discord.Forbidden:
         await ctx.send("❌ Failed to send DM. Make sure I can send DMs to this user.")
-        log.error(f"Bot forbidden from sending DM to owner {user.display_name}.")
     except Exception as e:
         await ctx.send(f"❌ An error occurred while retrieving backup data: {e}")
-        log.error(f"Error during sendbackup: {e}")
+        print(f"❌ Error during sendbackup: {e}")
 
-
-# --- SETUP COGS ---
 async def load_cogs():
     """Memuat semua cogs dari folder 'cogs'."""
-    # Pastikan urutan loading jika ada ketergantungan antar cogs
-    # Misalnya, Leveling.py mungkin perlu dimuat sebelum EconomyEvents.py
-    # karena EconomyEvents.py memanggil fungsi dari Leveling.py.
     initial_extensions = [
         "cogs.leveling",
         "cogs.shop",
@@ -276,41 +265,30 @@ async def load_cogs():
         "cogs.quotes",
         "cogs.newgame",
         "cogs.multigame",
-        "cogs.dunia", # Jika Anda punya cog ini dan Leveling.py bergantung padanya
+        "cogs.dunia", 
         "cogs.endgame",
-        "cogs.personality",
-        "cogs.psikotes",
-        "cogs.koruptor"
+        "cogs.koruptor",
+        "cogs.psikotes"
     ]
     for extension in initial_extensions:
         try:
             await bot.load_extension(extension)
-            log.info(f"✅ Loaded {extension}")
+            print(f"✅ Loaded {extension}")
         except Exception as e:
-            log.error(f"❌ Failed to load {extension}: {e}")
+            print(f"❌ Failed to load {extension}: {e}")
 
-# setup_hook dipanggil setelah bot.run() tetapi sebelum bot.on_ready()
 @bot.event
 async def setup_hook():
     """Dipanggil sekali saat bot pertama kali startup."""
-    log.info("🚀 Starting setup_hook and loading cogs...")
+    print("🚀 Starting setup_hook and loading cogs...")
     await load_cogs()
-    log.info(f"✅ Finished setup_hook and all cogs attempted to load.")
-    log.info(f"All commands registered: {[command.name for command in bot.commands]}")
+    await load_extension()
+    print(f"✅ Finished setup_hook and all cogs attempted to load.")
+    print(f"All commands registered: {[command.name for command in bot.commands]}")
 
 
-# --- MENJALANKAN BOT ---
-if __name__ == "__main__":
-    # Menjalankan fungsi untuk menyimpan cookies dari env variable
-    save_cookies_from_env()
+save_cookies_from_env()
 
-    # Menjalankan server web keep_alive jika ada
-    keep_alive()
+keep_alive()
 
-    # Menjalankan bot dengan token dari environment variable
-    DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
-    if not DISCORD_TOKEN:
-        log.critical("DISCORD_TOKEN not found in environment variables. Bot cannot start.")
-        raise ValueError("DISCORD_TOKEN not found in environment variables.")
-        
-    bot.run(DISCORD_TOKEN)
+bot.run(os.getenv("DISCORD_TOKEN"))
