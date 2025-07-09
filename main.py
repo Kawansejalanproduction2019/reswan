@@ -14,7 +14,7 @@ from datetime import datetime
 
 load_dotenv()
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.INFO)!
 
 def save_cookies_from_env():
     """Membaca cookies dari environment variable dan menyimpannya ke file."""
@@ -282,7 +282,6 @@ async def setup_hook():
     """Dipanggil sekali saat bot pertama kali startup."""
     print("🚀 Starting setup_hook and loading cogs...")
     await load_cogs()
-    await load_extension()
     print(f"✅ Finished setup_hook and all cogs attempted to load.")
     print(f"All commands registered: {[command.name for command in bot.commands]}")
 
