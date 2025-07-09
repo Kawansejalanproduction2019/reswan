@@ -7,7 +7,8 @@ PyNaCl
 yt-dlp>=2025.06.30
 ffmpeg-python
 lyricsgenius
-pymongo
+pymongo>=4.0.0
+dnspython>=2.0.0
 spotipy
 spotify
 pytz
