@@ -18,6 +18,7 @@ BANK_FILE = os.path.join(DATA_DIR, "bank_data.json")
 ECONOMY_CONFIG_FILE = os.path.join(DATA_DIR, "economy_config.json")
 PROJECT_FILE = os.path.join(DATA_DIR, "active_projects.json")
 TRIVIA_QUESTIONS_FILE = os.path.join(DATA_DIR, "government_trivia.json")
+NGAWUR_PROJECTS_FILE = os.path.join(DATA_DIR, "ngawur_projects.json") # File BARU
 
 # --- KONFIGURASI ROLE DAN CHANNEL ---
 EVENT_CHANNEL_ID = 765140300145360896 # ID Channel Event
@@ -49,7 +50,7 @@ CORRUPTION_CHANCE_HIGH_REWARD = 0.30 # 30% peluang korupsi jika hadiah > 80 RSWN
 def ensure_data_files():
     """Memastikan folder data ada dan file JSON dasar terinisialisasi."""
     os.makedirs(DATA_DIR, exist_ok=True)
-    for file_path in [LEVEL_DATA_FILE, BANK_FILE, ECONOMY_CONFIG_FILE, PROJECT_FILE, TRIVIA_QUESTIONS_FILE]:
+    for file_path in [LEVEL_DATA_FILE, BANK_FILE, ECONOMY_CONFIG_FILE, PROJECT_FILE, TRIVIA_QUESTIONS_FILE, NGAWUR_PROJECTS_FILE]: # Tambah NGAWUR_PROJECTS_FILE
         if not os.path.exists(file_path):
             with open(file_path, "w", encoding="utf-8") as f:
                 if file_path == ECONOMY_CONFIG_FILE:
@@ -58,6 +59,8 @@ def ensure_data_files():
                     json.dump({}, f, indent=4)
                 elif file_path == TRIVIA_QUESTIONS_FILE:
                     json.dump({"questions": []}, f, indent=4)
+                elif file_path == NGAWUR_PROJECTS_FILE: # Inisialisasi file proyek ngawur
+                    json.dump({"projects": []}, f, indent=4) # Initial empty list of projects
                 else:
                     json.dump({}, f, indent=4)
     log.info(f"Memastikan folder '{DATA_DIR}' dan file data exist.")
@@ -153,6 +156,17 @@ def save_trivia_questions(data):
         json.dump(data, f, indent=4)
     log.debug("Trivia questions saved.")
 
+def load_ngawur_projects_data(): # Fungsi baru untuk memuat proyek ngawur
+    ensure_data_files()
+    try:
+        with open(NGAWUR_PROJECTS_FILE, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            log.debug("Ngawur projects data loaded.")
+            return data
+    except (json.JSONDecodeError, FileNotFoundError) as e:
+        log.warning(f"Failed to load ngawur projects data: {e}. Returning empty list.")
+        return {"projects": []}
+
 
 class EconomyEvents(commands.Cog):
     def __init__(self, bot):
@@ -190,32 +204,7 @@ class EconomyEvents(commands.Cog):
         ]
 
         # --- Konfigurasi Proyek Ngawur ---
-        self.ngawur_projects = [
-            {"name": "Pembangunan Jembatan Penyeberangan Kucing Ras", 
-             "announcement": "Demi kesejahteraan anabul, Pemerintah mengumumkan proyek 'Pembangunan Jembatan Penyeberangan Kucing Ras' antar benua! Pastikan kucing Anda punya paspor!",
-             "update": "Update Proyek Jembatan Kucing: Pembangunan terhambat. Ternyata kucingnya minta jembatan khusus anti-air liur anjing dan dilengkapi Wi-Fi gratis. Anggaran membengkak, kontraktor kabur bawa dana.",
-             "failure": "BERAKHIR SUDAH: Proyek Jembatan Kucing diresmikan! Namun, saat kucing pertama melintas, jembatannya ambruk karena tiang pancangnya terbuat dari tulang ikan asin. Dana hilang tak berbekas. Kucing menangis, rakyat hanya bisa ngelus dada."},
-            
-            {"name": "Proyek Kereta Bawah Tanah Menuju Pusat Bumi",
-             "announcement": "Terobosan baru! Pemerintah meluncurkan 'Proyek Kereta Bawah Tanah Menuju Pusat Bumi'! Akan lebih cepat dari internet Indonesia, dijamin! Siap-siap bertemu alien, ya!",
-             "update": "Update Proyek Kereta Bawah Tanah: Pekerjaan dihentikan sementara. Ekskavator kami ternyata menemukan sarang naga purba yang menuntut dibayar pakai RSWN tunai. Negosiasi sedang berjalan, atau kami pura-pura negosiasi.",
-             "failure": "PROYEK GAGAL TOTAL: Kereta Bawah Tanah Menuju Pusat Bumi resmi mangkrak! Setelah penggalian 3 meter, kami menemukan lapisan batu yang terlalu keras untuk linggis kita. Sekarang lubang raksasa itu jadi tempat pembuangan sampah ilegal. Dananya? Sudah jadi kenangan manis."},
-            
-            {"name": "Pembangunan Patung Pejabat Tertidur Pulas di Tengah Kota",
-             "announcement": "Sebagai bentuk apresiasi terhadap kinerja pejabat, kami akan membangun 'Patung Pejabat Tertidur Pulas' di tengah kota! Dijamin bisa jadi ikon baru tidur siang bersama!",
-             "update": "Update Proyek Patung Pejabat: Patungnya hampir selesai! Namun, ada masalah teknis: setiap kali hujan, patungnya malah mengeluarkan air mata buaya. Konsultan ahli sedang menyelidiki, sambil makan kuaci.",
-             "failure": "PROYEK DISETOP: Patung Pejabat Tertidur Pulas akhirnya roboh karena didesain tanpa fondasi. Ternyata desainernya menyontek dari sketsa anak TK. Dana yang terpakai kini hanya jadi tumpukan puing, siap jadi bahan bangunan proyek ngawur berikutnya. Jangan salahkan kami, salahkan gravitasi!"},
-
-            {"name": "Sistem Irigasi Air Mata Buaya untuk Pertanian",
-             "announcement": "Revolusi pertanian! Pemerintah menggalakkan 'Sistem Irigasi Air Mata Buaya'! Dipastikan sawah-sawah akan subur, terutama yang ditanami 'pohon uang' milik para pejabat! Petani bisa panen janji!",
-             "update": "Update Proyek Irigasi Air Mata Buaya: Proyek berjalan lancar, hanya saja airnya terlalu asin dan membuat semua tanaman layu. Petugas irigasi sedang diajari cara 'menangis lebih tulus' untuk mengurangi kadar garam. Dana sudah hampir habis."},
-             "failure": "PROYEK KERING: Sistem Irigasi Air Mata Buaya dinyatakan gagal. Ternyata para pejabat sudah kehabisan air mata untuk berakting sedih, jadi suplai air untuk irigasi terhenti. Sawah kering kerontangan. Dananya? Menguap bersama air mata yang tak ada."},
-            
-            {"name": "Jalan Tol Khusus Truk Odol yang Terbuat dari Kerupuk",
-             "announcement": "Wujud nyata keadilan! Pemerintah akan membangun 'Jalan Tol Khusus Truk ODOL' dari kerupuk! Dijamin mulus, tapi cuma untuk sekali lewat. Habis itu remah-remah. Inovasi kan penting!",
-             "update": "Update Proyek Jalan Tol Kerupuk: Pembangunan berjalan lebih cepat dari yang diharapkan! Namun, ada kendala: setiap ada tikus lewat, jalannya berlubang. Saat hujan, jalannya jadi bubur. Petugas sedang mencari solusinya, mungkin dengan kerupuk rasa rendang?",
-             "failure": "JALAN RUSAK PERMANEN: Proyek Jalan Tol Kerupuk resmi bubar. Belum juga diresmikan, jalan tolnya sudah habis dimakan semut, tikus, dan sebagian kecil oleh oknum pejabat yang lapar. Dana? Habis tak bersisa. Jalan yang ditinggalkan sekarang hanya kenangan remah-remah. Rakyat diajak makan angin!"}
-        ]
+        # Ini akan dimuat dari file JSON: self.ngawur_projects = load_ngawur_projects_data()["projects"]
         self.project_update_duration_hours = 6
         self.project_fail_duration_hours = 24
         self.last_project_check = datetime.utcnow()
@@ -509,7 +498,13 @@ class EconomyEvents(commands.Cog):
                 log.info(f"Active ngawur project '{self.active_projects[guild_id_str]['name']}' already running in guild {guild.name}. Skipping new project.")
                 continue
 
-            chosen_project = random.choice(self.ngawur_projects)
+            # Load projects from JSON file
+            ngawur_projects_data = load_ngawur_projects_data()["projects"] # Load from JSON
+            if not ngawur_projects_data:
+                log.warning("Ngawur projects list is empty. Cannot start new project.")
+                continue
+
+            chosen_project = random.choice(ngawur_projects_data) # Use loaded data
             project_name = chosen_project["name"]
             
             log.info(f"Starting random ngawur project: '{project_name}' in guild {guild.name}.")
@@ -560,7 +555,8 @@ class EconomyEvents(commands.Cog):
         save_economy_config(config)
         log.info(f"Added {collected_from_users} to server funds for project '{project_name}'. New server funds: {config['server_funds_balance']}.")
 
-        chosen_project_data = next((p for p in self.ngawur_projects if p["name"] == project_name), None)
+        ngawur_projects_data = load_ngawur_projects_data()["projects"] # Load from JSON
+        chosen_project_data = next((p for p in ngawur_projects_data if p["name"] == project_name), None)
         announcement_text = chosen_project_data["announcement"] if chosen_project_data else f"Proyek {project_name} diumumkan!"
 
         embed = discord.Embed(
@@ -589,7 +585,8 @@ class EconomyEvents(commands.Cog):
             log.warning(f"Project '{project_name}' not active for update in guild {guild.name}.")
             return
 
-        chosen_project_data = next((p for p in self.ngawur_projects if p["name"] == project_name), None)
+        ngawur_projects_data = load_ngawur_projects_data()["projects"] # Load from JSON
+        chosen_project_data = next((p for p in ngawur_projects_data if p["name"] == project_name), None)
         update_text = chosen_project_data["update"] if chosen_project_data else f"Update proyek {project_name}..."
 
         self.active_projects[guild_id_str]["phase"] = "update"
@@ -621,7 +618,8 @@ class EconomyEvents(commands.Cog):
             log.warning(f"Project '{project_name}' not active for resolution in guild {guild.name}.")
             return
 
-        chosen_project_data = next((p for p in self.ngawur_projects if p["name"] == project_name), None)
+        ngawur_projects_data = load_ngawur_projects_data()["projects"] # Load from JSON
+        chosen_project_data = next((p for p in ngawur_projects_data if p["name"] == project_name), None)
         failure_text = chosen_project_data["failure"] if chosen_project_data else f"Proyek {project_name} gagal total!"
 
         embed = discord.Embed(
@@ -887,7 +885,7 @@ class EconomyEvents(commands.Cog):
         
         fire_msg = (
             f"🔥 **API! API!** Kamu mencium bau gosong yang aneh, dan tiba-tiba alarm asap di rumahmu berteriak kencang! Asap tebal mengepul dari dapur, dan api mulai menjilat! 🔥\n\n"
-            f"**Panik boleh, tapi bertindak lebih baik!** Panggil PEMADAM KEBAKARAN dengan mengetik `!pemadam` di channel <#{EVENT_CHANNEL_ID}> dalam **{RESPONSE_TIME_SECONDS} detik** atau rumahmu bisa jadi abu! Jangan sampai petugasnya lagi asyik nge-Tiktok! 🤳"
+            f"**Panik boleh, tapi bertindak lebih baik!** Panggil PEMADAM KEBAKARAN dengan mengetik `!pemadam` di channel <#{EVENT_CHANNEL_ID}> dalam **{RESPONSE_TIME_SECONDS} detik** atau rumahmu bisa jadi abu! Jangan sampai petugasnya lagi asyik nge-Tiktok!🤳"
         )
         try:
             await victim.send(fire_msg)
@@ -1201,7 +1199,6 @@ class EconomyEvents(commands.Cog):
                 await ctx.send(f"❌ Pendaftaran investasi ditutup karena tidak mencapai minimal investor (**{min_investors}**). Dana akan dikembalikan ke yang sudah daftar.", ephemeral=False)
                 await self._resolve_investment(ctx.guild, ctx.channel, force_failure=True)
             elif len(self.current_investment_scheme[guild_id_str]["investors"]) >= min_investors:
-                log.info(f"Investment scheme '{guild_id_str}' automatically closed due to timeout. Resolving.")
                 await ctx.send("🔔 Pendaftaran investasi otomatis ditutup karena waktu habis. Memulai proses hasil investasi.", ephemeral=False)
                 self.current_investment_scheme[guild_id_str]["status"] = "closed"
                 await asyncio.sleep(random.randint(60*5, 60*60*2))
