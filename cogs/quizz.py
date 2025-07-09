@@ -1,10 +1,54 @@
 import discord
-from discord.ext import commands, tasks # Import tasks untuk loop
+from discord.ext import commands, tasks
 import json
 import random
 import asyncio
 import os
-from datetime import datetime # Import datetime untuk logging
+from datetime import datetime
+
+# --- Helper Functions (Wajib ada di awal module untuk akses path root) ---
+def load_json_from_root(file_path, default_value=None):
+    """
+    Memuat data JSON dari file yang berada di root direktori proyek bot.
+    Menambahkan `default_value` yang lebih fleksibel.
+    """
+    try:
+        # Menyesuaikan path agar selalu relatif ke root proyek jika cog berada di subfolder
+        base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+        full_path = os.path.join(base_dir, file_path)
+        os.makedirs(os.path.dirname(full_path), exist_ok=True) # Pastikan direktori ada
+        with open(full_path, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except FileNotFoundError:
+        print(f"[{datetime.now()}] [DEBUG HELPER] Peringatan: File {full_path} tidak ditemukan. Mengembalikan nilai default.")
+        if default_value is not None:
+            save_json_to_root(default_value, file_path) # Coba buat file dengan default
+            return default_value
+        # Default value untuk tipe data umum jika file tidak ditemukan
+        if 'questions.json' in file_path:
+            return {"questions": []} # Asumsi questions.json top-levelnya dict dengan key 'questions'
+        if 'scores.json' in file_path or 'level_data.json' in file_path or 'bank_data.json' in file_path:
+            return {}
+        return {} # Fallback
+    except json.JSONDecodeError as e:
+        print(f"[{datetime.now()}] [DEBUG HELPER] Peringatan: File {full_path} rusak (JSON tidak valid). Error: {e}. Mengembalikan nilai default.")
+        if default_value is not None:
+            save_json_to_root(default_value, file_path) # Coba buat ulang file dengan default jika rusak
+            return default_value
+        if 'questions.json' in file_path:
+            return {"questions": []}
+        if 'scores.json' in file_path or 'level_data.json' in file_path or 'bank_data.json' in file_path:
+            return {}
+        return {}
+
+
+def save_json_to_root(data, file_path):
+    """Menyimpan data ke file JSON di root direktori proyek."""
+    base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+    full_path = os.path.join(base_dir, file_path)
+    os.makedirs(os.path.dirname(full_path), exist_ok=True)
+    with open(full_path, 'w', encoding='utf-8') as f:
+        json.dump(data, f, indent=4)
 
 # New DonationView - reusable for any game cog
 class DonationView(discord.ui.View):
@@ -58,51 +102,41 @@ class QuizView(discord.ui.View):
         self.correct_answer = correct_answer
         self.participants = participants
         self.on_answer = on_answer
+        # Menambahkan attribute answered_users untuk melacak siapa yang sudah menjawab di putaran ini
+        self.answered_users = {str(p_id): False for p_id in participants}
 
         letters = ["A", "B", "C", "D"]
         for i, option in enumerate(options):
             self.add_item(QuizButton(option, letters[i], self))
 
 class MusicQuiz(commands.Cog):
-    SCORES_FILE = "scores.json" # Perlu dipastikan pathnya benar, mungkin data/scores.json
+    # Constants for file paths, ensure they are relative to the bot's root 'data' directory
+    QUESTIONS_FILE = "data/questions.json" # Asumsi questions.json ada di data/
+    SCORES_FILE = "data/scores.json" # Asumsi scores.json ada di data/
     LEVEL_FILE = "data/level_data.json"
     BANK_FILE = "data/bank_data.json"
 
     def __init__(self, bot):
         self.bot = bot
-        self.load_questions()
+        self.questions = self._load_questions_data() # Panggil helper function
         self.scores = {}
         self.active_quizzes = {}  # {guild_id: True/False} melacak apakah kuis aktif di guild ini
         self.disconnect_timers = {} # {guild_id: asyncio.Task} untuk timer auto-disconnect
         print(f"[{datetime.now()}] [MusicQuiz Cog] MusicQuiz cog initialized.")
 
-    # --- Helper function untuk load_json (reusable) ---
+    # --- Helper function untuk memuat data pertanyaan ---
+    def _load_questions_data(self):
+        # questions.json diharapkan memiliki struktur {"questions": [...]}
+        data = load_json_from_root(self.QUESTIONS_FILE, default_value={"questions": []})
+        return data.get("questions", [])
+
+    # --- Helper function untuk memuat data JSON umum ---
     def _load_json_data(self, file_path):
-        os.makedirs(os.path.dirname(file_path), exist_ok=True) # Pastikan direktori ada
-        if not os.path.exists(file_path):
-            print(f"[{datetime.now()}] [MusicQuiz Cog] File not found: {file_path}. Returning empty dict/list.")
-            return [] if "questions.json" in file_path else {}
-        try:
-            with open(file_path, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except json.JSONDecodeError as e:
-            print(f"[{datetime.now()}] [MusicQuiz Cog] Error decoding JSON from {file_path}: {e}. Returning empty data.")
-            return [] if "questions.json" in file_path else {}
-        except Exception as e:
-            print(f"[{datetime.now()}] [MusicQuiz Cog] Error loading {file_path}: {e}. Returning empty data.")
-            return [] if "questions.json" in file_path else {}
+        return load_json_from_root(file_path)
 
-    # --- Helper function untuk save_json (reusable) ---
+    # --- Helper function untuk menyimpan data JSON umum ---
     def _save_json_data(self, file_path, data):
-        os.makedirs(os.path.dirname(file_path), exist_ok=True) # Pastikan direktori ada
-        try:
-            with open(file_path, "w", encoding="utf-8") as f:
-                json.dump(data, f, indent=2)
-        except Exception as e:
-            print(f"[{datetime.now()}] [MusicQuiz Cog] Error saving JSON to {file_path}: {e}")
-
-    def load_questions(self):
-        self.questions = self._load_json_data("questions.json") # Pastikan path ini menunjuk ke file questions.json Anda
+        save_json_to_root(data, file_path)
 
     # --- FUNGSI PENANGANAN AKHIR GAME UNTUK DONASI DAN CLEANUP ---
     async def end_game_cleanup(self, guild_id, channel_obj=None):
@@ -139,7 +173,7 @@ class MusicQuiz(commands.Cog):
 
     async def join(self, ctx):
         if not ctx.author.voice:
-            await ctx.send("Kamu harus ada di voice channel.")
+            await ctx.send("Kamu harus ada di voice channel.", ephemeral=True)
             return False
 
         channel = ctx.author.voice.channel
@@ -151,20 +185,20 @@ class MusicQuiz(commands.Cog):
                 print(f"[{datetime.now()}] [MusicQuiz Cog] Bot joined VC {channel.name} in {ctx.guild.name}.")
                 return True
             except discord.ClientException as e:
-                await ctx.send(f"Gagal bergabung ke voice channel: {e}. Mungkin bot sudah di channel lain atau ada masalah izin.")
+                await ctx.send(f"Gagal bergabung ke voice channel: {e}. Mungkin bot sudah di channel lain atau ada masalah izin.", ephemeral=True)
                 print(f"[{datetime.now()}] [MusicQuiz Cog] Failed to join VC {channel.name}: {e}")
                 return False
             except discord.Forbidden:
-                await ctx.send("Aku tidak punya izin untuk bergabung ke voice channelmu.", ephemeral=True)
+                await ctx.send("Aku tidak punya izin untuk bergabung ke voice channelmu. Pastikan aku punya izin `Connect` dan `Speak`.", ephemeral=True)
                 print(f"[{datetime.now()}] [MusicQuiz Cog] Forbidden to join VC {channel.name}.")
                 return False
         
         if ctx.guild.voice_client.channel != channel:
-            await ctx.send("Bot sudah terhubung ke channel lain. Pindahkan bot ke channel ini atau gunakan channel yang sama.")
+            await ctx.send("Bot sudah terhubung ke channel lain. Pindahkan bot ke channel ini atau gunakan channel yang sama.", ephemeral=True)
             print(f"[{datetime.now()}] [MusicQuiz Cog] Bot already in another VC in {ctx.guild.name}.")
             return False
 
-        await ctx.send(f"Bot sudah berada di {channel.name}.")
+        await ctx.send(f"Bot sudah berada di {channel.name}.", ephemeral=True)
         print(f"[{datetime.now()}] [MusicQuiz Cog] Bot already in VC {channel.name}.")
         return True
 
@@ -185,7 +219,7 @@ class MusicQuiz(commands.Cog):
         
         # Cek apakah ada pertanyaan yang tersedia
         if not self.questions:
-            await ctx.send("Tidak ada pertanyaan kuis yang tersedia. Silakan tambahkan pertanyaan ke `questions.json`.")
+            await ctx.send("Tidak ada pertanyaan kuis yang tersedia. Silakan tambahkan pertanyaan ke `data/questions.json`.")
             print(f"[{datetime.now()}] [MusicQuiz Cog] No questions available in {ctx.guild.name}.")
             return
 
@@ -220,7 +254,7 @@ class MusicQuiz(commands.Cog):
                 async def callback(interaction, is_correct):
                     uid = str(interaction.user.id)
                     # Hanya proses jawaban dari peserta yang valid dan belum menjawab di putaran ini
-                    if uid in participants and uid not in [user_id for user_id, answered in interaction.view.answered_users.items() if answered]:
+                    if uid in participants and not interaction.view.answered_users.get(uid, False):
                         interaction.view.answered_users[uid] = True # Tandai user sudah menjawab
                         if is_correct:
                             self.scores[uid] += 1
@@ -382,11 +416,19 @@ class MusicQuiz(commands.Cog):
                     print(f"[{datetime.now()}] [MusicQuiz Cog] Bot keluar dari {voice_channel.name} karena kosong.")
                     
                     # Opsional: kirim pesan ke channel teks jika channel default/sistemnya ada
-                    # Asumsi bot biasanya mengirim pesan kuis di channel tempat command dimulai
-                    # Idealnya, simpan ID channel teks tempat kuis dimulai di self.active_quizzes[guild_id]['text_channel_id']
-                    # Untuk saat ini, kita bisa coba kirim ke system_channel atau channel tempat kuis terakhir dimulai
-                    if voice_channel.guild.system_channel:
-                         await voice_channel.guild.system_channel.send("Bot keluar dari voice channel karena tidak ada user aktif di dalamnya.")
+                    # Untuk MusicQuiz, pesan utama ada di channel tempat command dimulai
+                    # Asumsi self.active_quizzes[guild_id] akan dihapus saat kuis selesai,
+                    # jadi kita perlu channel konteks kuis untuk pesan auto-disconnect
+                    # Kita bisa simpan channel_id di self.active_quizzes saat kuis dimulai
+                    quiz_text_channel_id = self.active_quizzes.get(guild_id, {}).get('text_channel_id')
+                    if quiz_text_channel_id:
+                        text_channel = self.bot.get_channel(quiz_text_channel_id)
+                        if text_channel:
+                            await text_channel.send("Bot keluar dari voice channel karena tidak ada user aktif di dalamnya.")
+                        else:
+                            print(f"[{datetime.now()}] [MusicQuiz Cog] Text channel {quiz_text_channel_id} not found for auto-disconnect message.")
+                    elif voice_channel.guild.system_channel: # Fallback ke system channel
+                        await voice_channel.guild.system_channel.send("Bot keluar dari voice channel karena tidak ada user aktif di dalamnya.")
                 
                 # Hapus timer setelah selesai, terlepas dari apakah bot disconnect atau tidak
                 del self.disconnect_timers[guild_id] 
