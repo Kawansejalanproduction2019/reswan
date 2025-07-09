@@ -20,7 +20,7 @@ PROJECT_FILE = os.path.join(DATA_DIR, "active_projects.json")
 TRIVIA_QUESTIONS_FILE = os.path.join(DATA_DIR, "government_trivia.json")
 
 # --- KONFIGURASI ROLE DAN CHANNEL ---
-EVENT_CHANNEL_ID = 1379458566452154438 # ID Channel Event
+EVENT_CHANNEL_ID = 765140300145360896 # ID Channel Event
 
 JAIL_ROLE_ID = 1392292683552260198 # ID Role Tahanan
 OFFICIAL_ROLE_ID = 1255468095217078272 # ID Role Pejabat
@@ -662,13 +662,13 @@ class EconomyEvents(commands.Cog):
         
         heist_msg = (
             f"🚨 **DRRRTT! DRRRTT!** Alarm keamananmu berteriak histeris! Kamu melihat siluet mencurigakan di jendela! Seseorang, sepertinya **{(initiator.display_name if initiator else 'sesosok misterius')}**, sedang mencoba menyelinap masuk! 🚨\n\n"
-            f"Cepat, **{victim.display_name}**! Panggil POLISI dengan mengetik `!rtmpolisi` di channel <#{EVENT_CHANNEL_ID}> dalam **{RESPONSE_TIME_SECONDS} detik** atau semua harta di rumahmu bisa lenyap tak bersisa! Jangan sampai telat, mereka bisa saja lagi minum kopi di pos! ☕"
+            f"Cepat, **{victim.display_name}**! Panggil POLISI dengan mengetik `!polisi` di channel <#{EVENT_CHANNEL_ID}> dalam **{RESPONSE_TIME_SECONDS} detik** atau semua harta di rumahmu bisa lenyap tak bersisa! Jangan sampai telat, mereka bisa saja lagi minum kopi di pos! ☕"
         )
         try:
             await victim.send(heist_msg)
             log.info(f"Sent heist warning DM to {victim.display_name}.")
         except discord.Forbidden:
-            await event_channel.send(f"🚨 **PERINGATAN! {victim.mention}!** Alarm keamananmu berbunyi! Seseorang mencoba mencuri! Periksa DMmu untuk detail, atau ketik `!rtmpolisi` di sini dalam **{RESPONSE_TIME_SECONDS} detik**!", delete_after=RESPONSE_TIME_SECONDS + 10)
+            await event_channel.send(f"🚨 **PERINGATAN! {victim.mention}!** Alarm keamananmu berbunyi! Seseorang mencoba mencuri! Periksa DMmu untuk detail, atau ketik `!polisi` di sini dalam **{RESPONSE_TIME_SECONDS} detik**!", delete_after=RESPONSE_TIME_SECONDS + 10)
             log.warning(f"Could not send heist DM to {victim.display_name} (DMs closed), sent to channel instead.")
 
 
@@ -788,11 +788,11 @@ class EconomyEvents(commands.Cog):
         log.info(f"Heist result announced in {event_channel.name}.")
         
 
-    @commands.command(name="rtmcuri")
+    @commands.command(name="curi") # Command tanpa prefiks rtm
     async def curi(self, ctx, target_user: discord.Member):
-        log.info(f"Command !rtmcuri used by {ctx.author.display_name} targeting {target_user.display_name}.")
+        log.info(f"Command !curi used by {ctx.author.display_name} targeting {target_user.display_name}.")
         if ctx.channel.id != EVENT_CHANNEL_ID:
-            log.debug(f"Command rtmcuri used in wrong channel ({ctx.channel.id}). Expected {EVENT_CHANNEL_ID}.")
+            log.debug(f"Command curi used in wrong channel ({ctx.channel.id}). Expected {EVENT_CHANNEL_ID}.")
             return await ctx.send(f"Command ini hanya bisa digunakan di <#{EVENT_CHANNEL_ID}>.", ephemeral=True)
             
         if target_user.bot:
@@ -838,9 +838,9 @@ class EconomyEvents(commands.Cog):
         log.info(f"Heist started by {ctx.author.display_name} targeting {target_user.display_name}. Cost: {HEIST_COST}.")
         await self._start_heist(ctx.guild, target_user, ctx.channel, initiator=ctx.author)
         
-    @commands.command(name="rtmpolisi") # Nama command diperbarui
+    @commands.command(name="polisi") # Command tanpa prefiks rtm
     async def call_police(self, ctx):
-        log.info(f"Command !rtmpolisi used by {ctx.author.display_name}.")
+        log.info(f"Command !polisi used by {ctx.author.display_name}.")
         guild_id = str(ctx.guild.id)
         user_id = str(ctx.author.id)
         
@@ -887,13 +887,13 @@ class EconomyEvents(commands.Cog):
         
         fire_msg = (
             f"🔥 **API! API!** Kamu mencium bau gosong yang aneh, dan tiba-tiba alarm asap di rumahmu berteriak kencang! Asap tebal mengepul dari dapur, dan api mulai menjilat! 🔥\n\n"
-            f"**Panik boleh, tapi bertindak lebih baik!** Panggil PEMADAM KEBAKARAN dengan mengetik `!rtmpemadam` di channel <#{EVENT_CHANNEL_ID}> dalam **{RESPONSE_TIME_SECONDS} detik** atau rumahmu bisa jadi abu! Jangan sampai petugasnya lagi asyik nge-Tiktok! 🤳"
+            f"**Panik boleh, tapi bertindak lebih baik!** Panggil PEMADAM KEBAKARAN dengan mengetik `!pemadam` di channel <#{EVENT_CHANNEL_ID}> dalam **{RESPONSE_TIME_SECONDS} detik** atau rumahmu bisa jadi abu! Jangan sampai petugasnya lagi asyik nge-Tiktok! 🤳"
         )
         try:
             await victim.send(fire_msg)
             log.info(f"Sent fire warning DM to {victim.display_name}.")
         except discord.Forbidden:
-            await event_channel.send(f"🔥 **PERINGATAN! {victim.mention}!** Rumahmu terbakar! Periksa DMmu untuk detail, atau ketik `!rtmpemadam` di sini dalam **{RESPONSE_TIME_SECONDS} detik**!", delete_after=RESPONSE_TIME_SECONDS + 10)
+            await event_channel.send(f"🔥 **PERINGATAN! {victim.mention}!** Rumahmu terbakar! Periksa DMmu untuk detail, atau ketik `!pemadam` di sini dalam **{RESPONSE_TIME_SECONDS} detik**!", delete_after=RESPONSE_TIME_SECONDS + 10)
             log.warning(f"Could not send fire DM to {victim.display_name} (DMs closed), sent to channel instead.")
 
         log.debug(f"Fire timer started for {victim.display_name}. Waiting {RESPONSE_TIME_SECONDS} seconds.")
@@ -997,9 +997,9 @@ class EconomyEvents(commands.Cog):
         await event_channel.send(announcement_text)
         log.info(f"Fire event result announced in {event_channel.name}.")
 
-    @commands.command(name="rtmpemadam") # Nama command diperbarui
+    @commands.command(name="pemadam") # Command tanpa prefiks rtm
     async def call_fire_department(self, ctx):
-        log.info(f"Command !rtmpemadam used by {ctx.author.display_name}.")
+        log.info(f"Command !pemadam used by {ctx.author.display_name}.")
         guild_id = str(ctx.guild.id)
         user_id = str(ctx.author.id)
         
@@ -1024,12 +1024,12 @@ class EconomyEvents(commands.Cog):
 
 
     # --- Command Admin untuk Memaksa Event ---
-    @commands.command(name="rtmforceheist") # Nama command diperbarui
+    @commands.command(name="forceheist") # Command tanpa prefiks rtm
     @commands.has_permissions(administrator=True)
     async def force_heist(self, ctx, target_user: discord.Member):
         log.info(f"Admin {ctx.author.display_name} forcing heist on {target_user.display_name}.")
         if ctx.channel.id != EVENT_CHANNEL_ID:
-            log.debug(f"Command rtmforceheist used in wrong channel ({ctx.channel.id}). Expected {EVENT_CHANNEL_ID}.")
+            log.debug(f"Command forceheist used in wrong channel ({ctx.channel.id}). Expected {EVENT_CHANNEL_ID}.")
             return await ctx.send(f"Command ini hanya bisa digunakan di <#{EVENT_CHANNEL_ID}>.", ephemeral=True)
 
         if target_user.bot:
@@ -1051,12 +1051,12 @@ class EconomyEvents(commands.Cog):
         await self._start_heist(ctx.guild, target_user, ctx.channel, initiator=self.bot.user)
         log.info(f"Forced heist initiated on {target_user.display_name}.")
 
-    @commands.command(name="rtmforcefire") # Nama command diperbarui
+    @commands.command(name="forcefire") # Command tanpa prefiks rtm
     @commands.has_permissions(administrator=True)
     async def force_fire(self, ctx, target_user: discord.Member):
         log.info(f"Admin {ctx.author.display_name} forcing fire on {target_user.display_name}.")
         if ctx.channel.id != EVENT_CHANNEL_ID:
-            log.debug(f"Command rtmforcefire used in wrong channel ({ctx.channel.id}). Expected {EVENT_CHANNEL_ID}.")
+            log.debug(f"Command forcefire used in wrong channel ({ctx.channel.id}). Expected {EVENT_CHANNEL_ID}.")
             return await ctx.send(f"Command ini hanya bisa digunakan di <#{EVENT_CHANNEL_ID}>.", ephemeral=True)
 
         if target_user.bot:
@@ -1078,12 +1078,12 @@ class EconomyEvents(commands.Cog):
         await self._start_fire(ctx.guild, target_user, ctx.channel)
         log.info(f"Forced fire initiated on {target_user.display_name}.")
         
-    @commands.command(name="rtmuangall") # Nama command diperbarui
+    @commands.command(name="uangall") # Command tanpa prefiks rtm
     @commands.has_permissions(administrator=True)
     async def give_all_money(self, ctx, amount: int):
-        log.info(f"Admin {ctx.author.display_name} initiating giveallmoney: {amount} RSWN.")
+        log.info(f"Admin {ctx.author.display_name} initiating give_all_money: {amount} RSWN.")
         if amount <= 0:
-            log.debug("Giveallmoney amount is not positive.")
+            log.debug("Give_all_money amount is not positive.")
             return await ctx.send("❌ Jumlah RSWN harus positif.", ephemeral=True)
 
         await ctx.send(f"💰 Memulai proses pemberian **{amount} RSWN** kepada semua anggota server...")
@@ -1103,12 +1103,12 @@ class EconomyEvents(commands.Cog):
         log.info(f"Successfully gave {amount} RSWN to {updated_users_count} users.")
         await ctx.send(f"✅ Berhasil memberikan **{amount} RSWN** kepada **{updated_users_count} anggota** di server ini!")
 
-    @commands.command(name="rtmxpall") # Nama command diperbarui
+    @commands.command(name="xpall") # Command tanpa prefiks rtm
     @commands.has_permissions(administrator=True)
     async def give_all_xp(self, ctx, amount: int):
-        log.info(f"Admin {ctx.author.display_name} initiating giveallxp: {amount} EXP.")
+        log.info(f"Admin {ctx.author.display_name} initiating give_all_xp: {amount} EXP.")
         if amount <= 0:
-            log.debug("Giveallxp amount is not positive.")
+            log.debug("Give_all_xp amount is not positive.")
             return await ctx.send("❌ Jumlah EXP harus positif.", ephemeral=True)
 
         await ctx.send(f"✨ Memulai proses pemberian **{amount} EXP** kepada semua anggota server...")
@@ -1136,7 +1136,7 @@ class EconomyEvents(commands.Cog):
                 
                 if new_level > old_level:
                     user_level_data["level"] = new_level
-                    log.debug(f"User {member.display_name} leveled up from {old_level} to {new_level} due to giveallxp.")
+                    log.debug(f"User {member.display_name} leveled up from {old_level} to {new_level} due to give_all_xp.")
                     await leveling_cog.level_up(member, ctx.guild, None, new_level, level_data)
             updated_users_count += 1
 
@@ -1148,12 +1148,12 @@ class EconomyEvents(commands.Cog):
     # --- Command untuk Sistem Investasi ---
     current_investment_scheme = {}
 
-    @commands.command(name="rtminvest") # Nama command diperbarui
+    @commands.command(name="mulaiinvestasi") # Command tanpa prefiks rtm
     @commands.has_role("Pejabat")
     async def start_investment(self, ctx, min_investors: int, cost_per_investor: int):
         log.info(f"Pejabat {ctx.author.display_name} starting investment scheme. Min investors: {min_investors}, cost: {cost_per_investor}.")
         if ctx.channel.id != EVENT_CHANNEL_ID:
-            log.debug(f"Command rtminvest used in wrong channel ({ctx.channel.id}). Expected {EVENT_CHANNEL_ID}.")
+            log.debug(f"Command mulaiinvestasi used in wrong channel ({ctx.channel.id}). Expected {EVENT_CHANNEL_ID}.")
             return await ctx.send(f"Command ini hanya bisa digunakan di <#{EVENT_CHANNEL_ID}>.", ephemeral=True)
 
         guild_id_str = str(ctx.guild.id)
@@ -1185,7 +1185,7 @@ class EconomyEvents(commands.Cog):
             description=(
                 f"Para pejabat kami membuka skema investasi baru yang sangat menguntungkan (tentunya untuk kami)! "
                 f"Minimal **{min_investors} investor** diperlukan, dan setiap investor wajib menyetor **{cost_per_investor} RSWN**!\n\n"
-                f"Ketik `!rtmjoinvest` untuk berpartisipasi dan jadi bagian dari 'rakyat kaya'!"
+                f"Ketik `!gabunginvestasi` untuk berpartisipasi dan jadi bagian dari 'rakyat kaya'!"
             ),
             color=discord.Color.gold()
         )
@@ -1208,11 +1208,11 @@ class EconomyEvents(commands.Cog):
                 await self._resolve_investment(ctx.guild, ctx.channel)
 
 
-    @commands.command(name="rtmjoinvest") # Nama command diperbarui
+    @commands.command(name="gabunginvestasi") # Command tanpa prefiks rtm
     async def join_investment(self, ctx):
         log.info(f"User {ctx.author.display_name} trying to join investment.")
         if ctx.channel.id != EVENT_CHANNEL_ID:
-            log.debug(f"Command rtmjoinvest used in wrong channel ({ctx.channel.id}). Expected {EVENT_CHANNEL_ID}.")
+            log.debug(f"Command gabunginvestasi used in wrong channel ({ctx.channel.id}). Expected {EVENT_CHANNEL_ID}.")
             return await ctx.send(f"Command ini hanya bisa digunakan di <#{EVENT_CHANNEL_ID}>.", ephemeral=True)
 
         guild_id_str = str(ctx.guild.id)
@@ -1247,16 +1247,16 @@ class EconomyEvents(commands.Cog):
             initiator_id = self.current_investment_scheme[guild_id_str]["initiator_id"]
             initiator = ctx.guild.get_member(int(initiator_id))
             if initiator:
-                try: await initiator.send(f"🎉 **Skema Investasi di {ctx.guild.name} telah mencapai minimal investor!** Anda bisa menutup pendaftaran dengan `!rtmclosevest`.")
+                try: await initiator.send(f"🎉 **Skema Investasi di {ctx.guild.name} telah mencapai minimal investor!** Anda bisa menutup pendaftaran dengan `!tutupinvestasi`.")
                 except discord.Forbidden: log.warning(f"Could not send investment min investors DM to initiator {initiator.display_name} (DMs closed).")
 
 
-    @commands.command(name="rtmclosevest") # Nama command diperbarui
+    @commands.command(name="tutupinvestasi") # Command tanpa prefiks rtm
     @commands.has_role("Pejabat")
     async def close_investment(self, ctx):
         log.info(f"Pejabat {ctx.author.display_name} trying to close investment scheme.")
         if ctx.channel.id != EVENT_CHANNEL_ID:
-            log.debug(f"Command rtmclosevest used in wrong channel ({ctx.channel.id}). Expected {EVENT_CHANNEL_ID}.")
+            log.debug(f"Command tutupinvestasi used in wrong channel ({ctx.channel.id}). Expected {EVENT_CHANNEL_ID}.")
             return await ctx.send(f"Command ini hanya bisa digunakan di <#{EVENT_CHANNEL_ID}>.", ephemeral=True)
 
         guild_id_str = str(ctx.guild.id)
@@ -1328,15 +1328,15 @@ class EconomyEvents(commands.Cog):
             if initiator_member:
                 log.info(f"Offering corruption chance to initiator {initiator_member.display_name}.")
                 corruption_offer_msg = await initiator_member.send(
-                    f"**Pejabat PajakBot:** 'Wahai Pejabat **{initiator_member.display_name}**, sini sebentar. Investasi kita sukses besar! Apakah Anda ingin 'mengamankan' sebagian dana ini untuk 'operasional rahasia negara'? Ketik `!rtmkorupsi <jumlah>` dalam **60 detik** untuk ambil bagianmu, atau ketik `!rtmtidakkorupsi`."
+                    f"**Pejabat PajakBot:** 'Wahai Pejabat **{initiator_member.display_name}**, sini sebentar. Investasi kita sukses besar! Apakah Anda ingin 'mengamankan' sebagian dana ini untuk 'operasional rahasia negara'? Ketik `!korupsi <jumlah>` dalam **60 detik** untuk ambil bagianmu, atau ketik `!tidakkorupsi`."
                 )
                 
                 def check_corruption_response(m):
-                    return m.author.id == initiator_member.id and m.channel == initiator_member.dm_channel and (m.content.startswith("!rtmkorupsi") or m.content == "!rtmtidakkorupsi")
+                    return m.author.id == initiator_member.id and m.channel == initiator_member.dm_channel and (m.content.startswith("!korupsi") or m.content == "!tidakkorupsi")
 
                 try:
                     msg = await self.bot.wait_for('message', check=check_corruption_response, timeout=60.0)
-                    if msg.content.startswith("!rtmkorupsi"):
+                    if msg.content.startswith("!korupsi"):
                         try:
                             corrupt_amount = int(msg.content.split()[1])
                             if corrupt_amount <= 0 or corrupt_amount > total_profit:
@@ -1396,7 +1396,7 @@ class EconomyEvents(commands.Cog):
                             log.error(f"Error during corruption attempt by {initiator_member.display_name}: {e}")
                             try: await initiator_member.send("Terjadi kesalahan saat memproses korupsi.")
                             except discord.Forbidden: pass
-                    elif msg.content == "!rtmtidakkorupsi": # Nama command diperbarui
+                    elif msg.content == "!tidakkorupsi": # Command tanpa prefiks rtm
                         log.info(f"Pejabat {initiator_member.display_name} chose not to corrupt.")
                         try: await initiator_member.send("👍 Anda memilih untuk tetap jujur! Salut!")
                         except discord.Forbidden: pass
@@ -1470,21 +1470,21 @@ class EconomyEvents(commands.Cog):
             await channel.send(embed=discord.Embed(title=embed_title, description=embed_desc, color=embed_color))
             log.info(f"Investment failed result announced for guild {guild.name}.")
 
-    @commands.command(name="rtmaudit") # Nama command diperbarui
+    @commands.command(name="audit") # Command tanpa prefiks rtm
     @commands.has_permissions(administrator=True)
     async def audit_command(self, ctx):
-        log.info(f"Admin {ctx.author.display_name} used !rtmaudit.")
+        log.info(f"Admin {ctx.author.display_name} used !audit.")
         await ctx.send("Fitur audit sedang dalam pengembangan. Saat ini, belum ada skema investasi untuk diaudit atau mekanisme audit otomatis.", ephemeral=True)
     
-    @commands.command(name="rtmhina")
+    @commands.command(name="hina") # Command tanpa prefiks rtm
     @commands.has_permissions(administrator=True)
     async def hina_user(self, ctx, target_user: discord.Member, *, custom_insult: str = None):
-        log.info(f"Admin {ctx.author.display_name} used !rtmhina on {target_user.display_name}.")
+        log.info(f"Admin {ctx.author.display_name} used !hina on {target_user.display_name}.")
         try:
             await ctx.message.delete()
-            log.debug("Deleted !rtmhina command message.")
+            log.debug("Deleted !hina command message.")
         except discord.HTTPException:
-            log.warning("Failed to delete !rtmhina command message.")
+            log.warning("Failed to delete !hina command message.")
             pass
 
         if target_user.bot:
@@ -1509,10 +1509,10 @@ class EconomyEvents(commands.Cog):
         await ctx.send(embed=embed)
         log.info(f"Sent insult message for {target_user.display_name}.")
 
-    @commands.command(name="rtmbantuan") # Nama command diperbarui
+    @commands.command(name="bantuan") # Command tanpa prefiks rtm
     @commands.has_permissions(administrator=True)
     async def mysterious_aid(self, ctx, amount: int = 0, target_user: discord.Member = None):
-        log.info(f"Admin {ctx.author.display_name} used !rtmbantuan. Amount: {amount}, Target: {target_user.display_name if target_user else 'random'}.")
+        log.info(f"Admin {ctx.author.display_name} used !bantuan. Amount: {amount}, Target: {target_user.display_name if target_user else 'random'}.")
         
         if amount <= 0 and target_user:
             log.debug("Amount not positive for specific target.")
@@ -1564,11 +1564,11 @@ class EconomyEvents(commands.Cog):
         log.info(f"Mysterious aid announced for {chosen_user.display_name}.")
 
     # --- Implementasi Kuis Kebobrokan Pemerintah ---
-    @commands.command(name="rtmkuis")
+    @commands.command(name="kuisbobrok") # Command tanpa prefiks rtm
     async def start_trivia_session(self, ctx):
-        log.info(f"Command !rtmkuis used by {ctx.author.display_name}.")
+        log.info(f"Command !kuisbobrok used by {ctx.author.display_name}.")
         if ctx.channel.id != EVENT_CHANNEL_ID:
-            log.debug(f"Command rtmkuis used in wrong channel ({ctx.channel.id}). Expected {EVENT_CHANNEL_ID}.")
+            log.debug(f"Command kuisbobrok used in wrong channel ({ctx.channel.id}). Expected {EVENT_CHANNEL_ID}.")
             return await ctx.send(f"Command ini hanya bisa digunakan di <#{EVENT_CHANNEL_ID}>.", ephemeral=True)
 
         guild_id_str = str(ctx.guild.id)
@@ -1579,7 +1579,7 @@ class EconomyEvents(commands.Cog):
         questions_data = load_trivia_questions()
         if not questions_data["questions"]:
             log.warning("Trivia questions bank is empty.")
-            return await ctx.send("❌ Bank soal kuis kebobrokan masih kosong! Admin perlu menambahkannya dengan `!rtmaddsoal`.", ephemeral=True)
+            return await ctx.send("❌ Bank soal kuis kebobrokan masih kosong! Admin perlu menambahkannya dengan `!addsoal`.", ephemeral=True)
 
         if len(questions_data["questions"]) < QUIZ_TOTAL_QUESTIONS:
             log.warning(f"Not enough trivia questions ({len(questions_data['questions'])}) for a session of {QUIZ_TOTAL_QUESTIONS} questions.")
@@ -1777,7 +1777,7 @@ class EconomyEvents(commands.Cog):
         await channel.send(embed=embed)
         log.info(f"Quiz session results announced for guild {guild.name}.")
 
-    @commands.command(name="rtmaddsoal") # Nama command diperbarui
+    @commands.command(name="addsoal") # Command tanpa prefiks rtm
     @commands.has_permissions(administrator=True)
     async def add_trivia_question(self, ctx, q_type: str, question: str, answer: str, correct_resp: str, wrong_resp: str, *, options: str = None):
         log.info(f"Admin {ctx.author.display_name} adding trivia question. Type: {q_type}, Question: {question[:50]}...")
@@ -1808,7 +1808,7 @@ class EconomyEvents(commands.Cog):
         
         await ctx.send(f"✅ Soal kuis kebobrokan baru berhasil ditambahkan! ID: `{new_question['id']}`")
 
-    @commands.command(name="rtmlistsoal") # Nama command diperbarui
+    @commands.command(name="listsoal") # Command tanpa prefiks rtm
     @commands.has_permissions(administrator=True)
     async def list_trivia_questions(self, ctx):
         log.info(f"Admin {ctx.author.display_name} requesting trivia questions list.")
