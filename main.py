@@ -268,7 +268,8 @@ async def load_cogs():
         "cogs.dunia", 
         "cogs.endgame",
         "cogs.koruptor",
-        "cogs.psikotes"
+        "cogs.psikotes",
+        "cogs.tempvoice"
     ]
     for extension in initial_extensions:
         try:
