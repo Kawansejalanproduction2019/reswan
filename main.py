@@ -192,7 +192,7 @@ async def load_cogs():
         "cogs.multigame",
         "cogs.dunia", 
         "cogs.endgame",
-        "cogs.personality",
+        "cogs.koruptor",
         "cogs.psikotes"
     ]
     for extension in initial_extensions:
@@ -208,7 +208,6 @@ async def setup_hook():
     """Dipanggil sekali saat bot pertama kali startup."""
     print("ðŸ” Starting setup_hook and loading cogs...")
     await load_cogs()
-    await load_extension()
     print(f"✅ Finished setup_hook and all cogs attempted to load.")
     # Ini akan dicetak setelah semua cog dimuat, tetapi sebelum on_ready sepenuhnya selesai
     print(f"All commands registered: {[command.name for command in bot.commands]}")
