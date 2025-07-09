@@ -280,8 +280,7 @@ async def load_cogs():
         "cogs.endgame",
         "cogs.personality",
         "cogs.psikotes",
-        "cogs.EconomyEvents", # Cog baru untuk event pemerintahan
-        "cogs.koruptor" # Cog Koruptor Anda
+        "cogs.koruptor"
     ]
     for extension in initial_extensions:
         try:
