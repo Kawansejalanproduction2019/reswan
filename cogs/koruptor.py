@@ -5,8 +5,8 @@ import random
 import asyncio
 import os
 from datetime import datetime, time, timedelta
-import logging
-import sys
+import logging 
+import sys 
 from collections import Counter
 
 # Setup logging
@@ -45,7 +45,7 @@ MYSTERIOUS_AID_MAX = 2000
 # --- KONFIGURASI KUIS ---
 QUIZ_REWARD_MIN = 25
 QUIZ_REWARD_MAX = 100
-QUIZ_PENALTY = 10
+QUIZ_PENALTY = 25
 QUIZ_QUESTION_TIME = 30 # Waktu per pertanyaan dalam detik
 QUIZ_TOTAL_QUESTIONS = 10 # Jumlah pertanyaan per sesi kuis
 CORRUPTION_CHANCE_HIGH_REWARD = 0.30 # 30% peluang korupsi jika hadiah > 80 RSWN
@@ -496,7 +496,7 @@ class EconomyEvents(commands.Cog):
             
             # Filter korban: tidak dalam penjara, tidak sedang dalam event heist/fire, tidak sedang dalam kuis
             potential_victims = [m for m in potential_victims 
-                                 if not await self._is_user_jailed(m.id, guild.id)[0] and \
+                                 if not (await self._is_user_jailed(m.id, guild.id))[0] and \
                                     str(m.id) not in active_heist_victims and \
                                     str(m.id) not in active_fire_victims]
 
@@ -1017,7 +1017,7 @@ class EconomyEvents(commands.Cog):
         random_firefighter_name = random.choice(firefighter_names)
 
         if responded and random.random() < BUREAUCRACY_CHANCE: # Birokrasi mengganggu respon (25% chance)
-            logging.info(f"Fire for {victim.display_name}: Bureaucracy scenario triggered.")
+            logging.info(f"Fire for {victim.display_name}: Birokrasi scenario triggered.")
             fire_outcome_text = (
                 f"📞 Kamu panik menelepon 112. 'Kebakaran! Rumah saya terbakar!' teriakmu. Petugas di seberang dengan suara malas menjawab, 'Bapak/Ibu, bisa tolong jelaskan dulu kronologinya dari awal? Lalu, berapa jumlah titik apinya? Sudah coba padamkan pakai air keran? Ah, dan jangan lupa, kami butuh **surat izin bakar dari RT/RW setempat** dan **fotokopi kartu keluarga**!' Kamu kaget bukan kepalang. **Panggilan terputus!** Sementara kamu mencari berkas, api sudah merajalela!\n"
                 f"Kamu kehilangan **{min(damage_amount, victim_balance)} RSWN**!"
