@@ -4,16 +4,17 @@ import json
 import random
 import asyncio
 import os
-from datetime import datetime
+from datetime import datetime, time, timedelta
 
-# --- Helper Functions (Wajib ada di awal module untuk akses path root) ---
+# --- Helper Functions to handle JSON data from the bot's root directory ---
+# These functions are designed to load/save JSON files relative to the bot's root directory ('../')
+# They will also create the 'data' directory and empty default files if they don't exist or are corrupted.
 def load_json_from_root(file_path, default_value=None):
     """
     Memuat data JSON dari file yang berada di root direktori proyek bot.
     Menambahkan `default_value` yang lebih fleksibel.
     """
     try:
-        # Menyesuaikan path agar selalu relatif ke root proyek jika cog berada di subfolder
         base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
         full_path = os.path.join(base_dir, file_path)
         os.makedirs(os.path.dirname(full_path), exist_ok=True) # Pastikan direktori ada
@@ -29,6 +30,8 @@ def load_json_from_root(file_path, default_value=None):
             return {"questions": []} # Asumsi questions.json top-levelnya dict dengan key 'questions'
         if 'scores.json' in file_path or 'level_data.json' in file_path or 'bank_data.json' in file_path:
             return {}
+        if 'donation_buttons.json' in file_path:
+            return [] # Untuk tombol donasi, defaultnya list kosong
         return {} # Fallback
     except json.JSONDecodeError as e:
         print(f"[{datetime.now()}] [DEBUG HELPER] Peringatan: File {full_path} rusak (JSON tidak valid). Error: {e}. Mengembalikan nilai default.")
@@ -39,6 +42,8 @@ def load_json_from_root(file_path, default_value=None):
             return {"questions": []}
         if 'scores.json' in file_path or 'level_data.json' in file_path or 'bank_data.json' in file_path:
             return {}
+        if 'donation_buttons.json' in file_path:
+            return []
         return {}
 
 
@@ -46,28 +51,42 @@ def save_json_to_root(data, file_path):
     """Menyimpan data ke file JSON di root direktori proyek."""
     base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
     full_path = os.path.join(base_dir, file_path)
-    os.makedirs(os.path.dirname(full_path), exist_ok=True)
+    os.makedirs(os.path.dirname(full_path), exist_ok=True) # Pastikan direktori ada
     with open(full_path, 'w', encoding='utf-8') as f:
         json.dump(data, f, indent=4)
 
-# New DonationView - reusable for any game cog
+# --- New DonationView - MODIFIED TO LOAD BUTTONS FROM JSON ---
 class DonationView(discord.ui.View):
     def __init__(self):
         super().__init__(timeout=None) # Keep buttons active indefinitely
+        self.load_donation_buttons()
 
-        bagi_bagi_button = discord.ui.Button(
-            label="Dukung via Bagi-Bagi!",
-            style=discord.ButtonStyle.link,
-            url="https://bagibagi.co/Rh7155"
-        )
-        self.add_item(bagi_bagi_button)
+    def load_donation_buttons(self):
+        # Path relatif ke root proyek
+        # Jika file tidak ditemukan atau kosong, load_json_from_root akan mengembalikan []
+        donation_buttons_data = load_json_from_root('data/donation_buttons.json')
+        
+        # Jika data yang dimuat kosong, gunakan tombol default hardcoded
+        if not donation_buttons_data:
+            print(f"[{datetime.now()}] [DonationView] File 'data/donation_buttons.json' kosong atau tidak ditemukan. Menggunakan tombol default.")
+            # Default buttons if JSON is empty or not found
+            default_buttons = [
+                {"label": "Dukung via Bagi-Bagi!", "url": "https://bagibagi.co/Rh7155"},
+                {"label": "Donasi via Saweria!", "url": "https://saweria.co/RH7155"}
+            ]
+            donation_buttons_data = default_buttons
 
-        saweria_button = discord.ui.Button(
-            label="Donasi via Saweria!",
-            style=discord.ButtonStyle.link,
-            url="https://saweria.co/RH7155"
-        )
-        self.add_item(saweria_button)
+        # Tambahkan tombol ke view
+        for button_info in donation_buttons_data:
+            if "label" in button_info and "url" in button_info:
+                button = discord.ui.Button(
+                    label=button_info["label"],
+                    style=discord.ButtonStyle.link,
+                    url=button_info["url"]
+                )
+                self.add_item(button)
+            else:
+                print(f"[{datetime.now()}] [DonationView] Peringatan: Format tombol donasi tidak valid: {button_info}")
 
 class QuizButton(discord.ui.Button):
     def __init__(self, label, option_letter, parent_view):
@@ -122,6 +141,11 @@ class MusicQuiz(commands.Cog):
         self.scores = {}
         self.active_quizzes = {}  # {guild_id: True/False} melacak apakah kuis aktif di guild ini
         self.disconnect_timers = {} # {guild_id: asyncio.Task} untuk timer auto-disconnect
+        
+        # Hapus inisialisasi quiz_attempts_per_question dan cooldown_users
+        # self.quiz_attempts_per_question = {}
+        # self.cooldown_users = {} 
+
         print(f"[{datetime.now()}] [MusicQuiz Cog] MusicQuiz cog initialized.")
 
     # --- Helper function untuk memuat data pertanyaan ---
@@ -159,6 +183,22 @@ class MusicQuiz(commands.Cog):
             await guild.voice_client.disconnect()
             print(f"[{datetime.now()}] [MusicQuiz Cog] Bot disconnected from voice channel in {guild.name} during cleanup.")
         
+        # Hapus logika reset quiz attempts dan cooldowns
+        # if guild_id in self.quiz_attempts_per_question:
+        #     del self.quiz_attempts_per_question[guild_id]
+        # for user_id in list(self.cooldown_users.keys()):
+        #     member = guild.get_member(user_id)
+        #     if member and member.voice and member.voice.channel == guild.voice_client.channel:
+        #          if user_id in self.cooldown_users:
+        #              del self.cooldown_users[user_id]
+        #          try:
+        #              await member.timeout(None, reason="Game ended, cooldown lifted.")
+        #          except discord.Forbidden:
+        #              pass
+        #          except Exception as e:
+        #              print(f"[{datetime.now()}] Error removing timeout on cleanup for {member.display_name}: {e}")
+
+
         if channel_obj:
             donation_message = (
                 "🎮 **Permainan Telah Usai!** Terima kasih sudah bermain bersama kami.\n\n"
