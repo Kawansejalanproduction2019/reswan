@@ -707,26 +707,43 @@ class EconomyEvents(commands.Cog):
             response_time_seconds=RESPONSE_TIME_SECONDS
         )
         try:
+            # Periksa jika pesan DM kosong sebelum mengirim
+            if not warning_dm_msg.strip():
+                raise ValueError("warning_dm_msg is empty or only whitespace.")
             await victim.send(warning_dm_msg) 
             log.info(f"Sent heist warning DM to {victim.display_name}.")
-        except discord.Forbidden:
+        except (discord.Forbidden, ValueError) as e: # Tangkap ValueError juga
+            if isinstance(e, ValueError):
+                log.error(f"Heist warning DM message is empty for {victim.display_name}: {e}. Falling back to channel message.")
+            else:
+                log.warning(f"Could not send heist DM to {victim.display_name} (DMs closed). Falling back to channel message.")
+
             fallback_msg = heist_messages.get("warning_channel_fallback", "").format(
                 victim_mention=victim.mention,
                 response_time_seconds=RESPONSE_TIME_SECONDS
             )
-            await event_channel.send(fallback_msg, delete_after=RESPONSE_TIME_SECONDS + 10)
-            log.warning(f"Could not send heist DM to {victim.display_name} (DMs closed), sent to channel instead.")
+            # Periksa jika fallback message kosong sebelum mengirim
+            if fallback_msg.strip():
+                await event_channel.send(fallback_msg, delete_after=RESPONSE_TIME_SECONDS + 10)
+            else:
+                log.error("Both DM and fallback channel message for heist are empty. Cannot send any message.")
 
 
         if initiator and initiator.id != self.bot.user.id: # Hanya jika initiator adalah user, bukan bot
-            initiator_dm_msg = self.satire_narrations.get("heist_messages", {}).get("initiator_dm", "").format(
+            initiator_dm_msg = heist_messages.get("initiator_dm", "").format(
                 response_time_seconds=RESPONSE_TIME_SECONDS,
                 heist_cost=HEIST_COST
             )
             try:
+                # Periksa jika pesan DM kosong sebelum mengirim
+                if not initiator_dm_msg.strip():
+                    raise ValueError("initiator_dm_msg is empty or only whitespace.")
                 await initiator.send(initiator_dm_msg)
-            except discord.Forbidden:
-                log.warning(f"Could not send heist initiation DM to initiator {initiator.display_name} (DMs closed).")
+            except (discord.Forbidden, ValueError) as e:
+                if isinstance(e, ValueError):
+                    log.error(f"Heist initiator DM message is empty for {initiator.display_name}: {e}.")
+                else:
+                    log.warning(f"Could not send heist initiation DM to initiator {initiator.display_name} (DMs closed).")
             bank_data = load_bank_data()
             bank_data.setdefault(str(initiator.id), {"balance":0, "debt":0})["balance"] -= HEIST_COST
             save_bank_data(bank_data)
@@ -766,10 +783,17 @@ class EconomyEvents(commands.Cog):
         guild_id_str = str(guild.id)
         victim_id_str = str(victim.id)
         
-        heist_data = self.active_heists.get(guild_id_str, {}).pop(victim_id_str, None)
-        if not heist_data:  # Jika sudah di-pop oleh respon sebelumnya (e.g., karena investigasi)
-            log.warning(f"Heist data not found for {victim.display_name}. Already resolved or not active.")
+        heist_data = self.active_heists.get(guild_id_str, {}).get(victim_id_str) # GET, not POP yet
+        if not heist_data:  
+            log.warning(f"Heist data not found for {victim.display_name}. Already resolved or not active. Skipping resolution.")
             return
+        
+        # Hapus data heist dari active_heists di awal jika bukan untuk investigasi
+        # atau jika investigasi sudah selesai (resolved_fail dari !lapormata)
+        is_investigated_heist = heist_data.get("investigated", False)
+        
+        # Pop data setelah kita tahu status investigasinya
+        self.active_heists[guild_id_str].pop(victim_id_str, None) # Hapus dari daftar aktif setelah informasi diambil
 
         bank_data = load_bank_data()
         victim_balance = bank_data.get(victim_id_str, {}).get("balance", 0)
@@ -778,7 +802,7 @@ class EconomyEvents(commands.Cog):
         actual_loot = 0
 
         # Mendapatkan objek initiator dan victim yang aman dari NoneType
-        initiator_display_name = initiator.display_name if isinstance(initiator, discord.User) else initiator
+        initiator_display_name = initiator.display_name if isinstance(initiator, discord.User) else initiator # initiator could be a string "bot"
         initiator_mention = initiator.mention if isinstance(initiator, discord.User) else initiator_display_name
 
         victim_display_name = victim.display_name if isinstance(victim, discord.Member) else f"User Tak Dikenal ({victim_id_str})"
@@ -859,7 +883,7 @@ class EconomyEvents(commands.Cog):
         log.info(f"Victim {victim_display_name}'s new balance: {victim_balance}.")
 
         if isinstance(initiator, discord.Member) and initiator.id != self.bot.user.id: # Jika pencurian dipicu oleh user (bukan bot)
-            bank_data = load_bank_data() # Muat ulang bank_data karena mungkin sudah berubah
+            # bank_data = load_bank_data() # Muat ulang bank_data karena mungkin sudah berubah, tapi ini tidak perlu di sini
             if is_jailed:
                 log.info(f"Initiator {initiator_display_name} jailed. No loot gained.")
                 await self._jail_user(initiator, JAIL_DURATION_HOURS)
@@ -874,27 +898,38 @@ class EconomyEvents(commands.Cog):
                     actual_loot=actual_loot, heist_cost_plus_loot=heist_cost_plus_loot
                 )
                 try:
+                    # Periksa jika pesan DM kosong sebelum mengirim
+                    if not initiator_result_success_msg.strip():
+                        raise ValueError("initiator_result_success_msg is empty or only whitespace.")
                     await initiator.send(initiator_result_success_msg)
-                except discord.Forbidden:
-                    log.warning(f"Could not send heist result DM to initiator {initiator_display_name} (DMs closed).")
+                except (discord.Forbidden, ValueError) as e:
+                    if isinstance(e, ValueError):
+                        log.error(f"Heist initiator result DM message is empty for {initiator_display_name}: {e}.")
+                    else:
+                        log.warning(f"Could not send heist result DM to initiator {initiator_display_name} (DMs closed).")
 
         try:
+            # Periksa jika pesan DM kosong sebelum mengirim
+            if not heist_outcome_text.strip():
+                raise ValueError("heist_outcome_text is empty or only whitespace.")
             await victim.send(heist_outcome_text)
-        except discord.Forbidden:
-            await event_channel.send(f"🚨 Laporan Heist untuk {victim_mention}:\n{heist_outcome_text}", delete_after=60)
-            log.warning(f"Could not send victim DM to {victim_display_name} (DMs closed), sent to channel instead.")
+        except (discord.Forbidden, ValueError) as e:
+            if isinstance(e, ValueError):
+                log.error(f"Heist outcome DM message is empty for {victim_display_name}: {e}. Falling back to channel message.")
+            else:
+                log.warning(f"Could not send victim DM to {victim_display_name} (DMs closed). Falling back to channel message.")
             
-        # Hapus data heist dari active_heists HANYA JIKA TIDAK ADA INVESTIGASI YANG DILAKUKAN
-        if not heist_data.get("investigated", False):
-            # Cek ulang di sini, karena 'heist_data' sudah di-pop di awal,
-            # jadi kita harus mengandalkan self.active_heists untuk data 'investigated'
-            # Atau passing 'heist_data' ke sini dan gunakan itu
-            # Untuk kasus ini, karena sudah di-pop di awal, tidak perlu pop lagi.
-            # Hanya log warning jika memang ada kondisi investigasi tapi tidak di-pop dari `active_heists` di awal
-            pass # Data sudah di-pop di awal fungsi
+            fallback_channel_msg = f"🚨 Laporan Heist untuk {victim_mention}:\n{heist_outcome_text}"
+            if fallback_channel_msg.strip(): # Check if fallback message itself is not empty
+                await event_channel.send(fallback_channel_msg, delete_after=60)
+            else:
+                log.error("Both DM and fallback channel message for victim outcome are empty. Cannot send any message.")
 
-        await event_channel.send(announcement_text)
-        log.info(f"Heist result announced in {event_channel.name}.")
+        if not announcement_text.strip(): # Pastikan announcement_text tidak kosong
+            log.warning("Heist announcement text is empty. Skipping sending announcement.")
+        else:
+            await event_channel.send(announcement_text)
+            log.info(f"Heist result announced in {event_channel.name}.")
         
 
     @commands.command(name="curi") # Command tanpa prefiks rtm
@@ -931,10 +966,20 @@ class EconomyEvents(commands.Cog):
            str(ctx.guild.id) in self.active_quizzes: # Cek jika user sendiri sedang di heist/fire/quiz
             logging.debug(f"Robber {ctx.author.display_name} is in another active event/quiz.")
             return await ctx.send("❌ Kamu sedang dalam proses event lain!", ephemeral=True)
-        if str(target_user.id) in self.active_heists.get(guild_id_str, {}) or \
-           str(target_user.id) in self.active_fires.get(guild_id_str, {}): # Cek jika target sedang di heist/fire
-            logging.debug(f"Target {target_user.display_name} is in another active event.")
-            return await ctx.send("❌ Target sedang dalam proses event lain! Coba cari target lain.", ephemeral=True)
+        
+        # Juga cek jika target sedang dalam investigasi
+        active_investigations_for_guild = self.active_investigations.get(guild_id_str, {})
+        if any(inv['suspect_id'] == str(target_user.id) and (inv['status'] == 'pending' or inv['status'] == 'revealed') for inv in active_investigations_for_guild.values()):
+            logging.debug(f"Target {target_user.display_name} is currently under investigation. Cannot rob.")
+            return await ctx.send("❌ Target ini sedang dalam investigasi aktif. Tidak bisa melakukan pencurian saat ini!", ephemeral=True)
+
+        if str(target_user.id) in self.active_heists.get(guild_id_str, {}): # Cek jika target sedang di heist (sebagai korban)
+            logging.debug(f"Target {target_user.display_name} is in another active heist event (as victim).")
+            return await ctx.send("❌ Target sedang dalam proses pencurian lain! Coba cari target lain.", ephemeral=True)
+
+        if str(target_user.id) in self.active_fires.get(guild_id_str, {}): # Cek jika target sedang di fire (sebagai korban)
+            logging.debug(f"Target {target_user.display_name} is in another active fire event (as victim).")
+            return await ctx.send("❌ Target sedang dalam proses kebakaran lain! Coba cari target lain.", ephemeral=True)
 
 
         bank_data = load_bank_data()
@@ -1026,16 +1071,26 @@ class EconomyEvents(commands.Cog):
             response_time_seconds=RESPONSE_TIME_SECONDS
         )
         try:
+            # Periksa jika pesan DM kosong sebelum mengirim
+            if not warning_dm_msg.strip():
+                raise ValueError("warning_dm_msg for fire is empty or only whitespace.")
             await victim.send(warning_dm_msg)
             log.info(f"Sent fire warning DM to {victim.display_name}.")
-        except discord.Forbidden:
+        except (discord.Forbidden, ValueError) as e:
+            if isinstance(e, ValueError):
+                log.error(f"Fire warning DM message is empty for {victim.display_name}: {e}. Falling back to channel message.")
+            else:
+                log.warning(f"Could not send fire DM to {victim.display_name} (DMs closed). Falling back to channel message.")
+            
             warning_channel_fallback_msg = fire_messages.get("warning_channel_fallback", "").format(
                 victim_mention=victim.mention,
                 response_time_seconds=RESPONSE_TIME_SECONDS
             )
-            # PERBAIKAN: Menggunakan warning_channel_fallback_msg
-            await event_channel.send(warning_channel_fallback_msg, delete_after=RESPONSE_TIME_SECONDS + 10)
-            log.warning(f"Could not send fire DM to {victim.display_name} (DMs closed), sent to channel instead.")
+            # Periksa jika fallback message kosong sebelum mengirim
+            if warning_channel_fallback_msg.strip():
+                await event_channel.send(warning_channel_fallback_msg, delete_after=RESPONSE_TIME_SECONDS + 10)
+            else:
+                log.error("Both DM and fallback channel message for fire are empty. Cannot send any message.")
 
         log.debug(f"Fire timer started for {victim.display_name}. Waiting {RESPONSE_TIME_SECONDS} seconds.")
         await asyncio.sleep(RESPONSE_TIME_SECONDS)
@@ -1130,13 +1185,27 @@ class EconomyEvents(commands.Cog):
         log.info(f"Victim {victim_display_name}'s new balance after fire: {victim_balance}.")
 
         try:
+            # Periksa jika pesan DM kosong sebelum mengirim
+            if not fire_outcome_text.strip():
+                raise ValueError("fire_outcome_text is empty or only whitespace.")
             await victim.send(fire_outcome_text)
-        except discord.Forbidden:
-            await event_channel.send(f"🔥 Laporan Kebakaran untuk {victim_mention}:\n{fire_outcome_text}", delete_after=60)
-            log.warning(f"Could not send fire outcome DM to {victim_display_name} (DMs closed), sent to channel instead.")
+        except (discord.Forbidden, ValueError) as e:
+            if isinstance(e, ValueError):
+                log.error(f"Fire outcome DM message is empty for {victim_display_name}: {e}. Falling back to channel message.")
+            else:
+                log.warning(f"Could not send fire outcome DM to {victim_display_name} (DMs closed). Falling back to channel message.")
             
-        await event_channel.send(announcement_text)
-        log.info(f"Fire event result announced in {event_channel.name}.")
+            fallback_channel_msg = f"🔥 Laporan Kebakaran untuk {victim_mention}:\n{fire_outcome_text}"
+            if fallback_channel_msg.strip():
+                await event_channel.send(fallback_channel_msg, delete_after=60)
+            else:
+                log.error("Both DM and fallback channel message for fire outcome are empty. Cannot send any message.")
+            
+        if not announcement_text.strip(): # Pastikan announcement_text tidak kosong
+            log.warning("Fire announcement text is empty. Skipping sending announcement.")
+        else:
+            await event_channel.send(announcement_text)
+            log.info(f"Fire event result announced in {event_channel.name}.")
 
     @commands.command(name="pemadam") # Command tanpa prefiks rtm
     async def call_fire_department(self, ctx):
@@ -1185,11 +1254,19 @@ class EconomyEvents(commands.Cog):
             return await ctx.send("❌ Tidak bisa memaksakan event ke bot.", ephemeral=True)
         
         guild_id_str = str(ctx.guild.id)
+        # Cek jika target sedang dalam event aktif lainnya (heist sebagai korban, fire sebagai korban, atau kuis)
         if str(target_user.id) in self.active_heists.get(guild_id_str, {}) or \
            str(target_user.id) in self.active_fires.get(guild_id_str, {}) or \
-           str(ctx.guild.id) in self.active_quizzes: # Cek jika target sedang di heist/fire/quiz
+           str(ctx.guild.id) in self.active_quizzes: 
             logging.debug(f"Target {target_user.display_name} is in another active event/quiz. Cannot force heist.")
             return await ctx.send("❌ Pengguna ini atau server ini sedang dalam proses event lain!", ephemeral=True)
+
+        # Juga cek jika target sedang dalam investigasi
+        active_investigations_for_guild = self.active_investigations.get(guild_id_str, {})
+        if any(inv['suspect_id'] == str(target_user.id) and (inv['status'] == 'pending' or inv['status'] == 'revealed') for inv in active_investigations_for_guild.values()):
+            logging.debug(f"Target {target_user.display_name} is currently under investigation. Cannot force heist.")
+            return await ctx.send("❌ Target ini sedang dalam investigasi aktif. Tidak bisa memaksakan pencurian saat ini!", ephemeral=True)
+
 
         bank_data = load_bank_data()
         target_balance = bank_data.get(str(target_user.id), {}).get("balance", 0)
@@ -2140,7 +2217,7 @@ class EconomyEvents(commands.Cog):
         logging.info(f"Admin {ctx.author.display_name} memicu !proyekbaru.")
 
         if ctx.channel.id != EVENT_CHANNEL_ID:
-            return await ctx.send(f"❌ Command ini hanya bisa digunakan di <#{EVENT_CHANNEL_ID}>.", ephemeral=True)
+            return await ctx.send(f"Command ini hanya bisa digunakan di <#{EVENT_CHANNEL_ID}>.", ephemeral=True)
 
         guild_id_str = str(ctx.guild.id)
         current_active_project = self.active_projects.get(guild_id_str)
@@ -2197,7 +2274,7 @@ class EconomyEvents(commands.Cog):
         guild_investigations = self.active_investigations.get(guild_id_str, {})
         if user_id_str in guild_investigations:
             return await ctx.send("❌ Anda sudah mengajukan laporan dan sedang menunggu hasilnya.", ephemeral=True)
-        if any(inv['suspect_id'] == str(target_user.id) and inv['status'] == 'pending' for inv in guild_investigations.values()):
+        if any(inv['suspect_id'] == str(target_user.id) and (inv['status'] == 'pending' or inv['status'] == 'revealed') for inv in guild_investigations.values()):
             return await ctx.send("❌ Target Anda sedang dalam investigasi aktif. Mohon tunggu.", ephemeral=True)
 
         # Pastikan ada heist aktif yang belum diinvestigasi untuk target
@@ -2250,7 +2327,7 @@ class EconomyEvents(commands.Cog):
                 suspect_display_name="seorang tersangka misterius", # Identitas disamarkan
                 suspect_mention="tersangka misterius", # Identitas disamarkan
                 bribe_cost=bribe_cost,
-                police_narration_detail=police_naration_detail
+                police_narration_detail=police_narration_detail
             ),
             color=discord.Color.dark_blue()
         )
@@ -2269,7 +2346,9 @@ class EconomyEvents(commands.Cog):
         
         # Peluang detektif mengungkapkan identitas berdasarkan biaya sogok
         # Contoh: Jika bayar 100, peluang ~25%, jika 450, peluang ~75%
-        success_chance = 0.25 + (bribe_cost - POLICE_BRIBE_COST_MIN) / (POLICE_BRIBE_COST_MAX - POLICE_BRIBE_COST_MIN) * 0.50 
+        # Skala peluang (0.25 - 0.75)
+        bribe_range = POLICE_BRIBE_COST_MAX - POLICE_BRIBE_COST_MIN
+        success_chance = 0.25 + (bribe_cost - POLICE_BRIBE_COST_MIN) / bribe_range * 0.50 
         is_revealed = random.random() < success_chance
 
         if is_revealed: # Target identitas tertangkap
@@ -2286,8 +2365,9 @@ class EconomyEvents(commands.Cog):
             )
             revealed_embed.set_footer(text="Sekarang, giliran Anda bertindak!")
             await ctx.send(embed=revealed_embed)
-            await ctx.author.send(f"🕵️‍♀️ **RAHASIA TERKUAK!** Detektif berhasil mengidentifikasi pencuri Anda: **{target_user.display_name}**! "
+            try: await ctx.author.send(f"🕵️‍♀️ **RAHASIA TERKUAK!** Detektif berhasil mengidentifikasi pencuri Anda: **{target_user.display_name}**! "
                                   f"Anda sekarang bisa melaporkannya ke polisi dengan `!laporpolisi {target_user.mention}`.")
+            except discord.Forbidden: log.warning(f"Could not send DM to {ctx.author.display_name} about revealed suspect.")
         else: # Target identitas tidak tertangkap (detektif gagal)
             logging.info(f"Investigation against {target_user.display_name} failed. Identity not revealed.")
             self.active_investigations[guild_id_str][user_id_str]['status'] = 'resolved_fail' # Langsung fail karena tidak ada kelanjutan
@@ -2301,7 +2381,8 @@ class EconomyEvents(commands.Cog):
             )
             fail_embed.set_footer(text="Detektif butuh uang lebih, Kawan.")
             await ctx.send(embed=fail_embed)
-            await ctx.author.send(f"💔 Detektif gagal mengidentifikasi pencuri Anda. Uang laporan Anda sebesar **{bribe_cost} RSWN** hangus. Mungkin lain kali butuh biaya lebih untuk 'motivasi' detektif. 🤫")
+            try: await ctx.author.send(f"💔 Detektif gagal mengidentifikasi pencuri Anda. Uang laporan Anda sebesar **{bribe_cost} RSWN** hangus. Mungkin lain kali butuh biaya lebih untuk 'motivasi' detektif. 🤫")
+            except discord.Forbidden: log.warning(f"Could not send DM to {ctx.author.display_name} about failed investigation.")
             # Hapus investigasi dari daftar aktif setelah resolusi gagal
             self.active_investigations.get(guild_id_str, {}).pop(user_id_str, None)
 
@@ -2401,8 +2482,8 @@ class EconomyEvents(commands.Cog):
             return await ctx.send("❌ Anda tidak sedang dalam masa tahanan. Kenapa mau menyogok?", ephemeral=True)
 
         # Cek apakah user sudah meminta bantuan sebelumnya (cooldown)
-        jail_bribe_requests_data = load_jail_help_requests()
-        last_request_time_str = jail_bribe_requests_data.get(user_id_str, {}).get("last_bribe_time")
+        jail_help_requests_data = load_jail_help_requests()
+        last_request_time_str = jail_help_requests_data.get(user_id_str, {}).get("last_bribe_time")
         
         # Cooldown 1 jam untuk sogok
         if last_request_time_str:
@@ -2425,8 +2506,8 @@ class EconomyEvents(commands.Cog):
         save_bank_data(bank_data)
 
         # Simpan waktu permintaan untuk cooldown
-        jail_bribe_requests_data[user_id_str] = {"last_bribe_time": datetime.utcnow().isoformat()}
-        save_jail_help_requests(jail_bribe_requests_data) # Menggunakan file yang sama
+        jail_help_requests_data[user_id_str] = {"last_bribe_time": datetime.utcnow().isoformat()}
+        save_jail_help_requests(jail_help_requests_data) # Menggunakan file yang sama
 
         # Acak hasil sogokan
         jail_bribe_messages = self.satire_narrations.get("jail_bribe_messages", {})
