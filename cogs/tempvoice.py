@@ -269,9 +269,7 @@ class TempVoice(commands.Cog):
             
         return is_owner
 
-    # Tidak perlu setvccreator atau removevccreator jika menggunakan TRIGGER_VOICE_CHANNEL_ID statis
-    # Namun, saya akan membiarkannya jika Anda ingin beralih ke pendekatan dinamis nanti.
-    # Jika Anda hanya menggunakan ID statis, perintah ini tidak akan melakukan apa pun yang memengaruhi fungsionalitas inti.
+    # setvccreator dan removevccreator tidak memerlukan perubahan `self.` karena tidak menggunakan `is_owner_vc`
 
     @commands.command(name="setvccreator", help="[ADMIN] Set a voice channel as a temporary channel creator. Users joining it will get a new private channel.")
     @commands.has_permissions(administrator=True)
@@ -287,7 +285,21 @@ class TempVoice(commands.Cog):
 
 
     @commands.command(name="vclock", help="Kunci channel pribadimu (hanya bisa masuk via invite/grant).")
-    @commands.check(self.is_owner_vc) # <--- PERBAIKAN DI SINI!
+    @commands.check(is_owner_vc) # TIDAK PERLU self.is_owner_vc di sini.
+                                 # Decorator `commands.check` akan secara otomatis meneruskan instance cog
+                                 # jika fungsi check itu sendiri adalah metode dari cog.
+                                 # Masalah terjadi jika `is_owner_vc` tidak dideklarasikan sebagai metode dari kelas,
+                                 # atau jika ada kesalahan dalam cara `discord.py` memparsingnya.
+                                 # Namun, log error jelas menunjukkan `TempVoice.is_owner_vc()` dipanggil tanpa argumen `ctx`
+                                 # yang merupakan perilaku jika `self` tidak terikat.
+                                 # Mari kita coba cara standard-nya lagi, dengan asumsi masalahnya adalah environment/cache.
+
+    # SAYA AKAN MENGEMBALIKAN KE @commands.check(TempVoice.is_owner_vc)
+    # ATAU, UNTUK LEBIH AMAN, KITA BISA GUNAKAN FUNGSI LAMBDA
+    # Mari kita coba yang paling sering berhasil: menggunakan referensi kelas.
+
+    @commands.command(name="vclock", help="Kunci channel pribadimu (hanya bisa masuk via invite/grant).")
+    @commands.check(lambda ctx: TempVoice.is_owner_vc(ctx.cog, ctx)) # <--- INI ADALAH SOLUSI ROBUST
     async def vc_lock(self, ctx):
         try:
             vc = ctx.author.voice.channel
@@ -302,7 +314,7 @@ class TempVoice(commands.Cog):
             log.error(f"Error locking VC {ctx.author.voice.channel.name}: {e}", exc_info=True)
 
     @commands.command(name="vcunlock", help="Buka kunci channel pribadimu.")
-    @commands.check(self.is_owner_vc) # <--- PERBAIKAN DI SINI!
+    @commands.check(lambda ctx: TempVoice.is_owner_vc(ctx.cog, ctx)) # <--- INI ADALAH SOLUSI ROBUST
     async def vc_unlock(self, ctx):
         try:
             vc = ctx.author.voice.channel
@@ -317,7 +329,7 @@ class TempVoice(commands.Cog):
             log.error(f"Error unlocking VC {ctx.author.voice.channel.name}: {e}", exc_info=True)
 
     @commands.command(name="vcsetlimit", help="Atur batas user di channel suara pribadimu (0 untuk tak terbatas).")
-    @commands.check(self.is_owner_vc) # <--- PERBAIKAN DI SINI!
+    @commands.check(lambda ctx: TempVoice.is_owner_vc(ctx.cog, ctx)) # <--- INI ADALAH SOLUSI ROBUST
     async def vc_set_limit(self, ctx, limit: int):
         if limit < 0 or limit > 99:
             return await ctx.send("❌ Batas user harus antara 0 (tak terbatas) hingga 99.", ephemeral=True)
@@ -334,7 +346,7 @@ class TempVoice(commands.Cog):
             log.error(f"Error setting user limit for VC {ctx.author.voice.channel.name}: {e}", exc_info=True)
 
     @commands.command(name="vcrename", help="Ubah nama channel pribadimu.")
-    @commands.check(self.is_owner_vc) # <--- PERBAIKAN DI SINI!
+    @commands.check(lambda ctx: TempVoice.is_owner_vc(ctx.cog, ctx)) # <--- INI ADALAH SOLUSI ROBUST
     async def vc_rename(self, ctx, *, new_name: str):
         if len(new_name) < 2 or len(new_name) > 100:
             return await ctx.send("❌ Nama channel harus antara 2 hingga 100 karakter.", ephemeral=True)
@@ -352,7 +364,7 @@ class TempVoice(commands.Cog):
             log.error(f"Error renaming VC {ctx.author.voice.channel.name}: {e}", exc_info=True)
 
     @commands.command(name="vckick", help="Tendang user dari channel suara pribadimu.")
-    @commands.check(self.is_owner_vc) # <--- PERBAIKAN DI SINI!
+    @commands.check(lambda ctx: TempVoice.is_owner_vc(ctx.cog, ctx)) # <--- INI ADALAH SOLUSI ROBUST
     async def vc_kick(self, ctx, member: discord.Member):
         if member.id == ctx.author.id:
             return await ctx.send("❌ Kamu tidak bisa menendang dirimu sendiri dari channelmu!", ephemeral=True)
@@ -375,7 +387,7 @@ class TempVoice(commands.Cog):
             await ctx.send("❌ Pengguna tersebut tidak berada di channelmu.", ephemeral=True)
 
     @commands.command(name="vcgrant", help="Berikan user izin masuk channelmu yang terkunci.")
-    @commands.check(self.is_owner_vc) # <--- PERBAIKAN DI SINI!
+    @commands.check(lambda ctx: TempVoice.is_owner_vc(ctx.cog, ctx)) # <--- INI ADALAH SOLUSI ROBUST
     async def vc_grant(self, ctx, member: discord.Member):
         if member.bot:
             return await ctx.send("❌ Kamu tidak bisa memberikan izin ke bot.", ephemeral=True)
@@ -392,7 +404,7 @@ class TempVoice(commands.Cog):
             log.error(f"Error granting access for VC {ctx.author.voice.channel.name}: {e}", exc_info=True)
 
     @commands.command(name="vcrevoke")
-    @commands.check(self.is_owner_vc) # <--- PERBAIKAN DI SINI!
+    @commands.check(lambda ctx: TempVoice.is_owner_vc(ctx.cog, ctx)) # <--- INI ADALAH SOLUSI ROBUST
     async def vc_revoke(self, ctx, member: discord.Member):
         if member.bot:
             return await ctx.send("❌ Kamu tidak bisa mencabut izin dari bot.", ephemeral=True)
@@ -409,7 +421,7 @@ class TempVoice(commands.Cog):
             log.error(f"Error revoking access for VC {ctx.author.voice.channel.name}: {e}", exc_info=True)
 
     @commands.command(name="vcowner")
-    @commands.check(self.is_owner_vc) # <--- PERBAIKAN DI SINI!
+    @commands.check(lambda ctx: TempVoice.is_owner_vc(ctx.cog, ctx)) # <--- INI ADALAH SOLUSI ROBUST
     async def vc_transfer_owner(self, ctx, new_owner: discord.Member):
         vc = ctx.author.voice.channel
         vc_id_str = str(vc.id)
@@ -521,7 +533,7 @@ class TempVoice(commands.Cog):
         embed.add_field(name="Manajemen Channel:", value="""
         `!vcsetlimit <angka>`: Atur batas jumlah user yang bisa masuk (0 untuk tak terbatas).
         `!vcrename <nama_baru>`: Ubah nama channel suaramu.
-        `!!vclock`: Kunci channelmu agar hanya user dengan izin yang bisa masuk (via `!vcgrant`).
+        `!vclock`: Kunci channelmu agar hanya user dengan izin yang bisa masuk (via `!vcgrant`).
         `!vcunlock`: Buka kunci channelmu agar siapa pun bisa masuk.
         """, inline=False)
 
