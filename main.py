@@ -355,7 +355,7 @@ async def load_cogs():
         "cogs.hangman",
         "cogs.quotes",
         "cogs.newgame",
-        "cogs.multigame"
+        "cogs.multigame",
         "cogs.dunia",
         "cogs.koruptor",
         "cogs.psikotes",
