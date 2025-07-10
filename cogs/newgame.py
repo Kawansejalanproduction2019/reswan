@@ -4,7 +4,8 @@ import json
 import random
 import asyncio
 import os
-from datetime import datetime, time
+from datetime import datetime, time, timedelta
+import pytz # Import pytz untuk zona waktu
 
 # --- Helper Functions to handle JSON data from the bot's root directory ---
 def load_json_from_root(file_path):
@@ -12,24 +13,28 @@ def load_json_from_root(file_path):
     try:
         base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
         full_path = os.path.join(base_dir, file_path)
+        os.makedirs(os.path.dirname(full_path), exist_ok=True) # Pastikan direktori ada
         with open(full_path, 'r', encoding='utf-8') as f:
             return json.load(f)
     except FileNotFoundError:
         print(f"[{datetime.now()}] [DEBUG HELPER] Peringatan: File {full_path} tidak ditemukan. Mengembalikan nilai default.")
         # Mengembalikan struktur data kosong yang sesuai berdasarkan nama file
-        # untuk questions_hangman.json, questions_resipa.json, dan sambung_kata_words.json kita harapkan list
         if 'questions_hangman' in file_path or 'questions_resipa' in file_path or 'sambung_kata_words' in file_path:
             return []
-        # Untuk data pengguna seperti bank_data atau level_data kita harapkan dictionary
         elif any(name in file_path for name in ['bank_data', 'level_data']):
             return {}
-        return [] # Default fallback
+        # Untuk file data game yang berisi list, termasuk donation_buttons
+        if 'donation_buttons.json' in file_path:
+            return [] # Default list kosong untuk tombol donasi
+        return [] # Default fallback for lists
     except json.JSONDecodeError as e:
         print(f"[{datetime.now()}] [DEBUG HELPER] Peringatan: File {full_path} rusak (JSON tidak valid). Error: {e}. Mengembalikan nilai default.")
         if 'questions_hangman' in file_path or 'questions_resipa' in file_path or 'sambung_kata_words' in file_path:
             return []
         elif any(name in file_path for name in ['bank_data', 'level_data']):
             return {}
+        if 'donation_buttons.json' in file_path:
+            return []
         return []
 
 
@@ -37,28 +42,41 @@ def save_json_to_root(data, file_path):
     """Menyimpan data ke file JSON di direktori utama bot."""
     base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
     full_path = os.path.join(base_dir, file_path)
-    os.makedirs(os.path.dirname(full_path), exist_ok=True)
+    os.makedirs(os.path.dirname(full_path), exist_ok=True) # Pastikan direktori ada
     with open(full_path, 'w', encoding='utf-8') as f:
         json.dump(data, f, indent=4)
 
-# --- New DonationView - reusable for any game cog ---
+# --- New DonationView - MODIFIED TO LOAD BUTTONS FROM JSON ---
 class DonationView(discord.ui.View):
     def __init__(self):
         super().__init__(timeout=None) # Keep buttons active indefinitely
+        self.load_donation_buttons()
 
-        bagi_bagi_button = discord.ui.Button(
-            label="Dukung via Bagi-Bagi!",
-            style=discord.ButtonStyle.link,
-            url="https://bagibagi.co/Rh7155"
-        )
-        self.add_item(bagi_bagi_button)
+    def load_donation_buttons(self):
+        # Path relatif ke root proyek
+        # Jika file tidak ditemukan atau kosong, load_json_from_root akan mengembalikan []
+        donation_buttons_data = load_json_from_root('data/donation_buttons.json')
+        
+        # Jika data yang dimuat kosong, gunakan tombol default hardcoded
+        if not donation_buttons_data:
+            print(f"[{datetime.now()}] [DonationView] File 'data/donation_buttons.json' kosong atau tidak ditemukan. Menggunakan tombol default.")
+            default_buttons = [
+                {"label": "Dukung via Bagi-Bagi!", "url": "https://bagibagi.co/Rh7155"},
+                {"label": "Donasi via Saweria!", "url": "https://saweria.co/RH7155"}
+            ]
+            donation_buttons_data = default_buttons
 
-        saweria_button = discord.ui.Button(
-            label="Donasi via Saweria!",
-            style=discord.ButtonStyle.link,
-            url="https://saweria.co/Rh7155"
-        )
-        self.add_item(saweria_button)
+        # Tambahkan tombol ke view
+        for button_info in donation_buttons_data:
+            if "label" in button_info and "url" in button_info:
+                button = discord.ui.Button(
+                    label=button_info["label"],
+                    style=discord.ButtonStyle.link,
+                    url=button_info["url"]
+                )
+                self.add_item(button)
+            else:
+                print(f"[{datetime.now()}] [DonationView] Peringatan: Format tombol donasi tidak valid: {button_info}")
 
 class GameLanjutan(commands.Cog):
     def __init__(self, bot):
@@ -84,7 +102,13 @@ class GameLanjutan(commands.Cog):
         self.resipa_time_limit = 30  # Detik per soal resipa
         self.sambung_kata_time_limit = 20 # Detik per giliran sambung kata
 
-    # --- FUNGSI INTEGRASI & PEMBERIAN HADIAH ---
+        # Untuk melacak percobaan jawaban dan cooldown kuis
+        self.quiz_attempts_per_question = {} # {channel_id: {user_id: attempts}}
+        self.cooldown_users = {} # {user_id: datetime_obj}
+
+    def cog_unload(self):
+        self.post_daily_puzzle.cancel()
+
     def get_anomaly_multiplier(self):
         """Mengecek apakah ada anomali EXP boost aktif dari cog DuniaHidup."""
         dunia_cog = self.bot.get_cog('DuniaHidup')
@@ -127,14 +151,32 @@ class GameLanjutan(commands.Cog):
         """
         if game_type == 'resacak' and channel_id in self.active_resacak_games:
             self.active_resacak_games.pop(channel_id, None)
-            print(f"Game Resacak di channel {channel_id} telah selesai.")
+            print(f"[{datetime.now()}] Game Resacak di channel {channel_id} telah selesai.")
         elif game_type == 'resipa' and channel_id in self.active_resipa_games:
             self.active_resipa_games.pop(channel_id, None)
-            print(f"Game Resipa di channel {channel_id} telah selesai.")
+            print(f"[{datetime.now()}] Game Resipa di channel {channel_id} telah selesai.")
         elif game_type == 'sambung_kata' and channel_id in self.active_sambung_games:
             self.active_sambung_games.pop(channel_id, None)
-            print(f"Game Sambung Kata di voice channel {channel_id} telah selesai.")
+            print(f"[{datetime.now()}] Game Sambung Kata di voice channel {channel_id} telah selesai.")
         
+        # Reset quiz attempts and cooldowns for this channel (specifically for Siapakah Aku/Hitung Cepat)
+        if channel_id in self.quiz_attempts_per_question:
+            del self.quiz_attempts_per_question[channel_id]
+        # Clear cooldowns for users who were in this channel's game
+        for user_id in list(self.cooldown_users.keys()):
+            # Only remove if the cooldown is tied to a user currently in the channel (simplified)
+            # A more robust solution might tie cooldowns directly to game sessions
+            if user_id in self.cooldown_users and (channel_obj and self.bot.get_user(user_id) in channel_obj.members):
+                del self.cooldown_users[user_id]
+                member = channel_obj.guild.get_member(user_id)
+                if member:
+                    try:
+                        await member.timeout(None, reason="Game ended, cooldown lifted.")
+                    except discord.Forbidden:
+                        pass
+                    except Exception as e:
+                        print(f"[{datetime.now()}] Error removing timeout on cleanup for {member.display_name}: {e}")
+
         if channel_obj:
             donation_message = (
                 "🎮 **Permainan Telah Usai!** Terima kasih sudah bermain bersama kami.\n\n"
@@ -229,6 +271,7 @@ class GameLanjutan(commands.Cog):
 
     # --- GAME 2: RESIPA (TEBAK KATA DENGAN KATEGORI & KISI-KISI) ---
     @commands.command(name="resipa", help="Mulai permainan Kuis Resipa (Tebak Kata).")
+    @commands.cooldown(1, 30, commands.BucketType.channel)
     async def resipa(self, ctx):
         if ctx.channel.id != self.game_channel_id:
             return await ctx.send("Permainan ini hanya bisa dimainkan di channel yang ditentukan.", delete_after=10)
