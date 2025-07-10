@@ -14,10 +14,7 @@ from datetime import datetime
 
 load_dotenv() # Load environment variables from .env file
 
-# --- Setup Logging ---
-# Set logging level to DEBUG to see detailed messages, INFO for less verbose output
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
-log = logging.getLogger(__name__) # Get a logger instance for this module
+
 
 # --- Helper to save cookies from environment variable ---
 def save_cookies_from_env():
@@ -376,6 +373,7 @@ async def setup_hook():
     """Called once when the bot first starts up."""
     log.info("🚀 Starting setup_hook and loading cogs...")
     await load_cogs()
+    await load_extension() 
     log.info(f"✅ Finished setup_hook and all cogs attempted to load.")
     # Log registered commands after cogs are loaded
     log.info(f"All commands registered: {[command.name for command in bot.commands]}")
