@@ -78,7 +78,7 @@ def ensure_data_files():
         if not os.path.exists(file_path):
             with open(file_path, "w", encoding="utf-8") as f:
                 json.dump(default_content, f, indent=4)
-    log.info(f"Memastikan folder '{DATA_DIR}' dan file data exist.")
+    # log.info(f"Memastikan folder '{DATA_DIR}' dan file data exist.") # Baris ini dihapus agar tidak spam log
 
 def load_json_safe(file_path):
     """Loads JSON data from file, creates with default if not found or corrupted."""
@@ -88,10 +88,7 @@ def load_json_safe(file_path):
             return json.load(f)
     except (json.JSONDecodeError, FileNotFoundError) as e:
         log.warning(f"Failed to load {file_path}: {e}. Returning empty dict.")
-        # Untuk satire_narrations, kembalikan dict kosong dan user harus isi manual JSON-nya
-        # Default structures are handled by ensure_data_files for most files, 
-        # but for satire_narrations, its default content is too large to put here.
-        # It's expected to be pre-filled by the user.
+        # Mengembalikan dictionary kosong untuk file apapun jika tidak ditemukan/rusak
         return {}
 
 
@@ -151,13 +148,11 @@ def save_jail_help_requests(data):
 
 # Tambahkan fungsi untuk memuat narasi satir
 def load_satire_narrations():
+    # load_json_safe akan menangani FileNotFoundError atau JSONDecodeError
     narrations = load_json_safe(SATIRE_NARRATIONS_FILE)
-    # Jika file kosong, bot akan mencoba memuatnya sebagai default
-    # Ini adalah fallback, tapi lebih baik user sudah mengisi JSON ini secara manual
     if not narrations:
-        log.warning(f"{SATIRE_NARRATIONS_FILE} is empty or invalid. Please ensure it's manually populated with the correct JSON structure.")
-        # Mengembalikan struktur kosong agar tidak crash, tapi fungsionalitas narasi tidak akan jalan
-        return {}
+        log.critical(f"WARNING: {SATIRE_NARRATIONS_FILE} is empty or invalid. Please ensure it's manually populated with the correct JSON structure. Satirical messages will not appear correctly. (Falling back to empty dict for safety.)")
+        return {} # Mengembalikan struktur kosong agar tidak crash, tapi fungsionalitas narasi tidak akan jalan
     return narrations
 
 
@@ -171,9 +166,6 @@ class EconomyEvents(commands.Cog):
         self.jail_help_requests = load_jail_help_requests()
         self.active_investigations = {}
         self.satire_narrations = load_satire_narrations() # Muat narasi satir
-        # Memastikan narasi dimuat, jika kosong di file, akan jadi {}
-        if not self.satire_narrations:
-            log.critical("Satire narrations (satire_narrations.json) failed to load or is empty. Satirical messages will not appear correctly.")
 
         # --- Konfigurasi Pajak ---
         self.funny_tax_insults = [
@@ -481,10 +473,10 @@ class EconomyEvents(commands.Cog):
             if potential_victims: # Hanya bisa ada heist/fire jika ada target yang valid
                 event_options.extend(["heist", "fire"])
             
-            # Hanya bisa ada kuis jika belum ada kuis aktif DAN ada cukup pertanyaan di JSON
-            trivia_data = load_trivia_questions()
-            if str(guild.id) not in active_quiz_guilds and trivia_data.get("questions") and len(trivia_data["questions"]) >= QUIZ_TOTAL_QUESTIONS:
-                event_options.append("quiz")
+            # Kuis Pemerintah Bobrok (di sini tidak ditambahkan lagi ke event_options)
+            # trivia_data = load_trivia_questions()
+            # if str(guild.id) not in active_quiz_guilds and trivia_data.get("questions") and len(trivia_data["questions"]) >= QUIZ_TOTAL_QUESTIONS:
+            #    event_options.append("quiz") # Baris ini dihapus agar tidak muncul otomatis
 
             if not event_options:
                 log.info(f"No available event options for guild {guild.name}.")
@@ -509,9 +501,9 @@ class EconomyEvents(commands.Cog):
                 victim = random.choice(eligible_for_fire)
                 log.info(f"Scheduling random fire event for {victim.display_name} in guild {guild.name}.")
                 await self._start_fire(guild, victim, event_channel)
-            elif chosen_event_type == "quiz":
-                log.info(f"Scheduling random quiz event in guild {guild.name}.")
-                await self._start_quiz_session(guild, event_channel)
+            # elif chosen_event_type == "quiz": # Bagian ini dihapus sepenuhnya
+            #    log.info(f"Scheduling random quiz event in guild {guild.name}.")
+            #    await self._start_quiz_session(guild, event_channel)
             
     @heist_fire_event_scheduler.before_loop
     async def before_heist_fire_scheduler(self):
@@ -709,7 +701,8 @@ class EconomyEvents(commands.Cog):
         }
         log.debug(f"Heist data stored: {self.active_heists[guild_id_str][victim_id_str]}")
         
-        heist_msg = self.satire_narrations.get("heist_messages", {}).get("warning_dm", "").format(
+        heist_messages = self.satire_narrations.get("heist_messages", {})
+        warning_dm_msg = heist_messages.get("warning_dm", "").format(
             initiator_display_name=initiator.display_name if isinstance(initiator, discord.User) else initiator,
             victim_display_name=victim.display_name,
             event_channel_id=EVENT_CHANNEL_ID,
@@ -719,7 +712,7 @@ class EconomyEvents(commands.Cog):
             await victim.send(heist_msg)
             log.info(f"Sent heist warning DM to {victim.display_name}.")
         except discord.Forbidden:
-            fallback_msg = self.satire_narrations.get("heist_messages", {}).get("warning_channel_fallback", "").format(
+            fallback_msg = heist_messages.get("warning_channel_fallback", "").format(
                 victim_mention=victim.mention,
                 response_time_seconds=RESPONSE_TIME_SECONDS
             )
@@ -1039,7 +1032,7 @@ class EconomyEvents(commands.Cog):
                 victim_mention=victim.mention,
                 response_time_seconds=RESPONSE_TIME_SECONDS
             )
-            await event_channel.send(warning_channel_fallback_msg, delete_after=RESPONSE_TIME_SECONDS + 10)
+            await event_channel.send(fallback_msg, delete_after=RESPONSE_TIME_SECONDS + 10)
             log.warning(f"Could not send fire DM to {victim.display_name} (DMs closed), sent to channel instead.")
 
         log.debug(f"Fire timer started for {victim.display_name}. Waiting {RESPONSE_TIME_SECONDS} seconds.")
@@ -1128,7 +1121,7 @@ class EconomyEvents(commands.Cog):
 
         bank_data[victim_id_str]["balance"] = victim_balance
         save_bank_data(bank_data)
-        log.info(f"Victim {victim.display_name}'s new balance after fire: {victim_balance}.")
+        log.info(f"Victim {victim_display_name}'s new balance after fire: {victim_balance}.")
 
         try:
             await victim.send(fire_outcome_text)
@@ -1967,15 +1960,16 @@ class EconomyEvents(commands.Cog):
             result_embed_desc = f"{message.author.mention}, {question_info['wrong_response']}\nJawaban yang benar adalah: **{question_info['answer']}**."
             result_embed_color = discord.Color.red()
             
-            if user_balance >= QUIZ_PENALTY:
-                bank_data = load_bank_data()
-                bank_data.setdefault(user_id_str, {"balance":0, "debt":0})["balance"] -= QUIZ_PENALTY
-                save_bank_data(bank_data)
-                result_embed_desc += f"\nAnda didenda **{QUIZ_PENALTY} RSWN** karena 'gagal memahami sistem'!"
-                logging.info(f"User {message.author.display_name} answered incorrectly. Penalized {QUIZ_PENALTY} RSWN. New balance: {bank_data[user_id_str]['balance']}.")
-            else:
-                result_embed_desc += "\nAnda lolos denda karena dompet Anda sudah dihisap habis oleh birokrasi sebelumnya. Syukurlah!"
-                logging.info(f"User {message.author.display_name} answered incorrectly. No penalty (insufficient funds).")
+            # Logika penalti di sini DIHAPUS, tapi sisakan pesan salah
+            # if user_balance >= QUIZ_PENALTY:
+            #     bank_data = load_bank_data()
+            #     bank_data.setdefault(user_id_str, {"balance":0, "debt":0})["balance"] -= QUIZ_PENALTY
+            #     save_bank_data(bank_data)
+            #     result_embed_desc += f"\nAnda didenda **{QUIZ_PENALTY} RSWN** karena 'gagal memahami sistem'!"
+            #     logging.info(f"User {message.author.display_name} answered incorrectly. Penalized {QUIZ_PENALTY} RSWN. New balance: {bank_data[user_id_str]['balance']}.")
+            # else:
+            #     result_embed_desc += "\nAnda lolos denda karena dompet Anda sudah dihisap habis oleh birokrasi sebelumnya. Syukurlah!"
+            #     logging.info(f"User {message.author.display_name} answered incorrectly. No penalty (insufficient funds).")
 
         result_embed = discord.Embed(
             title=result_embed_title,
