@@ -24,10 +24,10 @@
         "initial_announcement_title": "🕵️‍♂️ Laporan Intelijen Baru Diterima!",
         "initial_announcement_description": "Warga **{reporter_display_name}** (`{reporter_mention}`) telah melaporkan aktivitas mencurigakan yang melibatkan **{suspect_display_name}** (`{suspect_mention}`)!\n\n**Biaya Laporan:** **{bribe_cost} RSWN** telah disisihkan.\n\n_{police_narration_detail}_",
         "bribe_details": {
-            "0": "Inspektur Kepala menyeringai. 'Laporan gratis? Ada apa ini? Baiklah, ini kasus menarik!'",
-            "low": "Seorang petugas menerima 'biaya administrasi'. 'Cukup untuk kopi dan donat kami, terima kasih!'",
-            "medium": "Suara gesekan amplop terdengar. 'Ah, ini yang kami suka! Laporan Anda langsung diprioritaskan!'",
-            "high": "Senyum lebar di wajah petugas. 'Dana operasional mendesak ini sangat membantu! Kami jamin, investigasi akan sangat... intens!'"
+            "0": "Inspektur Kepala menyeringai. 'Laporan gratis? Ada apa ini? Baiklah, ini kasus menarik! Buru-buru selidiki!''",
+            "low": "Seorang petugas menerima 'biaya administrasi'. 'Cukup untuk kopi dan donat kami, terima kasih! Laporan Anda sedang kami proses.'",
+            "medium": "Suara gesekan amplop terdengar. 'Ah, ini yang kami suka! Laporan Anda langsung diprioritaskan!''",
+            "high": "Senyum lebar di wajah petugas. 'Dana operasional mendesak ini sangat membantu! Kami jamin, investigasi akan sangat... intens! Tinggal tunggu kabar dari kami!''"
         },
         "success_title": "🚨 KEPUTUSAN INVESTIGASI: PELAKU TERTANGKAP! 🚨",
         "success_description": "Setelah penyelidikan intensif (dan beberapa 'dana tambahan' tak terduga), tim detektif berhasil meringkus pelaku!\n**{suspect_mention}** telah terbukti bersalah dan dijebloskan ke sel tahanan pemerintah!\nWarga pelapor **{reporter_mention}** menerima bonus **{bounty} RSWN** atas 'jasanya'!\n\n_Mereka yang korup akhirnya mencicipi pahitnya jeruji besi... untuk sementara._",
