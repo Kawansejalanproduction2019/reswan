@@ -1,7 +1,7 @@
 {
   "heist_messages": {
-    "warning_dm": "🚨 **DARURAT KEAMANAN!** Kami menerima laporan aktivitas mencurigakan di sekitar tempat tinggal Anda, **{victim_display_name}**! Ada indikasi **{initiator_display_name}** sedang merencanakan sesuatu yang mencurigakan, mungkin terkait upaya 'penyambutan tamu tak diundang'. Anda punya waktu **{response_time_seconds} detik** untuk memanggil `!polisi` di <#{event_channel_id}> sebelum terjadi hal yang tidak diinginkan! Bertindak cepat, jangan sampai 'aset' Anda berpindah tangan secara ilegal! 😱",
-    "warning_channel_fallback": "🚨 **PERHATIAN!** Deteksi aktivitas mencurigakan di rumah **{victim_mention}**! Waktu respon **{response_time_seconds} detik** untuk memanggil `!polisi`!",
+    "warning_dm": "🚨 **DARURAT KEAMANAN!** Kami menerima laporan aktivitas mencurigakan di sekitar tempat tinggal Anda, **{victim_display_name}**! Ada indikasi **{initiator_display_name}** sedang merencanakan sesuatu yang mencurigakan, mungkin terkait upaya 'penyambutan tamu tak diundang'. Anda punya waktu **{response_time_seconds} detik** untuk memanggil `!responpolisi` di <#{event_channel_id}> sebelum terjadi hal yang tidak diinginkan! Bertindak cepat, jangan sampai 'aset' Anda berpindah tangan secara ilegal! 😱",
+    "warning_channel_fallback": "🚨 **PERHATIAN!** Deteksi aktivitas mencurigakan di rumah **{victim_mention}**! Waktu respon **{response_time_seconds} detik** untuk memanggil `!responpolisi`!",
     "initiator_dm": "🕵️‍♂️ Operasi `!curi` Anda sedang berjalan! Anda sudah membayar **{heist_cost} RSWN** sebagai 'dana operasional'. Target sudah diberitahu untuk 'bersiap'. Semoga beruntung, agen gelap! Jangan sampai ketahuan ya. Kalau tertangkap, kami tidak kenal Anda!",
     "initiator_result_jailed": "💔 Sial! Operasi Anda gagal total! Anda tertangkap basah dan langsung digiring ke 'hotel prodeo' milik pemerintah. Selamat menikmati 'fasilitas' gratisan dari negara bobrok ini! Uang modal Anda hangus. Jangan coba-coba hubungi kami, kami sedang sibuk 'rapat internal'.",
     "initiator_result_success": "🎉 Selamat! Operasi `!curi` Anda sukses! Anda berhasil membawa pulang **{actual_loot} RSWN**. Dengan modal **{heist_cost} RSWN** yang sudah dipotong, Anda untung bersih **{actual_loot} RSWN**! Waktu untuk foya-foya! 💰",
@@ -40,24 +40,31 @@
   },
   "police_report_messages": {
     "initial_announcement_title": "🚨 LAPORAN INTELIJEN BARU DITERIMA! 🚨",
-    "initial_announcement_description": "Kami menerima laporan mencurigakan dari warga **{reporter_display_name}** ({reporter_mention}) terhadap **{suspect_display_name}** ({suspect_mention})! "
+    "initial_announcement_description": "Kami menerima laporan mencurigakan dari warga **{reporter_display_name}** ({reporter_mention}) terhadap **seorang tersangka misterius**! "
                                       "Pihak kepolisian (dengan sedikit 'dorongan' dana operasional sebesar **{bribe_cost} RSWN** dari pelapor) sedang memulai investigasi rahasia. "
                                       "**{police_narration_detail}**\n\n"
                                       "Pejabat IntelijenBot: 'Tunggu hasil laporan kami. Semoga saja tidak ada 'kesalahpahaman' di lapangan, ya.'",
     "bribe_details": {
-      "0": "Polisi sangat terkejut Anda tidak menyogok sama sekali. Mereka akan bekerja sangat malas.",
       "low": "Jumlah ini cukup untuk membeli kopi instan dan gorengan bagi petugas. Mereka akan bekerja dengan 'semangat kopi'.",
       "medium": "Dana ini cukup untuk makan siang mewah bagi para petugas. Mereka akan bekerja dengan 'motivasi makan besar'.",
       "high": "Wow! Dana ini cukup untuk membiayai perjalanan dinas petugas ke luar kota! Mereka akan bekerja dengan 'semangat liburan'."
     },
-    "success_title": "🎉 KEPUTUSAN INVESTIGASI: PELAKU TERTANGKAP! 🎉",
-    "success_description": "Setelah investigasi 'mendalam' dan 'kompleks', pihak kepolisian berhasil membekuk pelaku, yaitu **{suspect_mention}**! "
-                           "Pelaku kini dalam perjalanan menuju 'hotel prodeo' milik pemerintah. Terima kasih atas partisipasi aktif **{reporter_mention}**! "
-                           "Sebagai tanda apresiasi, Anda mendapatkan bonus 'dana kejujuran' sebesar **{bounty} RSWN**!",
-    "fail_title": "💔 KEPUTUSAN INVESTIGASI: PELAKU LOLOS! 💔",
-    "fail_description": "Setelah investigasi yang 'intens' (tapi hasilnya nihil), kami tidak dapat menemukan bukti kuat untuk menahan **{suspect_mention}**. "
-                        "Pihak kepolisian menyatakan kasus ini 'kurang bukti' atau 'salah paham'. Dana operasional dari Anda sudah terpakai untuk investigasi 'rahasia' ini. "
-                        "Mohon maaf, Anda harus lebih 'meyakinkan' lain kali."
+    "reveal_success_title": "🕵️‍♀️ KASUS TERUNGKAP: IDENTITAS TERSANGKA DIKETAHUI! 🕵️‍♀️",
+    "reveal_success_description": "Setelah investigasi 'mendalam' dan 'mahal', detektif kami dengan bangga mengumumkan identitas tersangka pencurian: **{suspect_mention}**! "
+                                  "Pelapor **{reporter_mention}** kini dapat melanjutkan kasus ini ke ranah hukum. Persiapkan amunisi lagi!",
+    "reveal_fail_title": "❌ KASUS GAGAL: IDENTITAS TERSANGKA TETAP MISTERI! ❌",
+    "reveal_fail_description": "Maaf, **{reporter_mention}**! Meskipun dana sudah digelontorkan, detektif kami 'kesulitan' menemukan bukti. "
+                               "Identitas tersangka tetap rahasia ilahi. Mungkin detektifnya kurang 'terinspirasi' oleh dana yang Anda berikan. Coba lagi lain kali dengan 'dana yang lebih memotivasi'.",
+    "police_corrupt_title": "🚓 POLISI KORUP! LAPORAN ANDA DIABAIKAN! 💸",
+    "police_corrupt_description": "Laporan Anda mengenai **{suspect_mention}** telah 'ditinjau' oleh pihak kepolisian. "
+                                  "Sayangnya, mereka memutuskan bahwa kasus ini 'tidak memiliki potensi' atau 'kurang menguntungkan'. "
+                                  "Dana **{report_cost} RSWN** Anda untuk pelaporan akan dialihkan untuk 'kesejahteraan' aparat. "
+                                  "Pejabat mengatakan: 'Kami sibuk, ya sudah begitu saja.'",
+    "police_success_title": "🎉 POLISI BERTINDAK! PELAKU DITANGKAP! 🎉",
+    "police_success_description": "Selamat, **{reporter_mention}**! Laporan Anda mengenai **{suspect_mention}** telah 'ditindaklanjuti' oleh pihak kepolisian. "
+                                  "Dengan sedikit 'negosiasi' dan 'dana stimulan' sebesar **{report_cost} RSWN**, pelaku berhasil diamankan dan kini menuju 'hotel prodeo'!",
+    "police_report_bounty": "🎉 **BONUS INVESTIGASI!** Laporanmu berhasil dan kamu menerima **{bounty} RSWN** sebagai bonus rahasia dari polisi!",
+    "police_report_fail_dm": "💔 Laporan investigasimu gagal. Polisi tidak bisa menangkap {target_user_display_name}. Biaya laporanmu hangus."
   },
   "jail_bribe_messages": {
     "success_title": "🎉 BEBAS BERSYARAT! KARENA ORANG DALAM! 🎉",
