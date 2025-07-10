@@ -40,42 +40,29 @@
   },
   "police_report_messages": {
     "initial_announcement_title": "🚨 LAPORAN INTELIJEN BARU DITERIMA! 🚨",
-    "initial_announcement_description": "Kami menerima laporan mencurigakan dari warga **{reporter_display_name}** ({reporter_mention}) terhadap **seorang tersangka misterius**! "
-                                      "Pihak kepolisian (dengan sedikit 'dorongan' dana operasional sebesar **{bribe_cost} RSWN** dari pelapor) sedang memulai investigasi rahasia. "
-                                      "**{police_narration_detail}**\n\n"
-                                      "Pejabat IntelijenBot: 'Tunggu hasil laporan kami. Semoga saja tidak ada 'kesalahpahaman' di lapangan, ya.'",
+    "initial_announcement_description": "Kami menerima laporan mencurigakan dari warga **{reporter_display_name}** ({reporter_mention}) terhadap **seorang tersangka misterius**! Pihak kepolisian (dengan sedikit 'dorongan' dana operasional sebesar **{bribe_cost} RSWN** dari pelapor) sedang memulai investigasi rahasia. **{police_narration_detail}**\n\nPejabat IntelijenBot: 'Tunggu hasil laporan kami. Semoga saja tidak ada 'kesalahpahaman' di lapangan, ya.'",
     "bribe_details": {
       "low": "Jumlah ini cukup untuk membeli kopi instan dan gorengan bagi petugas. Mereka akan bekerja dengan 'semangat kopi'.",
       "medium": "Dana ini cukup untuk makan siang mewah bagi para petugas. Mereka akan bekerja dengan 'motivasi makan besar'.",
       "high": "Wow! Dana ini cukup untuk membiayai perjalanan dinas petugas ke luar kota! Mereka akan bekerja dengan 'semangat liburan'."
     },
     "reveal_success_title": "🕵️‍♀️ KASUS TERUNGKAP: IDENTITAS TERSANGKA DIKETAHUI! 🕵️‍♀️",
-    "reveal_success_description": "Setelah investigasi 'mendalam' dan 'mahal', detektif kami dengan bangga mengumumkan identitas tersangka pencurian: **{suspect_mention}**! "
-                                  "Pelapor **{reporter_mention}** kini dapat melanjutkan kasus ini ke ranah hukum. Persiapkan amunisi lagi!",
+    "reveal_success_description": "Setelah investigasi 'mendalam' dan 'mahal', detektif kami dengan bangga mengumumkan identitas tersangka pencurian: **{suspect_mention}**! Pelapor **{reporter_mention}** kini dapat melanjutkan kasus ini ke ranah hukum. Persiapkan amunisi lagi!",
     "reveal_fail_title": "❌ KASUS GAGAL: IDENTITAS TERSANGKA TETAP MISTERI! ❌",
-    "reveal_fail_description": "Maaf, **{reporter_mention}**! Meskipun dana sudah digelontorkan, detektif kami 'kesulitan' menemukan bukti. "
-                               "Identitas tersangka tetap rahasia ilahi. Mungkin detektifnya kurang 'terinspirasi' oleh dana yang Anda berikan. Coba lagi lain kali dengan 'dana yang lebih memotivasi'.",
+    "reveal_fail_description": "Maaf, **{reporter_mention}**! Meskipun dana sudah digelontorkan, detektif kami 'kesulitan' menemukan bukti. Identitas tersangka tetap rahasia ilahi. Mungkin detektifnya kurang 'terinspirasi' oleh dana yang Anda berikan. Coba lagi lain kali dengan 'dana yang lebih memotivasi'.",
     "police_corrupt_title": "🚓 POLISI KORUP! LAPORAN ANDA DIABAIKAN! 💸",
-    "police_corrupt_description": "Laporan Anda mengenai **{suspect_mention}** telah 'ditinjau' oleh pihak kepolisian. "
-                                  "Sayangnya, mereka memutuskan bahwa kasus ini 'tidak memiliki potensi' atau 'kurang menguntungkan'. "
-                                  "Dana **{report_cost} RSWN** Anda untuk pelaporan akan dialihkan untuk 'kesejahteraan' aparat. "
-                                  "Pejabat mengatakan: 'Kami sibuk, ya sudah begitu saja.'",
+    "police_corrupt_description": "Laporan Anda mengenai **{suspect_mention}** telah 'ditinjau' oleh pihak kepolisian. Sayangnya, mereka memutuskan bahwa kasus ini 'tidak memiliki potensi' atau 'kurang menguntungkan'. Dana **{report_cost} RSWN** Anda untuk pelaporan akan dialihkan untuk 'kesejahteraan' aparat. Pejabat mengatakan: 'Kami sibuk, ya sudah begitu saja.'",
     "police_success_title": "🎉 POLISI BERTINDAK! PELAKU DITANGKAP! 🎉",
-    "police_success_description": "Selamat, **{reporter_mention}**! Laporan Anda mengenai **{suspect_mention}** telah 'ditindaklanjuti' oleh pihak kepolisian. "
-                                  "Dengan sedikit 'negosiasi' dan 'dana stimulan' sebesar **{report_cost} RSWN**, pelaku berhasil diamankan dan kini menuju 'hotel prodeo'!",
+    "police_success_description": "Selamat, **{reporter_mention}**! Laporan Anda mengenai **{suspect_mention}** telah 'ditindaklanjuti' oleh pihak kepolisian. Dengan sedikit 'negosiasi' dan 'dana stimulan' sebesar **{report_cost} RSWN**, pelaku berhasil diamankan dan kini menuju 'hotel prodeo'!",
     "police_report_bounty": "🎉 **BONUS INVESTIGASI!** Laporanmu berhasil dan kamu menerima **{bounty} RSWN** sebagai bonus rahasia dari polisi!",
     "police_report_fail_dm": "💔 Laporan investigasimu gagal. Polisi tidak bisa menangkap {target_user_display_name}. Biaya laporanmu hangus."
   },
   "jail_bribe_messages": {
     "success_title": "🎉 BEBAS BERSYARAT! KARENA ORANG DALAM! 🎉",
-    "success_description": "Selamat, **{jailed_user_mention}**! Dana sogokan Anda sebesar **{sogok_cost} RSWN** telah bekerja dengan 'ajaib'! "
-                           "Anda kini bebas dari 'hotel prodeo' virtual. Pejabat kami mengucapkan terima kasih atas 'kontribusi' Anda dalam memperlancar birokrasi. "
-                           "Ingat, persahabatan itu mahal. 😉",
+    "success_description": "Selamat, **{jailed_user_mention}**! Dana sogokan Anda sebesar **{sogok_cost} RSWN** telah bekerja dengan 'ajaib'! Anda kini bebas dari 'hotel prodeo' virtual. Pejabat kami mengucapkan terima kasih atas 'kontribusi' Anda dalam memperlancar birokrasi. Ingat, persahabatan itu mahal. 😉",
     "success_dm": "🎉 Anda berhasil menyogok jalan keluar dari penjara dengan **{sogok_cost} RSWN**! Rahasia ini aman bersama kami... dan dompet kami.🤫",
     "fail_title": "🤦‍♂️ SOGOKAN GAGAL! UANG ANDA DIBAWA KABUR! 🤦‍♂️",
-    "fail_description": "Maaf, **{jailed_user_mention}**! Uang sogokan Anda sebesar **{sogok_cost} RSWN** sepertinya 'hilang' di tengah jalan. "
-                        "Pejabat yang dituju tiba-tiba 'cuti mendadak' atau mungkin 'salah alamat'. Anda masih tetap di penjara. "
-                        "Mungkin lain kali coba kirim uangnya pakai kurir pribadi pejabat, jangan via jalur umum. 😈",
+    "fail_description": "Maaf, **{jailed_user_mention}**! Uang sogokan Anda sebesar **{sogok_cost} RSWN** sepertinya 'hilang' di tengah jalan. Pejabat yang dituju tiba-tiba 'cuti mendadak' atau mungkin 'salah alamat'. Anda masih tetap di penjara. Mungkin lain kali coba kirim uangnya pakai kurir pribadi pejabat, jangan via jalur umum. 😈",
     "fail_dm": "💔 Sogokan Anda gagal! Uang **{sogok_cost} RSWN** Anda raib, dan Anda masih di penjara. Mungkin uangnya 'kurang' atau pejabatnya sedang 'tidak mood'. Coba lagi jika Anda masih punya sisa harta."
   }
 }
