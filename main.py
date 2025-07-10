@@ -373,7 +373,6 @@ async def setup_hook():
     """Called once when the bot first starts up."""
     log.info("🚀 Starting setup_hook and loading cogs...")
     await load_cogs()
-    await load_extension() 
     log.info(f"✅ Finished setup_hook and all cogs attempted to load.")
     # Log registered commands after cogs are loaded
     log.info(f"All commands registered: {[command.name for command in bot.commands]}")
