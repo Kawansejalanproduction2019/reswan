@@ -1,27 +1,109 @@
 {
     "765138959625486357": {
         "1387100075075043349": {
-            "exp": 8580,
-            "weekly_exp": 3580,
-            "level": 2,
-            "badges": [],
-            "last_active": "2025-07-09T23:54:37.005203",
+            "exp": 18806,
+            "weekly_exp": 5280,
+            "level": 5,
+            "badges": [
+                "ðŸ¥‰"
+            ],
+            "last_active": "2025-07-10T11:08:55.126796",
             "booster": {}
         },
         "1000737066822410311": {
-            "exp": 10000005069,
-            "level": 2857144,
-            "weekly_exp": 10000000069,
+            "exp": 9999994772,
+            "level": 2857145,
+            "weekly_exp": 10000000109,
             "badges": [],
             "image_url": null,
-            "last_active": "2025-07-09T23:56:23.636703"
+            "last_active": "2025-07-10T12:01:55.022263"
         },
         "1307128782750224507": {
-            "exp": 3530,
-            "level": 1,
-            "last_active": "2025-07-09T23:56:35.343646",
-            "weekly_exp": 3530,
+            "exp": 10890,
+            "level": 3,
+            "last_active": "2025-07-10T11:18:01.609197",
+            "weekly_exp": 4490,
             "badges": []
+        },
+        "520231162401128458": {
+            "exp": 20,
+            "weekly_exp": 20,
+            "level": 0,
+            "badges": [],
+            "last_active": "2025-07-10T05:06:58.539437",
+            "booster": {}
+        },
+        "1307175243630248011": {
+            "level": 1,
+            "exp": 100
+        },
+        "453215843258597389": {
+            "exp": 10,
+            "weekly_exp": 10,
+            "level": 0,
+            "badges": [],
+            "last_active": "2025-07-10T06:50:22.715246",
+            "booster": {}
+        },
+        "902523090314096640": {
+            "exp": 1150,
+            "weekly_exp": 250,
+            "level": 0,
+            "badges": [],
+            "last_active": "2025-07-10T07:36:48.481206",
+            "booster": {}
+        },
+        "581870007986683919": {
+            "exp": 8200,
+            "weekly_exp": 1100,
+            "level": 2,
+            "badges": [],
+            "last_active": "2025-07-10T09:21:47.134232",
+            "booster": {},
+            "last_exp_purchase_date": "2025-07-10",
+            "exp_purchased_today": 600
+        },
+        "1314513074610507816": {
+            "exp": 50,
+            "weekly_exp": 50,
+            "level": 0,
+            "badges": [],
+            "last_active": "2025-07-10T11:57:28.807699",
+            "booster": {}
+        },
+        "771662040502763531": {
+            "exp": 5810,
+            "weekly_exp": 1100,
+            "level": 1,
+            "badges": [],
+            "last_active": "2025-07-10T12:51:08.927543",
+            "booster": {},
+            "last_exp_purchase_date": "2025-07-10",
+            "exp_purchased_today": 10
+        },
+        "313995564029050881": {
+            "exp": 40,
+            "weekly_exp": 40,
+            "level": 0,
+            "badges": [],
+            "last_active": "2025-07-10T12:18:42.836818",
+            "booster": {}
+        },
+        "1288384740004724758": {
+            "exp": 10,
+            "weekly_exp": 10,
+            "level": 0,
+            "badges": [],
+            "last_active": "2025-07-10T12:22:58.315872",
+            "booster": {}
+        },
+        "1244261449329807478": {
+            "exp": 10,
+            "weekly_exp": 10,
+            "level": 0,
+            "badges": [],
+            "last_active": "2025-07-10T12:24:52.880336",
+            "booster": {}
         }
     },
     "788337048997199882": {},
