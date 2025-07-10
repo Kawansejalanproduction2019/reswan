@@ -20,7 +20,6 @@ def load_temp_channels():
     try:
         with open(TEMP_CHANNELS_FILE, 'r', encoding='utf-8') as f:
             data = json.load(f)
-            # Pastikan semua keys dan IDs adalah string untuk konsistensi
             cleaned_data = {}
             for ch_id, info in data.items():
                 if "owner_id" in info:
@@ -42,7 +41,6 @@ def load_temp_channels():
 
 def save_temp_channels(data):
     os.makedirs('data', exist_ok=True)
-    # Pastikan semua key adalah string sebelum disimpan
     data_to_save = {str(k): v for k, v in data.items()}
     with open(TEMP_CHANNELS_FILE, 'w', encoding='utf-8') as f:
         json.dump(data_to_save, f, indent=4)
@@ -52,11 +50,8 @@ class TempVoice(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         # --- KONFIGURASI DI SINI ---
-        # Ganti dengan ID Voice Channel pemicu Anda
         self.TRIGGER_VOICE_CHANNEL_ID = 1382486705113927811 
-        # Ganti dengan ID Kategori tempat Voice Channel baru akan dibuat
         self.TARGET_CATEGORY_ID = 1255211613326278716 
-        # Nama dasar untuk channel yang dibuat
         self.DEFAULT_CHANNEL_NAME_PREFIX = "Music"
         # --- AKHIR KONFIGURASI ---
 
@@ -150,7 +145,7 @@ class TempVoice(commands.Cog):
                         self._save_temp_channels_state() 
 
             guild = member.guild
-            category = guild.get_channel(self.TARGET_CATEGORY_ID) # Menggunakan self.TARGET_CATEGORY_ID
+            category = guild.get_channel(self.TARGET_CATEGORY_ID) 
             
             if not category or not isinstance(category, discord.CategoryChannel):
                 log.error(f"Target category {self.TARGET_CATEGORY_ID} not found or is not a category channel in guild {guild.name}. Skipping VC creation.")
@@ -160,14 +155,14 @@ class TempVoice(commands.Cog):
                 except: pass
                 return
 
-            current_category_channels = [ch for ch in category.voice_channels if ch.name.startswith(self.DEFAULT_CHANNEL_NAME_PREFIX)] # Menggunakan self.DEFAULT_CHANNEL_NAME_PREFIX
+            current_category_channels = [ch for ch in category.voice_channels if ch.name.startswith(self.DEFAULT_CHANNEL_NAME_PREFIX)] 
             
             next_channel_number = 1
             if current_category_channels:
                 max_num = 0
                 for ch_obj in current_category_channels:
                     try:
-                        parts = ch_obj.name.rsplit(' ', 1)
+                        parts = ch_obj.name.rsplit(' ', 1) 
                         if len(parts) > 1 and parts[-1].isdigit():
                             num = int(parts[-1])
                             if num > max_num:
@@ -177,7 +172,7 @@ class TempVoice(commands.Cog):
                         continue
                 next_channel_number = max_num + 1
 
-            new_channel_name = f"{self.DEFAULT_CHANNEL_NAME_PREFIX} {next_channel_number}" # Menggunakan self.DEFAULT_CHANNEL_NAME_PREFIX
+            new_channel_name = f"{self.DEFAULT_CHANNEL_NAME_PREFIX} {next_channel_number}" 
             
             try:
                 everyone_role = guild.default_role
@@ -292,7 +287,7 @@ class TempVoice(commands.Cog):
 
 
     @commands.command(name="vclock", help="Kunci channel pribadimu (hanya bisa masuk via invite/grant).")
-    @commands.check(is_owner_vc) 
+    @commands.check(self.is_owner_vc) # <--- PERBAIKAN DI SINI!
     async def vc_lock(self, ctx):
         try:
             vc = ctx.author.voice.channel
@@ -307,7 +302,7 @@ class TempVoice(commands.Cog):
             log.error(f"Error locking VC {ctx.author.voice.channel.name}: {e}", exc_info=True)
 
     @commands.command(name="vcunlock", help="Buka kunci channel pribadimu.")
-    @commands.check(is_owner_vc) 
+    @commands.check(self.is_owner_vc) # <--- PERBAIKAN DI SINI!
     async def vc_unlock(self, ctx):
         try:
             vc = ctx.author.voice.channel
@@ -322,7 +317,7 @@ class TempVoice(commands.Cog):
             log.error(f"Error unlocking VC {ctx.author.voice.channel.name}: {e}", exc_info=True)
 
     @commands.command(name="vcsetlimit", help="Atur batas user di channel suara pribadimu (0 untuk tak terbatas).")
-    @commands.check(is_owner_vc) 
+    @commands.check(self.is_owner_vc) # <--- PERBAIKAN DI SINI!
     async def vc_set_limit(self, ctx, limit: int):
         if limit < 0 or limit > 99:
             return await ctx.send("❌ Batas user harus antara 0 (tak terbatas) hingga 99.", ephemeral=True)
@@ -339,7 +334,7 @@ class TempVoice(commands.Cog):
             log.error(f"Error setting user limit for VC {ctx.author.voice.channel.name}: {e}", exc_info=True)
 
     @commands.command(name="vcrename", help="Ubah nama channel pribadimu.")
-    @commands.check(is_owner_vc) 
+    @commands.check(self.is_owner_vc) # <--- PERBAIKAN DI SINI!
     async def vc_rename(self, ctx, *, new_name: str):
         if len(new_name) < 2 or len(new_name) > 100:
             return await ctx.send("❌ Nama channel harus antara 2 hingga 100 karakter.", ephemeral=True)
@@ -357,7 +352,7 @@ class TempVoice(commands.Cog):
             log.error(f"Error renaming VC {ctx.author.voice.channel.name}: {e}", exc_info=True)
 
     @commands.command(name="vckick", help="Tendang user dari channel suara pribadimu.")
-    @commands.check(is_owner_vc) 
+    @commands.check(self.is_owner_vc) # <--- PERBAIKAN DI SINI!
     async def vc_kick(self, ctx, member: discord.Member):
         if member.id == ctx.author.id:
             return await ctx.send("❌ Kamu tidak bisa menendang dirimu sendiri dari channelmu!", ephemeral=True)
@@ -380,7 +375,7 @@ class TempVoice(commands.Cog):
             await ctx.send("❌ Pengguna tersebut tidak berada di channelmu.", ephemeral=True)
 
     @commands.command(name="vcgrant", help="Berikan user izin masuk channelmu yang terkunci.")
-    @commands.check(is_owner_vc) 
+    @commands.check(self.is_owner_vc) # <--- PERBAIKAN DI SINI!
     async def vc_grant(self, ctx, member: discord.Member):
         if member.bot:
             return await ctx.send("❌ Kamu tidak bisa memberikan izin ke bot.", ephemeral=True)
@@ -397,7 +392,7 @@ class TempVoice(commands.Cog):
             log.error(f"Error granting access for VC {ctx.author.voice.channel.name}: {e}", exc_info=True)
 
     @commands.command(name="vcrevoke")
-    @commands.check(is_owner_vc) 
+    @commands.check(self.is_owner_vc) # <--- PERBAIKAN DI SINI!
     async def vc_revoke(self, ctx, member: discord.Member):
         if member.bot:
             return await ctx.send("❌ Kamu tidak bisa mencabut izin dari bot.", ephemeral=True)
@@ -414,7 +409,7 @@ class TempVoice(commands.Cog):
             log.error(f"Error revoking access for VC {ctx.author.voice.channel.name}: {e}", exc_info=True)
 
     @commands.command(name="vcowner")
-    @commands.check(is_owner_vc) 
+    @commands.check(self.is_owner_vc) # <--- PERBAIKAN DI SINI!
     async def vc_transfer_owner(self, ctx, new_owner: discord.Member):
         vc = ctx.author.voice.channel
         vc_id_str = str(vc.id)
@@ -526,7 +521,7 @@ class TempVoice(commands.Cog):
         embed.add_field(name="Manajemen Channel:", value="""
         `!vcsetlimit <angka>`: Atur batas jumlah user yang bisa masuk (0 untuk tak terbatas).
         `!vcrename <nama_baru>`: Ubah nama channel suaramu.
-        `!vclock`: Kunci channelmu agar hanya user dengan izin yang bisa masuk (via `!vcgrant`).
+        `!!vclock`: Kunci channelmu agar hanya user dengan izin yang bisa masuk (via `!vcgrant`).
         `!vcunlock`: Buka kunci channelmu agar siapa pun bisa masuk.
         """, inline=False)
 
