@@ -5,8 +5,8 @@ import random
 import asyncio
 import os
 from datetime import datetime, time, timedelta
-import logging 
-import sys 
+import logging
+import sys
 from collections import Counter
 
 # Setup logging
@@ -21,7 +21,7 @@ ECONOMY_CONFIG_FILE = os.path.join(DATA_DIR, "economy_config.json")
 PROJECT_FILE = os.path.join(DATA_DIR, "active_projects.json")
 TRIVIA_QUESTIONS_FILE = os.path.join(DATA_DIR, "government_trivia.json")
 NGAWUR_PROJECTS_FILE = os.path.join(DATA_DIR, "ngawur_projects.json")
-JAIL_HELP_FILE = os.path.join(DATA_DIR, "jail_help_requests.json") 
+JAIL_HELP_FILE = os.path.join(DATA_DIR, "jail_help_requests.json")
 SATIRE_NARRATIONS_FILE = os.path.join(DATA_DIR, "satire_narrations.json") # File baru untuk narasi satir
 
 
@@ -467,7 +467,7 @@ class EconomyEvents(commands.Cog):
             potential_victims = [m for m in potential_victims 
                                  if not (await self._is_user_jailed(m.id, guild.id))[0] and \
                                     str(m.id) not in active_heist_victims and \
-                                    str(m.id) not in active_fire_victims]
+                                     str(m.id) not in active_fire_victims]
 
             event_options = []
             if potential_victims: # Hanya bisa ada heist/fire jika ada target yang valid
@@ -709,7 +709,8 @@ class EconomyEvents(commands.Cog):
             response_time_seconds=RESPONSE_TIME_SECONDS
         )
         try:
-            await victim.send(heist_msg)
+            # PERBAIKAN: Menggunakan warning_dm_msg yang sudah didefinisikan
+            await victim.send(warning_dm_msg) 
             log.info(f"Sent heist warning DM to {victim.display_name}.")
         except discord.Forbidden:
             fallback_msg = heist_messages.get("warning_channel_fallback", "").format(
@@ -889,7 +890,8 @@ class EconomyEvents(commands.Cog):
         # Jika ada investigasi, data akan dihapus setelah pelaku dipenjara atau oleh cleanup task
         if not heist_data.get("investigated", False):
             self.active_heists[guild_id_str].pop(victim_id_str, None)
-            save_project_data(self.active_heists) # Perlu save active_heists karena di-pop
+            # save_project_data(self.active_heists) # Ini menyebabkan overwrite file active_projects, tidak perlu jika hanya pop dari dictionary
+            # active_heists disimpan di memori, tidak di file project_file. Jadi, tidak perlu save_project_data di sini.
             log.info(f"Heist data for {victim_display_name} removed (no investigation).")
         else:
             log.info(f"Heist data for {victim_display_name} kept for investigation.")
@@ -1032,7 +1034,8 @@ class EconomyEvents(commands.Cog):
                 victim_mention=victim.mention,
                 response_time_seconds=RESPONSE_TIME_SECONDS
             )
-            await event_channel.send(fallback_msg, delete_after=RESPONSE_TIME_SECONDS + 10)
+            # PERBAIKAN: Menggunakan warning_channel_fallback_msg
+            await event_channel.send(warning_channel_fallback_msg, delete_after=RESPONSE_TIME_SECONDS + 10)
             log.warning(f"Could not send fire DM to {victim.display_name} (DMs closed), sent to channel instead.")
 
         log.debug(f"Fire timer started for {victim.display_name}. Waiting {RESPONSE_TIME_SECONDS} seconds.")
@@ -1055,6 +1058,10 @@ class EconomyEvents(commands.Cog):
         bank_data = load_bank_data()
         victim_balance = bank_data.get(victim_id_str, {}).get("balance", 0)
         
+        # PERBAIKAN: Definisi victim_display_name dan victim_mention dipindahkan ke sini
+        victim_display_name = victim.display_name if isinstance(victim, discord.Member) else f"User Tak Dikenal ({victim_id_str})"
+        victim_mention = victim.mention if isinstance(victim, discord.Member) else victim_display_name
+
         damage_amount = random.randint(LOOT_MIN, LOOT_MAX) # loot_min/max digunakan juga untuk damage di sini
         actual_damage = 0
 
@@ -1126,7 +1133,7 @@ class EconomyEvents(commands.Cog):
         try:
             await victim.send(fire_outcome_text)
         except discord.Forbidden:
-            await event_channel.send(f"🔥 Laporan Kebakaran untuk {victim.mention}:\n{fire_outcome_text}", delete_after=60)
+            await event_channel.send(f"🔥 Laporan Kebakaran untuk {victim_mention}:\n{fire_outcome_text}", delete_after=60)
             log.warning(f"Could not send fire outcome DM to {victim.display_name} (DMs closed), sent to channel instead.")
             
         await event_channel.send(announcement_text)
@@ -1525,7 +1532,7 @@ class EconomyEvents(commands.Cog):
                                         else:
                                             logging.debug("Penalty too small to distribute among investors.")
                                             await channel.send("Audit menemukan korupsi, tapi jumlahnya terlalu kecil untuk dibagikan. Pejabat sudah menerima sanksi moral!")
-                                    
+                                        
                                     try: await initiator_member.send(f"💔 Anda ketahuan korupsi sebesar **{corrupt_amount} RSWN**! Anda didenda **{penalty_amount} RSWN** yang dibagikan ke investor. Malu! 😱")
                                     except discord.Forbidden: logging.warning(f"Could not send corruption penalty DM to {initiator_member.display_name} (DMs closed).")
                                 else: # Tidak tertangkap
@@ -1617,6 +1624,7 @@ class EconomyEvents(commands.Cog):
                             try: await investor_user.send(f"Investasi gagal. Modal Anda dikembalikan sebesar **{return_per_investor} RSWN**.")
                             except discord.Forbidden: pass
                     logging.info(f"Distributed {return_per_investor} RSWN per investor as partial return to {len(investors)} investors.")
+                    await channel.send(f"🎉 **{total_return} RSWN** telah didistribusikan ke **{len(investors)} investor**!")
                 else: # Pengembalian terlalu kecil atau nol
                     logging.info("Partial return too small or zero for investors.")
                     await channel.send("Investasi gagal total! Modal Anda tidak dapat dikembalikan. Semoga beruntung di lain waktu!")
@@ -1688,7 +1696,8 @@ class EconomyEvents(commands.Cog):
             return await ctx.send("❌ Kamu tidak bisa menghina bot! Mereka terlalu canggih untuk dihina.", ephemeral=True)
 
         if custom_insult:
-            final_insult = f"Perhatian rakyat! Pesan khusus untuk **{target_user.mention}**: {self.special_insults[0].format(user_mention=target_user.mention) if not custom_insult else custom_insult}" # Fallback jika custom_insult kosong setelah split
+            # Menggunakan custom_insult langsung jika disediakan
+            final_insult = f"Perhatian rakyat! Pesan khusus untuk **{target_user.mention}**: {custom_insult}" 
             logging.info(f"Used custom insult for {target_user.display_name}: '{custom_insult}'.")
         else:
             insult_message = random.choice(self.special_insults)
@@ -2185,7 +2194,7 @@ class EconomyEvents(commands.Cog):
             return await ctx.send("❌ Anda tidak bisa melaporkan bot.", ephemeral=True)
         if target_user.id == ctx.author.id:
             return await ctx.send("❌ Anda tidak bisa melaporkan diri sendiri.", ephemeral=True)
-        
+            
         # Cek apakah sudah ada investigasi aktif untuk user ini atau target ini
         # Dapatkan semua investigasi aktif di guild ini
         guild_investigations = self.active_investigations.get(guild_id_str, {})
