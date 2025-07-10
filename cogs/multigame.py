@@ -27,8 +27,10 @@ def load_json_from_root(file_path):
         if 'bank_data.json' in file_path or 'level_data.json' in file_path or 'protected_users.json' in file_path or 'sick_users_cooldown.json' in file_path:
             return {}
         # Untuk file data game yang berisi list
-        if any(key in file_path for key in ['monsters', 'anomalies', 'medicines', 'siapakah_aku', 'pernah_gak_pernah', 'hitung_cepat', 'mata_mata_locations', 'deskripsi_tebak', 'perang_otak', 'cerita_pembuka', 'teka_teki_harian', 'donation_buttons']):
-            return [] # Mengembalikan list kosong untuk data game dan tombol donasi
+        if any(key in file_path for key in ['monsters', 'anomalies', 'medicines', 'siapakah_aku', 'pernah_gak_pernah', 'hitung_cepat', 'mata_mata_locations', 'deskripsi_tebak', 'perang_otak', 'cerita_pembuka', 'teka_teki_harian']):
+            return []
+        if 'donation_buttons.json' in file_path: # Default list kosong untuk tombol donasi
+            return [] 
         return {} # Default fallback
 
 def save_json_to_root(data, file_path):
@@ -125,6 +127,9 @@ class TicTacToeButton(discord.ui.Button):
         await view.update_board(interaction)
 
 class UltimateGameArena(commands.Cog):
+    # File untuk tombol donasi
+    DONATION_BUTTONS_FILE = 'data/donation_buttons.json'
+
     def __init__(self, bot):
         self.bot = bot
         self.active_games = set()
@@ -283,6 +288,7 @@ class UltimateGameArena(commands.Cog):
                                         await message.delete() # Hapus pesan yang dikirim saat cooldown
                                     except discord.Forbidden:
                                         pass # Tidak bisa menghapus pesan
+                                    await ctx.send(f"🚨 {message.author.mention}, Anda masih dalam cooldown di ronde ini. Tunggu atau soal akan berlanjut.", delete_after=5)
                                     continue # Lanjutkan menunggu pesan lain
                                 else:
                                     # Cooldown sudah berakhir, hapus dari daftar
@@ -329,16 +335,19 @@ class UltimateGameArena(commands.Cog):
                 leaderboard[winner.name] = leaderboard.get(winner.name, 0) + 1
             
             # Hapus cooldown untuk semua user di channel ini setelah soal selesai
+            # Perlu clear user timeout dari Discord juga
             for user_id in list(self.cooldown_users.keys()):
-                if ctx.guild.get_member(user_id) and ctx.guild.get_member(user_id).voice and ctx.guild.get_member(user_id).voice.channel == ctx.channel:
+                member = ctx.guild.get_member(user_id)
+                if member and member.voice and member.voice.channel == ctx.channel: # Hanya user di channel ini
                     if user_id in self.cooldown_users:
                         del self.cooldown_users[user_id]
-                    member = ctx.guild.get_member(user_id)
-                    if member:
-                        try:
-                            await member.timeout(None, reason="Ronde game telah berakhir.") # Hapus timeout Discord
-                        except discord.Forbidden:
-                            pass # Bot tidak punya izin untuk menghapus timeout
+                    try:
+                        await member.timeout(None, reason="Ronde game telah berakhir.") # Hapus timeout Discord
+                    except discord.Forbidden:
+                        pass # Bot tidak punya izin untuk menghapus timeout
+                    except Exception as e:
+                        print(f"Error removing timeout on game end for {member.display_name}: {e}")
+
 
             if i < len(questions) - 1:
                 await ctx.send(f"Soal berikutnya dalam **5 detik**...", delete_after=4.5)
@@ -361,7 +370,7 @@ class UltimateGameArena(commands.Cog):
         if not ctx.author.voice or not ctx.author.voice.channel:
             return await ctx.send("Kamu harus berada di voice channel untuk memulai game ini.", delete_after=10)
         vc = ctx.author.voice.channel
-        members = [m for m m.bot]
+        members = [m for m in vc.members if not m.bot]
         if len(members) < 2:
             return await ctx.send("Game ini butuh minimal 2 orang di voice channel.", delete_after=10)
         if not await self.start_game_check(ctx):
@@ -481,6 +490,7 @@ class UltimateGameArena(commands.Cog):
                                     await message.delete()
                                 except discord.Forbidden:
                                     pass
+                                await ctx.send(f"🚨 {message.author.mention}, Anda masih dalam cooldown di ronde ini. Tunggu atau soal akan berlanjut.", delete_after=5)
                                 continue
                             else:
                                 del self.cooldown_users[message.author.id]
@@ -522,16 +532,19 @@ class UltimateGameArena(commands.Cog):
                 print(f"Error in Hitung Cepat round: {e}")
             
             # Hapus cooldown untuk semua user di channel ini setelah soal selesai
+            # Perlu clear user timeout dari Discord juga
             for user_id in list(self.cooldown_users.keys()):
-                if ctx.guild.get_member(user_id) and ctx.guild.get_member(user_id).voice and ctx.guild.get_member(user_id).voice.channel == ctx.channel:
+                member = ctx.guild.get_member(user_id)
+                if member and member.voice and member.voice.channel == ctx.channel: # Hanya user di channel ini
                     if user_id in self.cooldown_users:
                         del self.cooldown_users[user_id]
-                    member = ctx.guild.get_member(user_id)
-                    if member:
-                        try:
-                            await member.timeout(None, reason="Ronde game telah berakhir.")
-                        except discord.Forbidden:
-                            pass
+                    try:
+                        await member.timeout(None, reason="Ronde game telah berakhir.")
+                    except discord.Forbidden:
+                        pass # Bot tidak punya izin untuk menghapus timeout
+                    except Exception as e:
+                        print(f"Error removing timeout on game end for {member.display_name}: {e}")
+
 
             if i < len(problems) - 1:
                 await ctx.send(f"Soal berikutnya dalam **3 detik**...", delete_after=2.5)
@@ -794,6 +807,63 @@ class UltimateGameArena(commands.Cog):
             await ctx.send(f"🎉 Selamat {ctx.author.mention}! Jawabanmu benar!")
         else:
             await ctx.message.add_reaction("❌")
+
+    # --- COMMANDS UNTUK MENGATUR TOMBOL DONASI ---
+    @commands.command(name="adddonasibtn")
+    @commands.has_permissions(administrator=True)
+    async def add_donation_button_cmd(self, ctx, label: str, url: str):
+        """[ADMIN ONLY] Menambahkan tombol donasi baru. Usage: !adddonasibtn "Label Tombol" "URL Donasi" """
+        if not url.startswith("http://") and not url.startswith("https://"):
+            return await ctx.send("❌ URL tidak valid. Harus dimulai dengan `http://` atau `https://`.", ephemeral=True)
+        
+        donation_buttons_data = load_json_from_root(self.DONATION_BUTTONS_FILE)
+        new_button = {"label": label, "url": url}
+        
+        # Cek apakah tombol dengan label atau URL yang sama sudah ada
+        for btn in donation_buttons_data:
+            if btn["label"] == label or btn["url"] == url:
+                return await ctx.send(f"❌ Tombol dengan label atau URL yang sama sudah ada: '{label}'.", ephemeral=True)
+        
+        donation_buttons_data.append(new_button)
+        save_json_to_root(donation_buttons_data, self.DONATION_BUTTONS_FILE)
+        
+        await ctx.send(f"✅ Tombol donasi '{label}' berhasil ditambahkan!")
+        print(f"[{datetime.now()}] [UltimateGameArena] Added donation button: {label} - {url}")
+
+    @commands.command(name="listdonasibtn")
+    @commands.has_permissions(administrator=True)
+    async def list_donation_buttons_cmd(self, ctx):
+        """[ADMIN ONLY] Menampilkan daftar tombol donasi yang ada."""
+        donation_buttons_data = load_json_from_root(self.DONATION_BUTTONS_FILE)
+        
+        if not donation_buttons_data:
+            return await ctx.send("Tidak ada tombol donasi yang terdaftar.")
+        
+        embed = discord.Embed(title="💸 Daftar Tombol Donasi", color=discord.Color.blue())
+        for i, btn in enumerate(donation_buttons_data):
+            embed.add_field(name=f"Tombol #{i+1}", value=f"Label: `{btn['label']}`\nURL: <{btn['url']}>", inline=False)
+        
+        await ctx.send(embed=embed)
+        print(f"[{datetime.now()}] [UltimateGameArena] Listed donation buttons.")
+
+    @commands.command(name="removedonasibtn")
+    @commands.has_permissions(administrator=True)
+    async def remove_donation_button_cmd(self, ctx, index: int):
+        """[ADMIN ONLY] Menghapus tombol donasi berdasarkan indeks (dari !listdonasibtn)."""
+        donation_buttons_data = load_json_from_root(self.DONATION_BUTTONS_FILE)
+        
+        if not donation_buttons_data:
+            return await ctx.send("Tidak ada tombol donasi untuk dihapus.", ephemeral=True)
+        
+        if not (1 <= index <= len(donation_buttons_data)):
+            return await ctx.send(f"❌ Indeks tidak valid. Gunakan `!listdonasibtn` untuk melihat indeks yang benar (1 sampai {len(donation_buttons_data)}).", ephemeral=True)
+        
+        removed_button = donation_buttons_data.pop(index - 1)
+        save_json_to_root(donation_buttons_data, self.DONATION_BUTTONS_FILE)
+        
+        await ctx.send(f"✅ Tombol donasi '{removed_button['label']}' berhasil dihapus.")
+        print(f"[{datetime.now()}] [UltimateGameArena] Removed donation button: {removed_button['label']}")
+
 
 async def setup(bot):
     await bot.add_cog(UltimateGameArena(bot))
