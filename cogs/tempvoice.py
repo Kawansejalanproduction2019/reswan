@@ -184,13 +184,13 @@ class TempVoice(commands.Cog):
                 
                 # Buat overrides untuk channel yang baru
                 overwrites = {
-                    everyone_role: discord.PermissionOverwrite(connect=False, speak=False, send_messages=False), # Default: @everyone TIDAK bisa connect/speak/chat
-                    guild.me: discord.PermissionOverwrite(connect=True, speak=True, send_messages=True) # BOT selalu bisa connect/speak/chat
+                    everyone_role: discord.PermissionOverwrite(connect=False, speak=False, send_messages=False, view_channel=False), # Default: @everyone TIDAK bisa connect/speak/chat/view
+                    guild.me: discord.PermissionOverwrite(connect=True, speak=True, send_messages=True, view_channel=True, read_message_history=True) # BOT selalu bisa connect/speak/chat/view/read history
                 }
                 
                 # Tambahkan role Administrator agar bisa connect secara default jika ada
                 if admin_role:
-                    overwrites[admin_role] = discord.PermissionOverwrite(connect=True, speak=True, send_messages=True) # Admin BISA connect/speak/chat
+                    overwrites[admin_role] = discord.PermissionOverwrite(connect=True, speak=True, send_messages=True, view_channel=True) # Admin BISA connect/speak/chat/view
 
                 new_vc = await guild.create_voice_channel(
                     name=new_channel_name,
