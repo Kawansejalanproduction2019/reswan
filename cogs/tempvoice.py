@@ -1,10 +1,9 @@
 import discord
 from discord.ext import commands, tasks
-import asyncio
 import json
 import os
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 
 log = logging.getLogger(__name__)
 
@@ -34,7 +33,7 @@ def load_temp_channels():
     except json.JSONDecodeError as e:
         log.error(f"Failed to load {TEMP_CHANNELS_FILE}: {e}. File might be corrupted. Attempting to reset it.")
         # Reset file jika korup
-        with open(TEMP_CHANNELS_FILE, 'w', encoding='utf-8') as f: # Changed to utf-8
+        with open(TEMP_CHANNELS_FILE, 'w', encoding='utf-8') as f:
             json.dump({}, f, indent=4)
         return {}
 
@@ -185,7 +184,6 @@ class TempVoice(commands.Cog):
                     overwrites[admin_role] = discord.PermissionOverwrite(connect=True, speak=True, send_messages=True, view_channel=True)
 
                 # Dapatkan bitrate maksimal yang diizinkan oleh server
-                # guild.bitrate_limit akan otomatis memberikan nilai maksimal sesuai level server (64kbps, 128kbps, atau 256kbps)
                 max_bitrate = guild.bitrate_limit # Ini akan langsung mengambil batas bitrate server (misal: 256000 untuk Level 2)
                 
                 new_vc = await guild.create_voice_channel(
@@ -262,7 +260,7 @@ class TempVoice(commands.Cog):
             return False # Not a tracked temp VC
 
         # Cek apakah user adalah owner dari channel yang sedang dilacak
-        is_owner = self.active_temp_channels[channel_id_str]["owner_id"] == ctx.author.id
+        is_owner = self.active_temp_channels[channel_id_str]["owner_id"] == str(ctx.author.id) # Perbaikan: compare string ID
         if not is_owner:
             log.debug(f"is_owner_vc check failed for {ctx.author.display_name}: not owner of VC {channel_id_str}. Owner: {self.active_temp_channels[channel_id_str]['owner_id']}.")
         
@@ -407,7 +405,7 @@ class TempVoice(commands.Cog):
         if new_owner.id == ctx.author.id:
             return await ctx.send("❌ Kamu sudah menjadi pemilik channel ini!", ephemeral=True)
 
-        self.active_temp_channels[vc_id_str]["owner_id"] = new_owner.id
+        self.active_temp_channels[vc_id_str]["owner_id"] = str(new_owner.id) # Perbaikan: Pastikan ID owner disimpan sebagai string
         save_temp_channels(self.active_temp_channels)
         
         await ctx.send(f"✅ Kepemilikan channel **{ctx.author.voice.channel.name}** telah ditransfer dari {ctx.author.mention} ke {new_owner.mention}!")
@@ -463,9 +461,10 @@ class TempVoice(commands.Cog):
 
         # Tangani Commands.CheckFailure untuk is_owner_vc
         if isinstance(error, commands.CheckFailure):
+            # Pesan lebih spesifik jika user tidak di VC yang dilacak atau bukan owner
             if not ctx.author.voice or not ctx.author.voice.channel or str(ctx.author.voice.channel.id) not in self.active_temp_channels:
                 await ctx.send("❌ Kamu harus berada di channel suara pribadi yang kamu miliki untuk menggunakan perintah ini.", ephemeral=True)
-            else:
+            else: # Berada di VC tapi bukan owner
                 await ctx.send("❌ Kamu harus menjadi pemilik channel ini untuk menggunakan perintah ini.", ephemeral=True)
             log.warning(f"User {ctx.author.display_name} tried to use VC command but failed check: {error}")
         elif isinstance(error, commands.MissingRequiredArgument):
