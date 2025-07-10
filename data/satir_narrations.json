@@ -1,0 +1,63 @@
+{
+    "heist_messages": {
+        "warning_dm": "🚨 **DRRRTT! DRRRTT!** Alarm keamananmu berteriak histeris! Kamu melihat siluet mencurigakan di jendela! Seseorang, sepertinya **{initiator_display_name}**, sedang mencoba menyelinap masuk! 🚨\n\nCepat, **{victim_display_name}**! Panggil POLISI dengan mengetik `!polisi` di channel <#{event_channel_id}> dalam **{response_time_seconds} detik** atau semua harta di rumahmu bisa lenyap tak bersisa! Jangan sampai telat, mereka bisa saja lagi minum kopi di pos! ☕",
+        "warning_channel_fallback": "🚨 **PERINGATAN! {victim_mention}!** Alarm keamananmu berbunyi! Seseorang mencoba mencuri! Periksa DMmu untuk detail, atau ketik `!polisi` di sini dalam **{response_time_seconds} detik**!",
+        "initiator_dm": "🕵️‍♂️ **Misi Pencurian Dimulai!** Kamu sudah masuk halaman, alarm si korban sudah bunyi, dan detak jantungmu berpacu! Jangan sampai polisi cepat datang! Kamu punya waktu **{response_time_seconds} detik** sebelum dia lapor. Modalmu **{heist_cost} koin** sudah kami pegang.",
+        "victim_outcome": {
+            "bureaucracy": "📞 Kamu buru-buru menelepon 110. 'Halo, ini darurat! Ada pencuri di rumah saya!' katamu panik. Petugas di seberang menjawab santai, 'Baik, Pak/Bu. Bisa tolong kirimkan **fotokopi KTP, KK, akta kelahiran, surat keterangan tidak mampu, bukti pembayaran PBB tiga bulan terakhir, dan surat pernyataan belum menikah bermaterai Rp 10.000** ke fax kami? Jangan lupa sertakan pas foto ukuran 3x4!' Kamu melongo. **Panggilan terputus!** Ah, sial! Kamu sibuk mencari berkas, pencuri **{initiator_display_name}** dengan santai menggasak rumahmu!\nKamu kehilangan **{actual_loot} RSWN**!",
+            "police_fast": "🚓💨 **NYIIIIEEEEEENGGG!** Sirene polisi meraung kencang, membelah keheningan malam! Mobil patroli tiba dalam hitungan detik, nge-drift epik di depan rumahmu! Petugas **{random_police_name}** dengan sigap melompat keluar, menodongkan senter ke arah **{initiator_display_name}** yang terkejut setengah mati! 'Tangan di atas!' teriaknya. Pencuri panik, menjatuhkan semua perkakasnya dan mencoba kabur, tapi kakinya tersandung pot bunga mawar kesayanganmu! **TERTANGKAP!** Rumahmu aman, **{victim_display_name}**! Barang-barangmu selamat! 🎉",
+            "police_medium": "🚨💨 Kamu sudah memanggil polisi, tapi sepertinya mereka lagi menikmati donat di pos. Sirene terdengar samar-samar dan makin dekat, tapi butuh waktu! Pencuri **{initiator_display_name}** yang sudah di dalam rumah, mendengar itu dan sempat meraih **{actual_loot} RSWN** sebelum kabur lewat jendela belakang! 'Sial, cepat sekali!' desisnya sambil membawa kabur hasil jarahanmu. 😩 Kamu kehilangan **{actual_loot} RSWN**!",
+            "police_slow": "🚓💨 Kamu memanggil polisi, tapi rupanya mereka malah tersesat di peta Google! Ketika akhirnya tiba, mereka malah minta selfie dengan rumahmu yang sudah kosong! Pencuri **{initiator_display_name}** sudah jauh melesat dengan motor balapnya, membawa kabur **{actual_loot} RSWN**! 'Maaf, Pak, kami kira ini latihan evakuasi kucing,' kata salah satu petugas cengengesan. 🤦‍♂️ Kamu kehilangan **{actual_loot} RSWN**!",
+            "no_response": "⏱️ Waktu habis! Karena kamu terlalu lama, pencuri **{initiator_display_name}** dengan santai membersihkan seluruh rumahmu! Dia bahkan sempat menyeduh kopi dan membaca koran sebelum pergi! 'Terima kasih atas keramahannya!' teriaknya dari jauh.💔 Kamu kehilangan **{actual_loot} RSWN**!"
+        },
+        "announcement_outcome": {
+            "bureaucracy": "KARENA BIROKRASI: **{victim_mention}** gagal melapor, rumahnya jadi sasaran empuk **{initiator_mention}**! Korbannya sibuk fotokopi KTP!",
+            "police_fast": "BERITA PANAS! **{initiator_mention}** tertangkap basah saat mencoba mencuri dari **{victim_mention}**! Polisi tanggap, pencuri kini mendekam di balik jeruji besi! 🚨",
+            "police_medium": "Kabar Buruk! **{initiator_mention}** berhasil kabur dengan jarahan kecil dari **{victim_mention}**! Polisi agak telat! 😥",
+            "police_slow": "WAH Gawat! Polisi salah jalan! **{initiator_mention}** berhasil merampok **{victim_mention}** tanpa halangan! 😭",
+            "no_response": "TRAGIS! **{victim_mention}** lupa ada pencurian, **{initiator_mention}** panen raya! 💀"
+        },
+        "initiator_result_jailed": "💔 Anda tertangkap basah dan dijebloskan ke penjara! Modalnya hangus dan tidak dapat hasil. Malu! 😱",
+        "initiator_result_success": "🎉 **MISI SELESAI!** Kamu berhasil mendapatkan **{actual_loot} RSWN** dari pencurian! Total yang kamu dapatkan (modal kembali + hasil curian) adalah **{heist_cost_plus_loot} RSWN**!"
+    },
+    "police_report_messages": {
+        "initial_announcement_title": "🕵️‍♂️ Laporan Intelijen Baru Diterima!",
+        "initial_announcement_description": "Warga **{reporter_display_name}** (`{reporter_mention}`) telah melaporkan aktivitas mencurigakan yang melibatkan **{suspect_display_name}** (`{suspect_mention}`)!\n\n**Biaya Laporan:** **{bribe_cost} RSWN** telah disisihkan.\n\n_{police_narration_detail}_",
+        "bribe_details": {
+            "0": "Inspektur Kepala menyeringai. 'Laporan gratis? Ada apa ini? Baiklah, ini kasus menarik!'",
+            "low": "Seorang petugas menerima 'biaya administrasi'. 'Cukup untuk kopi dan donat kami, terima kasih!'",
+            "medium": "Suara gesekan amplop terdengar. 'Ah, ini yang kami suka! Laporan Anda langsung diprioritaskan!'",
+            "high": "Senyum lebar di wajah petugas. 'Dana operasional mendesak ini sangat membantu! Kami jamin, investigasi akan sangat... intens!'"
+        },
+        "success_title": "🚨 KEPUTUSAN INVESTIGASI: PELAKU TERTANGKAP! 🚨",
+        "success_description": "Setelah penyelidikan intensif (dan beberapa 'dana tambahan' tak terduga), tim detektif berhasil meringkus pelaku!\n**{suspect_mention}** telah terbukti bersalah dan dijebloskan ke sel tahanan pemerintah!\nWarga pelapor **{reporter_mention}** menerima bonus **{bounty} RSWN** atas 'jasanya'!\n\n_Mereka yang korup akhirnya mencicipi pahitnya jeruji besi... untuk sementara._",
+        "fail_title": "⚠️ KEPUTUSAN INVESTIGASI: PELAKU LOLOS! ⚠️",
+        "fail_description": "Tim detektif telah berjuang keras, tapi sepertinya **{suspect_mention}** terlalu licin...\nLaporan Anda tidak memiliki cukup 'bukti' (atau mungkin 'dana pelicin' mereka lebih besar).\nPelaku lolos dari jeratan hukum! Polisi meminta maaf atas ketidaknyamanan, dan menyarankan untuk 'melengkapi' laporan Anda lain kali dengan 'insentif' yang lebih menarik. 😉\n\n_Hukum terkadang buta, terutama jika matanya tertutup uang._"
+    },
+    "jail_bribe_messages": {
+        "success_title": "🎉 **JALUR BELAKANG TERBUKA! ANDA BEBAS!** 🎉",
+        "success_description": "Biaya **{sogok_cost} RSWN** telah berhasil meluncur ke saku 'orang dalam'.\nPintu sel terbuka dengan sendirinya, seakan Anda tak pernah ada di sana.\n**{jailed_user_mention}** kini bebas melenggang, tanpa jejak!\n\n_Keadilan? Itu cuma kata-kata, yang penting ada uang._",
+        "success_dm": "Biaya sogokanmu sebesar **{sogok_cost} RSWN** telah diterima. Kau bebas sekarang, tapi jangan bilang siapa-siapa ya!",
+        "fail_title": "💔 **SOGOKAN GAGAL! TETAP BUSUK DI PENJARA!** 💔",
+        "fail_description": "Biaya **{sogok_cost} RSWN** Anda sudah raib, tapi 'orang dalam' nampaknya kurang 'terkesan'.\nAtau mungkin pejabat yang menerima sogokan itu mendadak jadi 'jujur'.\nPintu sel tetap terkunci rapat, **{jailed_user_mention}** masih mendekam!\n\n_Ada harga untuk kebebasan, dan Anda belum membayarnya. Atau mungkin Anda salah bayar._",
+        "fail_dm": "Sogokanmu sebesar **{sogok_cost} RSWN** gagal. Mungkin kau harus coba lagi nanti dengan jumlah yang lebih besar, atau pejabatnya lagi tidur."
+    },
+    "fire_messages": {
+        "warning_dm": "🔥 **API! API!** Kamu mencium bau gosong yang aneh, dan tiba-tiba alarm asap di rumahmu berteriak kencang! Asap tebal mengepul dari dapur, dan api mulai menjilat! 🔥\n\n**Panik boleh, tapi bertindak lebih baik!** Panggil PEMADAM KEBAKARAN dengan mengetik `!pemadam` di channel <#{event_channel_id}> dalam **{response_time_seconds} detik** atau rumahmu bisa jadi abu! Jangan sampai petugasnya lagi asyik nge-Tiktok!🤳",
+        "warning_channel_fallback": "🔥 **PERINGATAN! {victim_mention}!** Rumahmu terbakar! Periksa DMmu untuk detail, atau ketik `!pemadam` di sini dalam **{response_time_seconds} detik**!",
+        "victim_outcome": {
+            "bureaucracy": "📞 Kamu panik menelepon 112. 'Kebakaran! Rumah saya terbakar!' teriakmu. Petugas di seberang dengan suara malas menjawab, 'Bapak/Ibu, bisa tolong jelaskan dulu kronologinya dari awal? Lalu, berapa jumlah titik apinya? Sudah coba padamkan pakai air keran? Ah, dan jangan lupa, kami butuh **surat izin bakar dari RT/RW setempat** dan **fotokopi kartu keluarga**!' Kamu kaget bukan kepalang. **Panggilan terputus!** Sementara kamu mencari berkas, api sudah merajalela!\nKamu kehilangan **{actual_damage} RSWN**!",
+            "fire_fast": "🚒💨 **WWUUUUSSSHHHH!** Sirene meraung dan pemadam kebakaran tiba dalam sekejap mata! Petugas **{random_firefighter_name}** dengan helm khasnya langsung menyemprotkan air, memadamkan api hanya dalam hitungan menit! 'Untung cepat, Pak/Bu!' katanya. Kerugian minimal! Hanya **{actual_damage} RSWN** yang hangus, itu pun cuma sandal jepit favoritmu. 😅",
+            "fire_medium": "🚨💨 Kamu sudah memanggil pemadam, tapi mereka sepertinya sedang sibuk melayani pesanan es krim. Mereka memang datang, tapi setelah api sempat melahap sebagian atap dan beberapa perabotan pentingmu. 'Maaf, Pak, tadi ada kucing nyangkut di pohon,' dalih mereka. Kamu kehilangan **{actual_damage} RSWN**!",
+            "fire_slow": "🚒💥 Kamu memanggil pemadam, tapi entah selang airnya bocor, atau mereka lupa membawa air! Mereka hanya bisa menonton dengan mulut menganga saat api terus berkobar! 'Ehm, ini kan cuma api kecil...' kata salah satu petugas sambil garuk-garuk kepala. Rumahmu habis terbakar rata dengan tanah! 😭 Kamu kehilangan **{actual_damage} RSWN**!",
+            "no_response": "⏱️ Waktu habis! Karena tidak ada tanggapan, api melalap habis seluruh rumahmu tanpa ampun. Semua hartamu, kenangan, semuanya ludes jadi abu! Mungkin kamu harus pindah ke goa sekarang.💔 Kamu kehilangan **{actual_damage} RSWN**!"
+        },
+        "announcement_outcome": {
+            "bureaucracy": "KEBAKARAN PARAH! Rumah **{victim_mention}** hangus karena petugas pemadam kebakaran terlalu banyak birokrasi! 😭",
+            "fire_fast": "BERHASIL! Rumah **{victim_mention}** nyaris hangus, tapi pemadam kebakaran bertindak cepat! 🎉",
+            "fire_medium": "KEBAKARAN! Rumah **{victim_mention}** terbakar cukup parah, pemadam kebakaran agak lambat! 😩",
+            "fire_slow": "TRAGEDI! Rumah **{victim_mention}** hangus total, pemadam kebakaran cuma numpang lewat! 💀",
+            "no_response": "DUKA! Rumah **{victim_mention}** ludes terbakar karena tidak ada tanggapan! 😭"
+        }
+    }
+}
