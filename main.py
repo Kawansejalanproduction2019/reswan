@@ -14,7 +14,10 @@ from datetime import datetime
 
 load_dotenv() # Load environment variables from .env file
 
-
+# --- Setup Logging ---
+# Set logging level to DEBUG to see detailed messages, INFO for less verbose output
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
+log = logging.getLogger(__name__) # Get a logger instance for this module
 
 # --- Helper to save cookies from environment variable ---
 def save_cookies_from_env():
