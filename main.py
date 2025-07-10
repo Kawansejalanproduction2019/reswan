@@ -347,16 +347,22 @@ async def load_cogs():
     initial_extensions = [
         "cogs.leveling",
         "cogs.shop",
-        "cogs.quizz", # Ensure this matches your file name (quizz.py or quiz.py)
+        "cogs.quizz",
         "cogs.music",
+        "cogs.itemmanage",
+        "cogs.moderation",
         "cogs.emojiquiz",
         "cogs.hangman",
         "cogs.quotes",
-        "cogs.dunia", # Assuming your DuniaHidup cog file is named 'dunia.py'
-        "cogs.koruptor", # Assuming your EconomyEvents cog file is named 'koruptor.py'
-        "cogs.psikotes", # Assuming your JiwaBot cog file is named 'psikotes.py'
-        "cogs.tempvoice", # Assuming your TempVoice cog file is named 'tempvoice.py'
-        "cogs.gamesglobalevents" # Assuming your GamesGlobalEvents cog file is named 'gamesglobalevents.py'
+        "cogs.newgame",
+        "cogs.multigame"
+        "cogs.dunia",
+        "cogs.koruptor",
+        "cogs.psikotes",
+        "cogs.tempvoice",
+        "cogs.endgame",
+        "cogs.personality",
+        "cogs.psikotes"
     ]
     for extension in initial_extensions:
         try:
