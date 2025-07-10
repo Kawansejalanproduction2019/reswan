@@ -52,10 +52,12 @@ QUIZ_TOTAL_QUESTIONS = 10 # Jumlah pertanyaan per sesi kuis
 CORRUPTION_CHANCE_HIGH_REWARD = 0.30 # 30% peluang korupsi jika hadiah > 80 RSWN
 
 # --- KONFIGURASI PUNGUTAN POLISI DAN SOGOKAN ---
-POLICE_BRIBE_COST_MIN = 0
-POLICE_BRIBE_COST_MAX = 100
-CORRUPTION_CHARGE_COST_MIN = 250
-CORRUPTION_CHARGE_COST_MAX = 500
+POLICE_BRIBE_COST_MIN = 100 # Biaya detektif minimal
+POLICE_BRIBE_COST_MAX = 450 # Biaya detektif maksimal
+POLICE_REPORT_COST_MIN = 100 # Biaya lapor polisi minimal (setelah detektif)
+POLICE_REPORT_COST_MAX = 250 # Biaya lapor polisi maksimal (setelah detektif)
+JAIL_BRIBE_COST = 1000 # Biaya sogokan untuk bebas penjara
+JAIL_BRIBE_CHANCE = 0.50 # 50% peluang berhasil sogok
 
 
 # --- FUNGSI UTILITAS UNTUK LOAD/SAVE JSON ---
@@ -152,24 +154,22 @@ def load_satire_narrations():
     narrations = load_json_safe(SATIRE_NARRATIONS_FILE)
     if not narrations:
         log.critical(f"WARNING: {SATIRE_NARRATIONS_FILE} is empty or invalid. Please ensure it's manually populated with the correct JSON structure. Satirical messages will not appear correctly. (Falling back to empty dict for safety.)")
-        return {} # Mengembalikan struktur kosong agar tidak crash, tapi fungsionalitas narasi tidak akan jalan
     return narrations
 
 
 class EconomyEvents(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.active_heists = {}
-        self.active_fires = {}
+        self.active_heists = {} # {guild_id: {victim_id: {initiator_id: ..., status: ..., resolution_task: ...}}}
+        self.active_fires = {} # {guild_id: {victim_id: {status: ...}}}
         self.active_projects = load_project_data()
-        self.active_quizzes = {}
+        self.active_quizzes = {} # {guild_id: {...}}
         self.jail_help_requests = load_jail_help_requests()
-        self.active_investigations = {}
+        self.active_investigations = {} # {guild_id: {reporter_id: {suspect_id: ..., status: 'pending'/'revealed'/'resolved_success'/'resolved_fail', bribe_cost: ...}}}
         self.satire_narrations = load_satire_narrations() # Muat narasi satir
 
         # --- Konfigurasi Pajak ---
         self.funny_tax_insults = [
-            # Ini contoh, narasi ini bisa juga dipindahkan ke JSON jika mau
             "Hmmph! Lihat ini! Dompetmu kosong melompong seperti janji kampanye! Mau bayar pakai daun kering? Pajakmu nihil karena saldo juga nihil! Kau sungguh menyedihkan! Cepat cari uang sana, jangan cuma jadi beban negara! Kami para pejabat butuh uang untuk pembangunan 'proyek pribadi'! Cih! 😤",
             "Dasar rakyat miskin! Saldo nol rupiah masih berani hidup?! Kami para pejabat pusing melihatmu! Ini bukan negara gratisan! Cepat cari pekerjaan, jangan bisanya cuma rebahan! Gih sana, bantu pembangunan negara dengan uangmu! Kalau ada. *uhuk* 🙄",
             "Ya ampun, kasihan sekali! Saldomu bahkan tidak cukup untuk beli permen karet! Karena Anda tidak punya uang, Anda kami bebaskan pajak kali ini, tapi jangan sampai ketahuan lagi ya! Nanti kami bisa dimarahi Bos Besar! *pura-pura marah*",
@@ -501,9 +501,6 @@ class EconomyEvents(commands.Cog):
                 victim = random.choice(eligible_for_fire)
                 log.info(f"Scheduling random fire event for {victim.display_name} in guild {guild.name}.")
                 await self._start_fire(guild, victim, event_channel)
-            # elif chosen_event_type == "quiz": # Bagian ini dihapus sepenuhnya
-            #    log.info(f"Scheduling random quiz event in guild {guild.name}.")
-            #    await self._start_quiz_session(guild, event_channel)
             
     @heist_fire_event_scheduler.before_loop
     async def before_heist_fire_scheduler(self):
@@ -697,19 +694,19 @@ class EconomyEvents(commands.Cog):
             "initiator_id": str(initiator.id) if initiator else "bot",
             "start_time": datetime.utcnow(),
             "channel_id": event_channel.id,
-            "status": "pending" # Menambahkan status untuk melacak apakah sudah direspon
+            "status": "pending", # Menambahkan status untuk melacak apakah sudah direspon
+            "investigated": False # Flag untuk menandai apakah heist ini sudah diselidiki oleh detektif
         }
         log.debug(f"Heist data stored: {self.active_heists[guild_id_str][victim_id_str]}")
         
         heist_messages = self.satire_narrations.get("heist_messages", {})
         warning_dm_msg = heist_messages.get("warning_dm", "").format(
-            initiator_display_name=initiator.display_name if isinstance(initiator, discord.User) else initiator,
+            initiator_display_name=initiator.display_name if isinstance(initiator, discord.User) else initiator.display_name, # Memastikan display_name untuk bot juga
             victim_display_name=victim.display_name,
             event_channel_id=EVENT_CHANNEL_ID,
             response_time_seconds=RESPONSE_TIME_SECONDS
         )
         try:
-            # PERBAIKAN: Menggunakan warning_dm_msg yang sudah didefinisikan
             await victim.send(warning_dm_msg) 
             log.info(f"Sent heist warning DM to {victim.display_name}.")
         except discord.Forbidden:
@@ -721,7 +718,7 @@ class EconomyEvents(commands.Cog):
             log.warning(f"Could not send heist DM to {victim.display_name} (DMs closed), sent to channel instead.")
 
 
-        if initiator and initiator != self.bot.user:
+        if initiator and initiator.id != self.bot.user.id: # Hanya jika initiator adalah user, bukan bot
             initiator_dm_msg = self.satire_narrations.get("heist_messages", {}).get("initiator_dm", "").format(
                 response_time_seconds=RESPONSE_TIME_SECONDS,
                 heist_cost=HEIST_COST
@@ -737,7 +734,7 @@ class EconomyEvents(commands.Cog):
 
         log.debug(f"Heist timer started for {victim.display_name}. Starting resolution task.")
         
-        # Simpan task resolusi agar bisa dibatalkan dari !polisi
+        # Simpan task resolusi agar bisa dibatalkan dari !responpolisi
         heist_resolution_task = asyncio.create_task(
             self._heist_resolution_countdown(guild, victim, event_channel, initiator, victim_id_str)
         )
@@ -758,7 +755,7 @@ class EconomyEvents(commands.Cog):
                 log.debug(f"Heist for {victim.display_name} already resolved/cancelled by other means.")
 
         except asyncio.CancelledError:
-            log.info(f"Heist resolution task for {victim.display_name} was cancelled (e.g., by !polisi).")
+            log.info(f"Heist resolution task for {victim.display_name} was cancelled (e.g., by !responpolisi).")
         except Exception as e:
             log.error(f"Error in _heist_resolution_countdown for {victim.display_name}: {e}", exc_info=True)
             # Opsional: kirim pesan error ke channel jika task crash
@@ -770,7 +767,7 @@ class EconomyEvents(commands.Cog):
         victim_id_str = str(victim.id)
         
         heist_data = self.active_heists.get(guild_id_str, {}).pop(victim_id_str, None)
-        if not heist_data:  # Jika sudah di-pop oleh respon sebelumnya
+        if not heist_data:  # Jika sudah di-pop oleh respon sebelumnya (e.g., karena investigasi)
             log.warning(f"Heist data not found for {victim.display_name}. Already resolved or not active.")
             return
 
@@ -812,7 +809,7 @@ class EconomyEvents(commands.Cog):
 
         elif responded: # Korban merespon, tapi tanpa birokrasi
             rand_chance = random.random()
-            if rand_chance < 0.40: # 40% Cepat & Profesional: Pencuri Tertangkap
+            if rand_chance < 0.40: # 40% Cepat & Profesional: Pencuri Tertangkap (jika bukan bot yang curi)
                 heist_outcome_text = victim_outcome_msgs.get("police_fast", "").format(
                     random_police_name=random_police_name, initiator_display_name=initiator_display_name,
                     victim_display_name=victim_display_name
@@ -820,7 +817,8 @@ class EconomyEvents(commands.Cog):
                 announcement_text = announcement_outcome_msgs.get("police_fast", "").format(
                     initiator_mention=initiator_mention, victim_mention=victim_mention
                 )
-                is_jailed = True # Pencuri masuk penjara
+                if isinstance(initiator, discord.Member) and initiator.id != self.bot.user.id:
+                    is_jailed = True # Pencuri masuk penjara
                 log.info(f"Heist for {victim_display_name}: Police caught initiator {initiator_display_name}.")
             elif rand_chance < 0.75: # 35% Agak Lambat: Pencuri Kabur dengan Sebagian Jarahan
                 partial_loot_amount = random.randint(int(LOOT_MIN * 0.2), int(LOOT_MAX * 0.4))
@@ -886,16 +884,14 @@ class EconomyEvents(commands.Cog):
             await event_channel.send(f"🚨 Laporan Heist untuk {victim_mention}:\n{heist_outcome_text}", delete_after=60)
             log.warning(f"Could not send victim DM to {victim_display_name} (DMs closed), sent to channel instead.")
             
-        # Hapus data heist setelah diselesaikan HANYA JIKA TIDAK ADA INVESTIGASI YANG DILAKUKAN
-        # Jika ada investigasi, data akan dihapus setelah pelaku dipenjara atau oleh cleanup task
+        # Hapus data heist dari active_heists HANYA JIKA TIDAK ADA INVESTIGASI YANG DILAKUKAN
         if not heist_data.get("investigated", False):
-            self.active_heists[guild_id_str].pop(victim_id_str, None)
-            # save_project_data(self.active_heists) # Ini menyebabkan overwrite file active_projects, tidak perlu jika hanya pop dari dictionary
-            # active_heists disimpan di memori, tidak di file project_file. Jadi, tidak perlu save_project_data di sini.
-            log.info(f"Heist data for {victim_display_name} removed (no investigation).")
-        else:
-            log.info(f"Heist data for {victim_display_name} kept for investigation.")
-
+            # Cek ulang di sini, karena 'heist_data' sudah di-pop di awal,
+            # jadi kita harus mengandalkan self.active_heists untuk data 'investigated'
+            # Atau passing 'heist_data' ke sini dan gunakan itu
+            # Untuk kasus ini, karena sudah di-pop di awal, tidak perlu pop lagi.
+            # Hanya log warning jika memang ada kondisi investigasi tapi tidak di-pop dari `active_heists` di awal
+            pass # Data sudah di-pop di awal fungsi
 
         await event_channel.send(announcement_text)
         log.info(f"Heist result announced in {event_channel.name}.")
@@ -904,6 +900,14 @@ class EconomyEvents(commands.Cog):
     @commands.command(name="curi") # Command tanpa prefiks rtm
     async def curi(self, ctx, target_user: discord.Member):
         logging.info(f"Command !curi used by {ctx.author.display_name} targeting {target_user.display_name}.")
+        
+        # Hapus pesan perintah !curi untuk menyamarkan identitas
+        try:
+            await ctx.message.delete()
+            log.info(f"Deleted !curi message from {ctx.author.display_name}.")
+        except discord.HTTPException as e:
+            log.warning(f"Could not delete !curi message from {ctx.author.display_name}: {e}")
+
         if ctx.channel.id != EVENT_CHANNEL_ID:
             logging.debug(f"Command curi used in wrong channel ({ctx.channel.id}). Expected {EVENT_CHANNEL_ID}.")
             return await ctx.send(f"Command ini hanya bisa digunakan di <#{EVENT_CHANNEL_ID}>.", ephemeral=True)
@@ -955,16 +959,11 @@ class EconomyEvents(commands.Cog):
 
         logging.info(f"Heist started by {ctx.author.display_name} targeting {target_user.display_name}. Cost: {HEIST_COST}.")
         await self._start_heist(ctx.guild, target_user, ctx.channel, initiator=ctx.author)
-        # Hapus pesan !curi dari user yang memanggil
-        try:
-            await ctx.message.delete()
-            log.info(f"Deleted !curi message from {ctx.author.display_name}.")
-        except discord.HTTPException as e:
-            log.warning(f"Could not delete !curi message from {ctx.author.display_name}: {e}")
+        
 
-    @commands.command(name="polisi") # Command tanpa prefiks rtm
-    async def call_police(self, ctx):
-        logging.info(f"Command !polisi used by {ctx.author.display_name}.")
+    @commands.command(name="responpolisi") # Nama command diubah dari !polisi menjadi !responpolisi
+    async def call_police_response(self, ctx):
+        logging.info(f"Command !responpolisi used by {ctx.author.display_name}.")
         guild_id = str(ctx.guild.id)
         user_id = str(ctx.author.id)
         
@@ -982,12 +981,12 @@ class EconomyEvents(commands.Cog):
         resolution_task = heist_info.get('resolution_task')
         if resolution_task and not resolution_task.done():
             resolution_task.cancel()
-            log.info(f"Heist resolution task for {user_id} cancelled by !polisi.")
+            log.info(f"Heist resolution task for {user_id} cancelled by !responpolisi.")
             await asyncio.sleep(0.1) # Beri waktu singkat agar task benar-benar cancelled
 
         time_elapsed = (datetime.utcnow() - heist_info["start_time"]).total_seconds()
 
-        initiator_id = heist_info["initiator_id"] 
+        initiator_id = heist_info["initiator_id"]  # Pencuri ID
         initiator = self.bot.get_user(int(initiator_id)) if initiator_id != "bot" else self.bot.user
         
         if time_elapsed > RESPONSE_TIME_SECONDS:
@@ -1134,7 +1133,7 @@ class EconomyEvents(commands.Cog):
             await victim.send(fire_outcome_text)
         except discord.Forbidden:
             await event_channel.send(f"🔥 Laporan Kebakaran untuk {victim_mention}:\n{fire_outcome_text}", delete_after=60)
-            log.warning(f"Could not send fire outcome DM to {victim.display_name} (DMs closed), sent to channel instead.")
+            log.warning(f"Could not send fire outcome DM to {victim_display_name} (DMs closed), sent to channel instead.")
             
         await event_channel.send(announcement_text)
         log.info(f"Fire event result announced in {event_channel.name}.")
@@ -1696,7 +1695,6 @@ class EconomyEvents(commands.Cog):
             return await ctx.send("❌ Kamu tidak bisa menghina bot! Mereka terlalu canggih untuk dihina.", ephemeral=True)
 
         if custom_insult:
-            # Menggunakan custom_insult langsung jika disediakan
             final_insult = f"Perhatian rakyat! Pesan khusus untuk **{target_user.mention}**: {custom_insult}" 
             logging.info(f"Used custom insult for {target_user.display_name}: '{custom_insult}'.")
         else:
@@ -2177,7 +2175,7 @@ class EconomyEvents(commands.Cog):
         await self._start_ngawur_project(ctx.guild, new_project_name, ctx.channel) # Menggunakan ctx.channel sebagai channel event
         logging.info(f"Admin forced start of new random project '{new_project_name}' via !proyekbaru.")
 
-    # --- Command: Lapor Polisi (User Curiga) ---
+    # --- Command: Lapor Mata (User Curiga) ---
     @commands.command(name="lapormata")
     async def report_suspect(self, ctx, target_user: discord.Member):
         guild_id_str = str(ctx.guild.id)
@@ -2196,33 +2194,36 @@ class EconomyEvents(commands.Cog):
             return await ctx.send("❌ Anda tidak bisa melaporkan diri sendiri.", ephemeral=True)
             
         # Cek apakah sudah ada investigasi aktif untuk user ini atau target ini
-        # Dapatkan semua investigasi aktif di guild ini
         guild_investigations = self.active_investigations.get(guild_id_str, {})
-        # Cek apakah pelapor sedang terlibat investigasi
         if user_id_str in guild_investigations:
             return await ctx.send("❌ Anda sudah mengajukan laporan dan sedang menunggu hasilnya.", ephemeral=True)
-        # Cek apakah target sedang dalam investigasi
         if any(inv['suspect_id'] == str(target_user.id) and inv['status'] == 'pending' for inv in guild_investigations.values()):
             return await ctx.send("❌ Target Anda sedang dalam investigasi aktif. Mohon tunggu.", ephemeral=True)
 
+        # Pastikan ada heist aktif yang belum diinvestigasi untuk target
+        heist_info = self.active_heists.get(guild_id_str, {}).get(str(target_user.id))
+        if not heist_info or heist_info.get("investigated"):
+            return await ctx.send(f"❌ Tidak ada pencurian aktif dari **{target_user.display_name}** yang perlu diselidiki. Atau detektif sudah tahu. 🤔", ephemeral=True)
 
         bank_data = load_bank_data()
         user_balance = bank_data.get(user_id_str, {}).get("balance", 0)
 
-        # Tentukan biaya pungli acak (0-100 RSWN)
+        # Tentukan biaya detektif acak (POLICE_BRIBE_COST_MIN-MAX RSWN)
         bribe_cost = random.randint(POLICE_BRIBE_COST_MIN, POLICE_BRIBE_COST_MAX)
         
         if user_balance < bribe_cost:
-            return await ctx.send(f"❌ Saldo Anda tidak cukup untuk membayar biaya laporan ke polisi (minimal **{bribe_cost} RSWN**). Anda punya: **{user_balance} RSWN**.", ephemeral=True)
+            return await ctx.send(f"❌ Saldo Anda tidak cukup untuk membayar biaya detektif (**{bribe_cost} RSWN** diperlukan). Anda punya: **{user_balance} RSWN**.", ephemeral=True)
 
         # Simpan status investigasi
         self.active_investigations.setdefault(guild_id_str, {})[user_id_str] = {
             'reporter_id': user_id_str,
             'suspect_id': str(target_user.id),
             'bribe_cost': bribe_cost,
-            'status': 'pending', # Status investigasi: pending, resolved_success, resolved_fail
+            'status': 'pending', # Status investigasi: pending, revealed, resolved_success, resolved_fail
             'start_time': datetime.utcnow().isoformat()
         }
+        # Tandai heist sebagai sedang diinvestigasi
+        self.active_heists[guild_id_str][str(target_user.id)]["investigated"] = True
         
         # Potong biaya pungli dari pelapor
         bank_data[user_id_str]["balance"] -= bribe_cost
@@ -2234,13 +2235,11 @@ class EconomyEvents(commands.Cog):
         bribe_details_msgs = police_report_messages.get("bribe_details", {})
 
         police_narration_detail = ""
-        if bribe_cost == 0:
-            police_narration_detail = bribe_details_msgs.get("0", "")
-        elif bribe_cost <= 25:
+        if bribe_cost <= (POLICE_BRIBE_COST_MIN + POLICE_BRIBE_COST_MAX) / 3: # Low tier bribe
             police_narration_detail = bribe_details_msgs.get("low", "")
-        elif bribe_cost <= 70:
+        elif bribe_cost <= (POLICE_BRIBE_COST_MIN + POLICE_BRIBE_COST_MAX) * 2 / 3: # Medium tier bribe
             police_narration_detail = bribe_details_msgs.get("medium", "")
-        else: # bribe_cost > 70
+        else: # High tier bribe
             police_narration_detail = bribe_details_msgs.get("high", "")
 
         report_initial_embed = discord.Embed(
@@ -2248,10 +2247,10 @@ class EconomyEvents(commands.Cog):
             description=initial_description_template.format(
                 reporter_display_name=ctx.author.display_name,
                 reporter_mention=ctx.author.mention,
-                suspect_display_name=target_user.display_name,
-                suspect_mention=target_user.mention,
+                suspect_display_name="seorang tersangka misterius", # Identitas disamarkan
+                suspect_mention="tersangka misterius", # Identitas disamarkan
                 bribe_cost=bribe_cost,
-                police_narration_detail=police_narration_detail
+                police_narration_detail=police_naration_detail
             ),
             color=discord.Color.dark_blue()
         )
@@ -2260,102 +2259,178 @@ class EconomyEvents(commands.Cog):
         logging.info(f"Report by {ctx.author.display_name} against {target_user.display_name} initiated with bribe {bribe_cost}.")
 
         # Simulasi investigasi
-        investigation_duration = random.randint(15, 45) # Durasi investigasi 15-45 detik
+        investigation_duration = random.randint(15, 30) # Durasi investigasi 15-30 detik
         await asyncio.sleep(investigation_duration)
 
-        # Pastikan investigasi ini masih pending dan belum dibatalkan/diselesaikan di luar alur ini
         current_investigation_state = self.active_investigations.get(guild_id_str, {}).get(user_id_str)
         if not current_investigation_state or current_investigation_state['status'] != 'pending':
             logging.info(f"Investigation for {user_id_str} was already resolved or cancelled. Skipping automated resolution.")
             return
+        
+        # Peluang detektif mengungkapkan identitas berdasarkan biaya sogok
+        # Contoh: Jika bayar 100, peluang ~25%, jika 450, peluang ~75%
+        success_chance = 0.25 + (bribe_cost - POLICE_BRIBE_COST_MIN) / (POLICE_BRIBE_COST_MAX - POLICE_BRIBE_COST_MIN) * 0.50 
+        is_revealed = random.random() < success_chance
 
-        # Acak hasil investigasi (peluang tertangkap: 60%)
-        if random.random() < 0.60: # Target tertangkap
-            logging.info(f"Investigation against {target_user.display_name} succeeded. Jailing target.")
-            await self._jail_user(target_user, JAIL_DURATION_HOURS) # Penjarakan target
+        if is_revealed: # Target identitas tertangkap
+            logging.info(f"Investigation against {target_user.display_name} succeeded. Identity revealed.")
+            self.active_investigations[guild_id_str][user_id_str]['status'] = 'revealed'
             
-            self.active_investigations[guild_id_str][user_id_str]['status'] = 'resolved_success'
-            bounty = random.randint(50, 200) # Bonus untuk pelapor
-            bank_data.setdefault(user_id_str, {})['balance'] += bounty
-            save_bank_data(bank_data)
+            revealed_embed = discord.Embed(
+                title=police_report_messages.get("reveal_success_title", "KASUS TERUNGKAP: IDENTITAS TERSANGKA DIKETAHUI!"),
+                description=police_report_messages.get("reveal_success_description", "").format(
+                    suspect_mention=target_user.mention, # Kini identitas diungkap
+                    reporter_mention=ctx.author.mention
+                ),
+                color=discord.Color.gold()
+            )
+            revealed_embed.set_footer(text="Sekarang, giliran Anda bertindak!")
+            await ctx.send(embed=revealed_embed)
+            await ctx.author.send(f"🕵️‍♀️ **RAHASIA TERKUAK!** Detektif berhasil mengidentifikasi pencuri Anda: **{target_user.display_name}**! "
+                                  f"Anda sekarang bisa melaporkannya ke polisi dengan `!laporpolisi {target_user.mention}`.")
+        else: # Target identitas tidak tertangkap (detektif gagal)
+            logging.info(f"Investigation against {target_user.display_name} failed. Identity not revealed.")
+            self.active_investigations[guild_id_str][user_id_str]['status'] = 'resolved_fail' # Langsung fail karena tidak ada kelanjutan
+            
+            fail_embed = discord.Embed(
+                title=police_report_messages.get("reveal_fail_title", "KASUS GAGAL: IDENTITAS TERSANGKA TETAP MISTERI!"),
+                description=police_report_messages.get("reveal_fail_description", "").format(
+                    reporter_mention=ctx.author.mention
+                ),
+                color=discord.Color.dark_red()
+            )
+            fail_embed.set_footer(text="Detektif butuh uang lebih, Kawan.")
+            await ctx.send(embed=fail_embed)
+            await ctx.author.send(f"💔 Detektif gagal mengidentifikasi pencuri Anda. Uang laporan Anda sebesar **{bribe_cost} RSWN** hangus. Mungkin lain kali butuh biaya lebih untuk 'motivasi' detektif. 🤫")
+            # Hapus investigasi dari daftar aktif setelah resolusi gagal
+            self.active_investigations.get(guild_id_str, {}).pop(user_id_str, None)
 
-            success_embed = discord.Embed(
-                title=police_report_messages.get("success_title", "KEPUTUSAN INVESTIGASI: PELAKU TERTANGKAP!"),
-                description=police_report_messages.get("success_description", "").format(
-                    suspect_mention=target_user.mention,
+
+    # --- Command BARU: Lapor Polisi (setelah detektif berhasil) ---
+    @commands.command(name="laporpolisi")
+    async def report_to_police(self, ctx, suspect_user: discord.Member):
+        guild_id_str = str(ctx.guild.id)
+        user_id_str = str(ctx.author.id)
+        logging.info(f"User {ctx.author.display_name} ({user_id_str}) called !laporpolisi on {suspect_user.display_name} ({suspect_user.id}).")
+
+        # Cek apakah user sedang dalam masa tahanan
+        jailed, _ = await self._is_user_jailed(ctx.author.id, guild_id_str)
+        if jailed:
+            return await ctx.send("❌ Anda sedang dalam masa tahanan dan tidak bisa melaporkan siapa pun.", ephemeral=True)
+
+        # Cek validitas target
+        if suspect_user.bot:
+            return await ctx.send("❌ Anda tidak bisa melaporkan bot.", ephemeral=True)
+        if suspect_user.id == ctx.author.id:
+            return await ctx.send("❌ Anda tidak bisa melaporkan diri sendiri.", ephemeral=True)
+
+        # Cek apakah ada investigasi yang berhasil 'revealed' untuk user ini
+        investigation_info = self.active_investigations.get(guild_id_str, {}).get(user_id_str)
+        if not investigation_info or investigation_info['status'] != 'revealed' or investigation_info['suspect_id'] != str(suspect_user.id):
+            return await ctx.send(f"❌ Anda belum berhasil mengungkap identitas pencuri ini atau laporan Anda sudah kedaluwarsa. Gunakan `!lapormata` terlebih dahulu.", ephemeral=True)
+            
+        bank_data = load_bank_data()
+        user_balance = bank_data.get(user_id_str, {}).get("balance", 0)
+
+        # Tentukan biaya lapor polisi acak (100-250 RSWN)
+        report_cost = random.randint(POLICE_REPORT_COST_MIN, POLICE_REPORT_COST_MAX)
+        
+        if user_balance < report_cost:
+            return await ctx.send(f"❌ Saldo Anda tidak cukup untuk membayar biaya laporan ke polisi (**{report_cost} RSWN** diperlukan). Anda punya: **{user_balance} RSWN**.", ephemeral=True)
+
+        # Potong biaya laporan
+        bank_data[user_id_str]["balance"] -= report_cost
+        save_bank_data(bank_data)
+
+        # Acak hasil lapor polisi (korup atau tidak)
+        police_report_messages = self.satire_narrations.get("police_report_messages", {})
+        corruption_chance_police = 0.40 # 40% kemungkinan polisi korup
+
+        if random.random() < corruption_chance_police: # Polisi korup
+            logging.info(f"Police report for {suspect_user.display_name} resulted in corruption. Cost: {report_cost}.")
+            self.active_investigations[guild_id_str][user_id_str]['status'] = 'resolved_fail' # Tetap dianggap gagal
+            
+            corrupt_embed = discord.Embed(
+                title=police_report_messages.get("police_corrupt_title", "POLISI KORUP! LAPORAN ANDA DIABAIKAN!"),
+                description=police_report_messages.get("police_corrupt_description", "").format(
+                    suspect_mention=suspect_user.mention,
                     reporter_mention=ctx.author.mention,
-                    bounty=bounty
+                    report_cost=report_cost
+                ),
+                color=discord.Color.dark_purple()
+            )
+            corrupt_embed.set_footer(text="Di negara ini, uang berbicara lebih keras dari keadilan.")
+            await ctx.send(embed=corrupt_embed)
+            try: await ctx.author.send(f"💔 Maaf, laporan Anda tentang **{suspect_user.display_name}** diabaikan. Uang **{report_cost} RSWN** Anda sepertinya masuk kantong pribadi pejabat polisi. Mereka bilang 'kurang meyakinkan'. Cih! 😠")
+            except discord.Forbidden: pass
+
+        else: # Polisi berhasil menangkap
+            logging.info(f"Police report for {suspect_user.display_name} succeeded. Jailing suspect. Cost: {report_cost}.")
+            await self._jail_user(suspect_user, JAIL_DURATION_HOURS) # Penjarakan tersangka
+            self.active_investigations[guild_id_str][user_id_str]['status'] = 'resolved_success'
+            
+            success_embed = discord.Embed(
+                title=police_report_messages.get("police_success_title", "POLISI BERTINDAK! PELAKU DITANGKAP!"),
+                description=police_report_messages.get("police_success_description", "").format(
+                    suspect_mention=suspect_user.mention,
+                    reporter_mention=ctx.author.mention,
+                    report_cost=report_cost
                 ),
                 color=discord.Color.green()
             )
-            success_embed.set_footer(text="Keadilan ditegakkan... seharga sebuah amplop.")
+            success_embed.set_footer(text="Keadilan kadang-kadang bisa dibeli. Eh, maksudnya ditegakkan!")
             await ctx.send(embed=success_embed)
-            try: await ctx.author.send(f"🎉 **BONUS INVESTIGASI!** Laporanmu berhasil dan kamu menerima **{bounty} RSWN** sebagai bonus rahasia dari polisi!", ephemeral=True)
-            except discord.Forbidden: pass # DM fails
-
-        else: # Target tidak tertangkap
-            logging.info(f"Investigation against {target_user.display_name} failed. Target not jailed.")
-            self.active_investigations[guild_id_str][user_id_str]['status'] = 'resolved_fail'
-            fail_embed = discord.Embed(
-                title=police_report_messages.get("fail_title", "KEPUTUSAN INVESTIGASI: PELAKU LOLOS!"),
-                description=police_report_messages.get("fail_description", "").format(
-                    suspect_mention=target_user.mention
-                ),
-                color=discord.Color.red()
-            )
-            fail_embed.set_footer(text="Keadilan seringkali mahal, Kawan.")
-            await ctx.send(embed=fail_embed)
-            try: await ctx.author.send(f"💔 Laporan investigasimu gagal. Polisi tidak bisa menangkap {target_user.display_name}. Biaya laporanmu hangus.", ephemeral=True)
+            try: await ctx.author.send(f"🎉 Selamat! Laporan Anda berhasil! **{suspect_user.display_name}** sekarang dijebloskan ke penjara. Uang **{report_cost} RSWN** Anda 'digunakan dengan bijak' oleh kepolisian. 😉")
             except discord.Forbidden: pass
-
-        # Hapus investigasi dari daftar aktif setelah resolusi
+        
+        # Hapus data investigasi setelah laporan polisi diselesaikan
         self.active_investigations.get(guild_id_str, {}).pop(user_id_str, None)
 
 
-    # --- Command: Butuh Orang Dalam (Sogok Polisi/Pemerintah) ---
-    @commands.command(name="butuhorangdalam", aliases=["sogokpolisi", "bebaspenjara"])
-    async def need_insider(self, ctx):
+    # --- Command BARU: Sogok Orang Dalam ---
+    @commands.command(name="sogok")
+    async def bribe_insider(self, ctx):
         guild_id_str = str(ctx.guild.id)
         user_id_str = str(ctx.author.id)
 
-        logging.info(f"User {ctx.author.display_name} ({user_id_str}) called !butuhorangdalam.")
+        logging.info(f"User {ctx.author.display_name} ({user_id_str}) called !sogok.")
 
         # Cek apakah user memang sedang dalam masa tahanan
         jailed, jailed_until = await self._is_user_jailed(ctx.author.id, guild_id_str)
         if not jailed:
-            return await ctx.send("❌ Anda tidak sedang dalam masa tahanan. Kenapa butuh orang dalam?", ephemeral=True)
+            return await ctx.send("❌ Anda tidak sedang dalam masa tahanan. Kenapa mau menyogok?", ephemeral=True)
 
         # Cek apakah user sudah meminta bantuan sebelumnya (cooldown)
-        jail_bribe_messages = self.satire_narrations.get("jail_bribe_messages", {})
-        jail_help_requests_data = load_jail_help_requests()
-        last_request_time_str = jail_help_requests_data.get(user_id_str, {}).get("last_request_time")
+        jail_bribe_requests_data = load_jail_help_requests()
+        last_request_time_str = jail_bribe_requests_data.get(user_id_str, {}).get("last_bribe_time")
         
+        # Cooldown 1 jam untuk sogok
         if last_request_time_str:
             last_request_time = datetime.fromisoformat(last_request_time_str)
-            # Batasi permintaan sogok setiap 1 jam, misalnya
             if datetime.utcnow() - last_request_time < timedelta(hours=1):
                 time_left = timedelta(hours=1) - (datetime.utcnow() - last_request_time)
                 minutes, seconds = divmod(int(time_left.total_seconds()), 60)
-                return await ctx.send(f"❌ Anda baru saja meminta bantuan. Coba lagi dalam {minutes} menit {seconds} detik.", ephemeral=True)
+                return await ctx.send(f"❌ Anda baru saja mencoba menyogok. Coba lagi dalam {minutes} menit {seconds} detik.", ephemeral=True)
 
         bank_data = load_bank_data()
         user_balance = bank_data.get(user_id_str, {}).get("balance", 0)
 
-        sogok_cost = random.randint(CORRUPTION_CHARGE_COST_MIN, CORRUPTION_CHARGE_COST_MAX)
+        sogok_cost = JAIL_BRIBE_COST
         
         if user_balance < sogok_cost:
             return await ctx.send(f"❌ Saldo Anda tidak cukup untuk menyogok pejabat (**{sogok_cost} RSWN** diperlukan). Anda punya: **{user_balance} RSWN**. Coba lagi nanti kalau sudah punya uang busuk.", ephemeral=True)
-        
+            
         # Potong biaya sogokan
         bank_data[user_id_str]["balance"] -= sogok_cost
         save_bank_data(bank_data)
 
         # Simpan waktu permintaan untuk cooldown
-        jail_help_requests_data[user_id_str] = {"last_request_time": datetime.utcnow().isoformat()}
-        save_jail_help_requests(jail_help_requests_data)
+        jail_bribe_requests_data[user_id_str] = {"last_bribe_time": datetime.utcnow().isoformat()}
+        save_jail_help_requests(jail_bribe_requests_data) # Menggunakan file yang sama
 
         # Acak hasil sogokan
-        if random.random() < 0.60: # 60% berhasil
+        jail_bribe_messages = self.satire_narrations.get("jail_bribe_messages", {})
+        if random.random() < JAIL_BRIBE_CHANCE: # Berhasil
             logging.info(f"User {ctx.author.display_name} successfully bribed for release from jail. Cost: {sogok_cost}.")
             await self._release_user(ctx.author) # Bebaskan user
             
@@ -2371,7 +2446,7 @@ class EconomyEvents(commands.Cog):
             try: await ctx.author.send(jail_bribe_messages.get("success_dm", "").format(sogok_cost=sogok_cost))
             except discord.Forbidden: pass
 
-        else: # 40% gagal
+        else: # Gagal
             logging.info(f"User {ctx.author.display_name} failed to bribe for release. Cost: {sogok_cost}.")
             fail_sogok_embed = discord.Embed(
                 title=jail_bribe_messages.get("fail_title", ""),
