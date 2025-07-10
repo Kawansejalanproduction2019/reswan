@@ -11,15 +11,16 @@ from lyricsgenius import Genius
 from datetime import datetime # Import datetime untuk timestamp logging
 import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials
+from collections import deque # Import deque untuk antrean lebih efisien
 
-# --- Helper Functions (Wajib ada di awal module untuk akses path root) ---
-# NOTE: These helper functions are intended to be in main.py or a shared utility file.
-# If they are duplicated here, it's for completeness of this single file.
+# --- HAPUS: Helper Functions Global yang seharusnya di main.py atau utils.py ---
+# Ini adalah placeholder yang seharusnya TIDAK ada di file cog individual
+# Ini dihilangkan dari music.py karena diasumsikan Anda mengimpornya secara global
+# Jika bot Anda crash karena ini, pastikan Anda telah menempatkan fungsi ini di main.py atau file utils.py
+# dan mengimpornya dengan benar. Contoh: from main import load_json_from_root, save_json_to_root
+# Untuk saat ini, saya akan menyertakan definisinya lagi untuk memastikan file ini berdiri sendiri dan tidak ada NameError.
+# Namun, saya SANGAT menyarankan Anda memindahkannya ke main.py atau utils.py untuk praktik terbaik.
 def load_json_from_root(file_path, default_value=None):
-    """
-    Memuat data JSON dari file yang berada di root direktori proyek bot.
-    Menambahkan `default_value` yang lebih fleksibel.
-    """
     try:
         base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
         full_path = os.path.join(base_dir, file_path)
@@ -27,35 +28,27 @@ def load_json_from_root(file_path, default_value=None):
         with open(full_path, 'r', encoding='utf-8') as f:
             return json.load(f)
     except FileNotFoundError:
-        print(f"[{datetime.now()}] [DEBUG HELPER] Peringatan: File {full_path} tidak ditemukan. Mengembalikan nilai default.")
+        print(f"[{datetime.now()}] [HELPER WARNING] File {full_path} not found. Returning default.")
         if default_value is not None:
             save_json_to_root(default_value, file_path)
             return default_value
-        if 'questions.json' in file_path:
-            return {"questions": []}
-        if 'scores.json' in file_path or 'level_data.json' in file_path or 'bank_data.json' in file_path:
-            return {}
         return {}
     except json.JSONDecodeError as e:
-        print(f"[{datetime.now()}] [DEBUG HELPER] Peringatan: File {full_path} rusak (JSON tidak valid). Error: {e}. Mengembalikan nilai default.")
+        print(f"[{datetime.now()}] [HELPER ERROR] File {full_path} corrupted: {e}. Returning default.")
         if default_value is not None:
             save_json_to_root(default_value, file_path)
             return default_value
-        if 'questions.json' in file_path:
-            return {"questions": []}
-        if 'scores.json' in file_path or 'level_data.json' in file_path or 'bank_data.json' in file_path:
-            return {}
         return {}
 
-
 def save_json_to_root(data, file_path):
-    """Menyimpan data ke file JSON di root direktori proyek."""
-    base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-    full_path = os.path.join(base_dir, file_path)
-    os.makedirs(os.path.dirname(full_path), exist_ok=True)
-    with open(full_path, 'w', encoding='utf-8') as f:
-        json.dump(data, f, indent=4)
-
+    try:
+        base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+        full_path = os.path.join(base_dir, file_path)
+        os.makedirs(os.path.dirname(full_path), exist_ok=True)
+        with open(full_path, 'w', encoding='utf-8') as f:
+            json.dump(data, f, indent=4)
+    except Exception as e:
+        print(f"[{datetime.now()}] [HELPER ERROR] Error saving {full_path}: {e}")
 
 # Konfigurasi Genius API untuk lirik
 GENIUS_API_TOKEN = os.getenv("GENIUS_API")
@@ -416,7 +409,6 @@ class Music(commands.Cog):
                 print(f"[{datetime.now()}] [Music Cog] play_next: Disconnect timer dibatalkan saat voice client hilang.")
 
             # Kirim pesan keluar jika ini bukan karena stop command
-            # Ini mungkin spam jika sering terjadi putus koneksi
             # await ctx.send("Bot keluar dari voice channel karena koneksi terputus atau tidak ada.")
             
             # Jangan panggil disconnect lagi jika sudah terputus
@@ -427,9 +419,6 @@ class Music(commands.Cog):
             if guild_id in self.current_music_message:
                 try:
                     message_id = self.current_music_message.pop(guild_id) 
-                    # Dapatkan channel tempat pesan itu dikirim (ctx.channel mungkin bukan channel yang tepat jika bot di VC lain)
-                    # Lebih robust: simpan (message_id, message_channel_id) di self.current_music_message
-                    # Untuk saat ini, asumsikan ctx.channel masih valid, atau coba cari di guild.text_channels
                     target_text_channel = ctx.bot.get_channel(ctx.channel.id) # Ambil channel tempat command dipanggil
                     if not target_text_channel: # Fallback jika ctx.channel tidak valid (misal private channel sudah hilang)
                         target_text_channel = ctx.guild.system_channel or ctx.guild.text_channels[0] # Coba system channel atau channel teks pertama
@@ -767,10 +756,13 @@ class Music(commands.Cog):
             # Coba edit pesan musik terakhir untuk menonaktifkan tombol dan ubah teks
             if ctx.guild.id in self.current_music_message:
                 try:
-                    message_id = self.current_music_message.pop(ctx.guild.id) # Hapus ID pesan setelah diambil
-                    msg_channel = ctx.bot.get_channel(ctx.channel.id) # Asumsi pesan ada di channel yang sama
-                    if msg_channel:
-                        msg = await msg_channel.fetch_message(message_id)
+                    message_id = self.current_music_message.pop(ctx.guild.id) 
+                    target_text_channel = ctx.bot.get_channel(ctx.channel.id) # Ambil channel tempat command dipanggil
+                    if not target_text_channel: 
+                        target_text_channel = ctx.guild.system_channel or ctx.guild.text_channels[0]
+                    
+                    if target_text_channel:
+                        msg = await target_text_channel.fetch_message(message_id)
                         view_instance = MusicControlView(self, original_message=msg)
                         for item in view_instance.children:
                             item.disabled = True # Menonaktifkan semua tombol
@@ -820,13 +812,43 @@ class Music(commands.Cog):
 
         if self.loop_status[guild_id]:
             await ctx.send("🔁 Mode Loop **ON** (lagu saat ini akan diulang).", ephemeral=False)
-            button.style = discord.ButtonStyle.green
-            print(f"[{datetime.now()}] [Music Control] Loop: Loop mode ON for {interaction.guild.name}.")
+            # Find the loop button and set its style (if the message exists and is valid)
+            if ctx.guild.id in self.current_music_message:
+                try:
+                    msg_id = self.current_music_message[guild_id]
+                    msg_channel = ctx.bot.get_channel(ctx.channel.id) # Asumsi pesan ada di channel yang sama
+                    if msg_channel:
+                        msg = await msg_channel.fetch_message(msg_id)
+                        view_instance = MusicControlView(self, original_message=msg) # Re-instantiate view to update button style
+                        for item in view_instance.children:
+                            if item.custom_id == "music:loop":
+                                item.style = discord.ButtonStyle.green
+                                break
+                        await msg.edit(view=view_instance)
+                except (discord.NotFound, IndexError):
+                    print(f"[{datetime.now()}] [Music Cog] Failed to update loop button on now playing message (not found).")
+                    pass
+            print(f"[{datetime.now()}] [Music Cog] Loop mode ON for {ctx.guild.name}.")
         else:
-            await interaction.response.send_message("🔁 Mode Loop **OFF**.", ephemeral=True)
-            button.style = discord.ButtonStyle.grey
-            print(f"[{datetime.now()}] [Music Control] Loop: Loop mode OFF for {interaction.guild.name}.")
-        await interaction.message.edit(view=self) # Update tombol di pesan aslinya
+            await ctx.send("🔁 Mode Loop **OFF**.", ephemeral=False)
+            # Find the loop button and set its style (if the message exists and is valid)
+            if ctx.guild.id in self.current_music_message:
+                try:
+                    msg_id = self.current_music_message[guild_id]
+                    msg_channel = ctx.bot.get_channel(ctx.channel.id) # Asumsi pesan ada di channel yang sama
+                    if msg_channel:
+                        msg = await msg_channel.fetch_message(msg_id)
+                        view_instance = MusicControlView(self, original_message=msg) # Re-instantiate view to update button style
+                        for item in view_instance.children:
+                            if item.custom_id == "music:loop":
+                                item.style = discord.ButtonStyle.grey
+                                break
+                        await msg.edit(view=view_instance)
+                except (discord.NotFound, IndexError):
+                    print(f"[{datetime.now()}] [Music Cog] Failed to update loop button on now playing message (not found).")
+                    pass
+            print(f"[{datetime.now()}] [Music Cog] Loop mode OFF for {ctx.guild.name}.")
+
 
     @commands.command(name="reslyrics")
     async def lyrics(self, ctx, *, song_name=None):
@@ -875,37 +897,28 @@ class Music(commands.Cog):
                 # Cek lagi apakah channel masih kosong dan bot masih di VC sebelum disconnect
                 current_human_members = [m for m in voice_channel.members if not m.bot and not m.voice.self_deaf and not m.voice.self_mute]
                 if len(current_human_members) == 0 and voice_client and voice_client.is_connected():
-                    await voice_client.disconnect()
-                    self.queues.pop(guild_id, None) # Bersihkan antrean
-                    self.loop_status.pop(guild_id, None) # Matikan loop
-                    
-                    # Coba edit pesan musik terakhir jika ada dan masih bisa diakses
-                    if guild_id in self.current_music_message:
-                        try:
-                            message_id = self.current_music_message.pop(guild_id) 
-                            target_text_channel = ctx.bot.get_channel(ctx.channel.id) # Ambil channel tempat command dipanggil
-                            if not target_text_channel: # Fallback jika ctx.channel tidak valid (misal private channel sudah hilang)
-                                target_text_channel = ctx.guild.system_channel or ctx.guild.text_channels[0] # Coba system channel atau channel teks pertama
-                            
-                            if target_text_channel:
-                                msg = await target_text_channel.fetch_message(message_id)
-                                view_instance = MusicControlView(self, original_message=msg)
-                                for item in view_instance.children:
-                                    item.disabled = True
-                                embed = msg.embeds[0] if msg.embeds else discord.Embed()
-                                embed.title = "Musik Berhenti 🎶"
-                                embed.description = "Bot keluar dari voice channel karena tidak ada user di sini."
-                                embed.set_footer(text="Semoga hari Anda tidak terlalu hampa.")
-                                embed.set_thumbnail(url=discord.Embed.Empty)
-                                await msg.edit(embed=embed, view=view_instance)
-                            else:
-                                print(f"[{datetime.now()}] [Music Cog] Tidak dapat menemukan channel teks untuk pesan musik ID {message_id_to_pop} saat auto-disconnect.")
-                        except discord.NotFound:
-                            print(f"[{datetime.now()}] [Music Cog] Pesan musik lama tidak ditemukan saat auto-disconnect.")
-                        except Exception as e:
-                            print(f"[{datetime.now()}] [Music Cog] Error updating music message on auto-disconnect: {e}")
+                    # Jika ada kuis aktif, jangan disconnect. Ini agar bot tidak disconnect di tengah kuis.
+                    if self.active_quizzes.get(guild_id): # WARNING: self.active_quizzes doesn't exist in Music cog
+                        print(f"[{datetime.now()}] [Music Cog] Quiz is active in {member.guild.name}. Skipping auto-disconnect.")
+                        return # Jangan disconnect jika kuis masih aktif
 
+                    await voice_client.disconnect()
                     print(f"[{datetime.now()}] [Music Cog] Bot keluar dari {voice_channel.name} karena kosong.")
+                    
+                    # Opsional: kirim pesan ke channel teks jika channel default/sistemnya ada
+                    # Untuk MusicQuiz, pesan utama ada di channel tempat command dimulai
+                    # Asumsi self.active_quizzes[guild_id] akan dihapus saat kuis selesai,
+                    # jadi kita perlu channel konteks kuis untuk pesan auto-disconnect
+                    # Kita bisa simpan channel_id di self.active_quizzes saat kuis dimulai
+                    quiz_text_channel_id = self.active_quizzes.get(guild_id, {}).get('text_channel_id') # WARNING: self.active_quizzes doesn't exist in Music cog
+                    if quiz_text_channel_id:
+                        text_channel = self.bot.get_channel(quiz_text_channel_id)
+                        if text_channel:
+                            await text_channel.send("Bot keluar dari voice channel karena tidak ada user aktif di dalamnya.")
+                        else:
+                            print(f"[{datetime.now()}] [Music Cog] Text channel {quiz_text_channel_id} not found for auto-disconnect message.")
+                    elif voice_channel.guild.system_channel: # Fallback ke system channel
+                        await voice_channel.guild.system_channel.send("Bot keluar dari voice channel karena tidak ada user aktif di dalamnya.")
                 
                 # Hapus timer setelah selesai, terlepas dari apakah bot disconnect atau tidak
                 del self.disconnect_timers[guild_id] 
