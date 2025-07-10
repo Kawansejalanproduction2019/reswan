@@ -9,11 +9,6 @@ from datetime import datetime, timedelta
 log = logging.getLogger(__name__)
 
 # --- KONFIGURASI ---
-# Ganti dengan ID Voice Channel pemicu (tempat user bergabung untuk membuat VC baru)
-TRIGGER_VOICE_CHANNEL_ID = 1382486705113927811 # Ganti dengan ID VC pemicu Anda
-# Ganti dengan ID Kategori tempat Voice Channel baru akan dibuat
-TARGET_CATEGORY_ID = 1255211613326278716 # Ganti dengan ID Kategori target Anda
-# Nama dasar untuk channel yang dibuat
 DEFAULT_CHANNEL_NAME_PREFIX = "Music"
 
 # --- FILE DATA UNTUK MELACAK CHANNEL SEMENTARA (Persisten antar restart bot) ---
@@ -27,7 +22,7 @@ def load_temp_channels():
             json.dump({}, f, indent=4)
         return {}
     try:
-        with open(TEMP_CHANNELS_FILE, 'r', encoding='utf-8') as f:
+        with open(TEMP_CHANNels_FILE, 'r', encoding='utf-8') as f:
             data = json.load(f)
             # Konversi string ID kembali ke int jika perlu, atau pastikan selalu string
             return {str(k): v for k, v in data.items()} # Simpan sebagai string key
@@ -49,10 +44,13 @@ def save_temp_channels(data):
 class TempVoice(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        # self.active_temp_channels: {guild_id_str: {channel_id_str: {"owner_id": str, "guild_id": str, "is_creator_channel": bool}}}
-        self.active_temp_channels = load_temp_channels() 
+        self.active_temp_channels = load_temp_channels() # {guild_id_str: {channel_id_str: {"owner_id": str, "guild_id": str, "is_creator_channel": bool}}}
         log.info(f"TempVoice cog loaded. Active temporary channels: {self.active_temp_channels}")
         self.cleanup_task.start()
+
+    def _save_temp_channels_state(self):
+        save_temp_channels(self.active_temp_channels)
+        log.debug("Temporary channel state saved.")
 
     def cog_unload(self):
         log.info("TempVoice cog unloaded. Cancelling cleanup task.")
@@ -60,10 +58,12 @@ class TempVoice(commands.Cog):
 
     @tasks.loop(seconds=10) # Cek setiap 10 detik
     async def cleanup_task(self):
+        log.debug("Running cleanup task for temporary voice channels.")
         channels_to_remove_from_guilds = []
         for guild_id_str in list(self.active_temp_channels.keys()):
             guild = self.bot.get_guild(int(guild_id_str))
             if not guild:
+                log.info(f"Guild {guild_id_str} not found, removing all its temp channel data.")
                 channels_to_remove_from_guilds.append(guild_id_str)
                 continue
 
@@ -75,7 +75,7 @@ class TempVoice(commands.Cog):
                     continue
 
                 if not channel: # Channel tidak ditemukan di Discord, hapus dari tracking
-                    print(f"[{datetime.now()}] [TempVoice] Temp channel {channel_id_str} not found, removing from state.")
+                    log.info(f"Temp channel {channel_id_str} not found in Discord, removing from state.")
                     self.active_temp_channels[guild_id_str].pop(channel_id_str, None)
                     continue
 
@@ -84,14 +84,14 @@ class TempVoice(commands.Cog):
                     try:
                         await channel.delete(reason="Temporary voice channel is empty.")
                         self.active_temp_channels[guild_id_str].pop(channel_id_str, None)
-                        print(f"[{datetime.now()}] [TempVoice] Deleted empty temp channel: {channel.name} ({channel.id}).")
+                        log.info(f"Deleted empty temp channel: {channel.name} ({channel.id}).")
                     except discord.NotFound:
                         self.active_temp_channels[guild_id_str].pop(channel_id_str, None)
-                        print(f"[{datetime.now()}] [TempVoice] Temp channel {channel.name} already deleted.")
+                        log.info(f"Temp channel {channel.name} already deleted, removing from state.")
                     except discord.Forbidden:
-                        print(f"[{datetime.now()}] [TempVoice] Bot lacks permissions to delete temp channel {channel.name}. Please check 'Manage Channels' permission.")
+                        log.warning(f"Bot lacks permissions to delete temp channel {channel.name} ({channel.id}). Please check 'Manage Channels' permission.")
                     except Exception as e:
-                        print(f"[{datetime.now()}] [TempVoice] Error deleting temp channel {channel.name}: {e}")
+                        log.error(f"Error deleting temp channel {channel.name} ({channel.id}): {e}", exc_info=True)
             
             # If a guild no longer has any tracked channels (temp or creator), remove it from active_temp_channels
             if not self.active_temp_channels.get(guild_id_str):
@@ -99,7 +99,7 @@ class TempVoice(commands.Cog):
         
         for g_id in channels_to_remove_from_guilds:
             self.active_temp_channels.pop(g_id, None)
-        save_temp_channels(self.active_temp_channels)
+        self._save_temp_channels_state()
         log.debug(f"Temporary channel data saved after cleanup. Remaining: {len(self.active_temp_channels)} guilds tracked.")
 
     @cleanup_task.before_loop
@@ -110,55 +110,55 @@ class TempVoice(commands.Cog):
 
     @commands.Cog.listener()
     async def on_voice_state_update(self, member, before, after):
-        # Hanya proses jika user bukan bot
         if member.bot:
             return
 
         guild_id_str = str(member.guild.id)
         
-        # Check if a user joined a *creator* channel
         is_creator_channel_join = False
         creator_channel_obj = None
 
-        if after.channel and guild_id_str in self.active_temp_channels:
-            for ch_id, ch_info in self.active_temp_channels[guild_id_str].items():
-                if ch_info.get("is_creator_channel", False) and int(ch_id) == after.channel.id:
-                    is_creator_channel_join = True
-                    creator_channel_obj = after.channel
-                    break
-
+        if after.channel: # User joined a channel
+            if guild_id_str in self.active_temp_channels:
+                for ch_id, ch_info in self.active_temp_channels[guild_id_str].items():
+                    if ch_info.get("is_creator_channel", False) and int(ch_id) == after.channel.id:
+                        is_creator_channel_join = True
+                        creator_channel_obj = after.channel
+                        break
+        
         if is_creator_channel_join:
-            # Prevent user from creating multiple channels by joining creator channel multiple times
+            log.info(f"User {member.display_name} joined creator channel {creator_channel_obj.name}.")
+            
+            # Prevent user from creating multiple channels
             for ch_id_str, ch_info in self.active_temp_channels.get(guild_id_str, {}).items():
-                # Check if this is a temp channel (not creator) and owned by the user
                 if ch_info.get("owner_id") == str(member.id) and not ch_info.get("is_creator_channel", False):
                     existing_channel = member.guild.get_channel(int(ch_id_str))
                     if existing_channel:
-                        print(f"[{datetime.now()}] [TempVoice] User {member.display_name} already has temp channel {existing_channel.name}. Moving back.")
+                        log.info(f"User {member.display_name} already has temp channel {existing_channel.name}. Moving back.")
                         try:
                             await member.move_to(existing_channel)
                             return # Selesai, karena user sudah dipindahkan
                         except discord.Forbidden:
-                            print(f"[{datetime.now()}] [TempVoice] Bot lacks permissions to move {member.display_name} to their existing VC {existing_channel.name}.")
-                            try: await member.send(f"❌ Gagal memindahkan Anda ke channel pribadi Anda: Bot tidak memiliki izin 'Move Members'. Silakan hubungi admin server.")
+                            log.warning(f"Bot lacks permissions to move {member.display_name} to their existing VC {existing_channel.name}.")
+                            try: await member.send(f"❌ Gagal memindahkan Anda ke channel pribadi Anda: Bot tidak memiliki izin 'Pindahkan Anggota'. Silakan hubungi admin server.")
                             except discord.Forbidden: pass
                             return
                         except Exception as e:
-                            print(f"[{datetime.now()}] [TempVoice] Error moving {member.display_name} to existing VC {existing_channel.name}: {e}")
-                            try: await member.send(f"❌ Terjadi kesalahan saat memindahkan Anda ke channel pribadi Anda: {e}. Hubungi admin server.")
+                            log.error(f"Error moving {member.display_name} to existing VC {existing_channel.name}: {e}", exc_info=True)
+                            try: await member.send(f"❌ Terjadi kesalahan saat memindahkan Anda ke channel pribadi Anda. Hubungi admin server.")
                             except discord.Forbidden: pass
                             return
                     else: # Channel ada di data tapi tidak ada di Discord, hapus dari tracking
                         self.active_temp_channels[guild_id_str].pop(ch_id_str, None)
-                        save_temp_channels(self.active_temp_channels)
-                        print(f"[{datetime.now()}] [TempVoice] Cleaned up stale temp channel data for {member.display_name}.")
+                        self._save_temp_channels_state() 
+                        log.info(f"Cleaned up stale temp channel data for {member.display_name}.")
                         # Lanjutkan untuk membuat channel baru karena yang lama tidak valid
 
             # Create new temp channel
-            category = creator_channel_obj.category or member.guild.get_channel(self.TARGET_CATEGORY_ID) # Fallback to TARGET_CATEGORY_ID
+            category = creator_channel_obj.category
 
             if not category or not isinstance(category, discord.CategoryChannel):
-                print(f"[{datetime.now()}] [TempVoice] Target category {self.TARGET_CATEGORY_ID} not found or is not a category channel in guild {member.guild.name}. Skipping VC creation.")
+                log.error(f"Creator channel {creator_channel_obj.name} ({creator_channel_obj.id}) in guild {member.guild.name} is not in a valid category. Skipping VC creation.")
                 try: await member.send("❌ Gagal membuat channel suara pribadi: Kategori tujuan tidak ditemukan atau tidak valid. Hubungi admin server.")
                 except discord.Forbidden: pass
                 try: await member.move_to(None, reason="Target category invalid.")
@@ -171,7 +171,8 @@ class TempVoice(commands.Cog):
                 max_num = 0
                 for ch_obj in current_category_channels:
                     try:
-                        parts = ch_obj.name.split()
+                        # Improved parsing to handle "Music 1", "Music Channel 2" etc.
+                        parts = ch_obj.name.rsplit(' ', 1) # Split only on the last space
                         if len(parts) > 1 and parts[-1].isdigit():
                             num = int(parts[-1])
                             if num > max_num: max_num = num
@@ -189,6 +190,12 @@ class TempVoice(commands.Cog):
                     member.guild.me: discord.PermissionOverwrite(connect=True, speak=True, send_messages=True, view_channel=True, read_message_history=True)
                 }
                 if admin_role: overwrites[admin_role] = discord.PermissionOverwrite(connect=True, speak=True, send_messages=True, view_channel=True)
+                
+                # Allow the creating member to connect, speak, and manage their own channel
+                overwrites[member] = discord.PermissionOverwrite(connect=True, speak=True, send_messages=True, view_channel=True,
+                                                                 manage_channels=True, manage_roles=True,
+                                                                 mute_members=True, deafen_members=True, move_members=True)
+
 
                 max_bitrate = member.guild.bitrate_limit if member.guild.bitrate_limit else 64000
                 
@@ -199,18 +206,18 @@ class TempVoice(commands.Cog):
                     bitrate=max_bitrate,
                     reason=f"{member.display_name} created a temporary voice channel."
                 )
-                print(f"[{datetime.now()}] [TempVoice] Created new temp VC: {new_vc.name} ({new_vc.id}) for {member.display_name} with bitrate {max_bitrate}.")
+                log.info(f"Created new temp VC: {new_vc.name} ({new_vc.id}) for {member.display_name} with bitrate {max_bitrate}.")
 
                 await member.move_to(new_vc)
-                print(f"[{datetime.now()}] [TempVoice] Moved {member.display_name} to new VC {new_vc.name}.")
+                log.info(f"Moved {member.display_name} to new VC {new_vc.name}.")
 
                 # Store new channel info in active_temp_channels
                 self.active_temp_channels.setdefault(guild_id_str, {})[str(new_vc.id)] = {
                     "owner_id": str(member.id), 
                     "guild_id": guild_id_str,
-                    "is_creator_channel": False # Mark as not a creator channel
+                    "is_creator_channel": False 
                 }
-                self._save_temp_channels_state()
+                self._save_temp_channels_state() 
 
                 await new_vc.send(
                     f"🎉 Selamat datang di channel pribadimu, {member.mention}! Kamu adalah pemilik channel ini.\n"
@@ -227,36 +234,35 @@ class TempVoice(commands.Cog):
                     f"`!vchelp` - Menampilkan panduan ini lagi."
                 )
             except discord.Forbidden:
-                print(f"[{datetime.now()}] [TempVoice] Bot lacks permissions to create VC or move members in {member.guild.name}.")
-                try: await member.send("Gagal membuat channel pribadi: Bot tidak memiliki izin yang cukup.")
+                log.warning(f"Bot lacks permissions to create VC or move members in {member.guild.name}.")
+                try: await member.send("❌ Gagal membuat channel pribadi: Bot tidak memiliki izin yang cukup. Pastikan saya memiliki izin 'Kelola Saluran' dan 'Pindahkan Anggota' di kategori tempat channel ini dibuat.")
                 except discord.Forbidden: pass
                 try: await member.move_to(None)
                 except: pass
             except Exception as e:
-                print(f"[{datetime.now()}] [TempVoice] Unexpected error creating VC or moving member: {e}")
-                try: await member.send(f"Terjadi kesalahan saat membuat channel pribadi: {e}.")
+                log.error(f"Unexpected error creating VC or moving member for {member.display_name}: {e}", exc_info=True)
+                try: await member.send(f"❌ Terjadi kesalahan saat membuat channel pribadi Anda. Silakan coba lagi atau hubungi admin server.")
                 except discord.Forbidden: pass
                 try: await member.move_to(None)
                 except: pass
 
-        # Handle deletion of temporary channels when empty (listener from TempVoice)
+        # The cleanup task already handles deletion, so we just log if an owner left
         if before.channel and str(before.channel.id) in self.active_temp_channels.get(guild_id_str, {}):
             channel_data = self.active_temp_channels[guild_id_str][str(before.channel.id)]
-            # Only delete if it's not a creator channel and it became empty
             if not channel_data.get("is_creator_channel", False) and not before.channel.members:
-                # Cleanup task will handle deletion, just log the trigger here
-                print(f"[{datetime.now()}] [TempVoice] Owner {member.display_name} left temp VC {before.channel.name}. Triggering cleanup check.")
-                pass # Let the cleanup_temp_channels_task handle the actual deletion
+                log.info(f"Owner {member.display_name} left temp VC {before.channel.name}. Triggering cleanup check.")
+                pass 
 
     # --- TempVoice Command Checks ---
     def is_temp_channel_owner(self, ctx):
-        if not ctx.author.voice:
-            return False
-        if not ctx.author.voice.channel:
+        if not ctx.author.voice or not ctx.author.voice.channel:
             return False
         guild_id_str = str(ctx.guild.id)
         channel_id_str = str(ctx.author.voice.channel.id)
         if guild_id_str not in self.active_temp_channels or channel_id_str not in self.active_temp_channels[guild_id_str]:
+            return False
+        # Add a check to ensure it's not a creator channel
+        if self.active_temp_channels[guild_id_str][channel_id_str].get("is_creator_channel", False):
             return False
         return self.active_temp_channels[guild_id_str][channel_id_str].get("owner_id") == str(ctx.author.id)
 
@@ -267,10 +273,11 @@ class TempVoice(commands.Cog):
         guild_id_str = str(ctx.guild.id)
         self.active_temp_channels.setdefault(guild_id_str, {})[str(channel.id)] = {
             "is_creator_channel": True,
-            "creator_channel_id": str(channel.id) # Store its own ID as creator
+            "creator_channel_id": str(channel.id) 
         }
         self._save_temp_channels_state()
         await ctx.send(f"✅ Channel {channel.mention} telah diatur sebagai channel pembuat saluran sementara.")
+        log.info(f"Set {channel.name} as creator channel in guild {ctx.guild.name}.")
 
     @commands.command(name="removevccreator", help="[ADMIN] Remove a voice channel from being a temporary channel creator.")
     @commands.has_permissions(administrator=True)
@@ -279,14 +286,18 @@ class TempVoice(commands.Cog):
         if guild_id_str in self.active_temp_channels and str(channel.id) in self.active_temp_channels[guild_id_str]:
             if self.active_temp_channels[guild_id_str][str(channel.id)].get("is_creator_channel", False):
                 del self.active_temp_channels[guild_id_str][str(channel.id)]
+                # If the guild has no more tracked channels, remove it from the main dict
+                if not self.active_temp_channels[guild_id_str]:
+                    del self.active_temp_channels[guild_id_str]
                 self._save_temp_channels_state()
                 await ctx.send(f"✅ Channel {channel.mention} telah dihapus dari daftar channel pembuat.")
+                log.info(f"Removed {channel.name} as creator channel in guild {ctx.guild.name}.")
             else:
                 await ctx.send(f"❌ Channel {channel.mention} bukan channel pembuat.")
         else:
             await ctx.send("❌ Channel tidak ditemukan di daftar channel pembuat.")
 
-    @commands.command(name="vclock")
+    @commands.command(name="vclock", help="Kunci channel pribadimu (hanya bisa masuk via invite).")
     @commands.check(is_temp_channel_owner)
     async def vc_lock(self, ctx):
         vc = ctx.author.voice.channel
@@ -294,8 +305,9 @@ class TempVoice(commands.Cog):
         overwrites.connect = False
         await vc.set_permissions(ctx.guild.default_role, overwrite=overwrites)
         await ctx.send(f"✅ Channel **{vc.name}** telah dikunci.")
+        log.info(f"User {ctx.author.display_name} locked channel {vc.name}.")
 
-    @commands.command(name="vcunlock")
+    @commands.command(name="vcunlock", help="Buka kunci channel pribadimu.")
     @commands.check(is_temp_channel_owner)
     async def vc_unlock(self, ctx):
         vc = ctx.author.voice.channel
@@ -303,64 +315,79 @@ class TempVoice(commands.Cog):
         overwrites.connect = True
         await vc.set_permissions(ctx.guild.default_role, overwrite=overwrites)
         await ctx.send(f"✅ Channel **{vc.name}** telah dibuka.")
+        log.info(f"User {ctx.author.display_name} unlocked channel {vc.name}.")
 
-    @commands.command(name="vcsetlimit")
+    @commands.command(name="vcsetlimit", help="Atur batas user di channel pribadimu (0 untuk tak terbatas).")
     @commands.check(is_temp_channel_owner)
     async def vc_set_limit(self, ctx, limit: int):
         if not 0 <= limit <= 99: return await ctx.send("Limit harus antara 0 dan 99.")
         await ctx.author.voice.channel.edit(user_limit=limit)
         await ctx.send(f"✅ User limit diatur ke {limit}.")
+        log.info(f"User {ctx.author.display_name} set limit of {ctx.author.voice.channel.name} to {limit}.")
 
-    @commands.command(name="vcrename")
+    @commands.command(name="vcrename", help="Ubah nama channel pribadimu.")
     @commands.check(is_temp_channel_owner)
     async def vc_rename(self, ctx, *, name: str):
         if not 1 <= len(name) <= 100: return await ctx.send("Nama harus antara 1 dan 100 karakter.")
+        old_name = ctx.author.voice.channel.name
         await ctx.author.voice.channel.edit(name=name)
         await ctx.send(f"✅ Nama channel diubah menjadi `{name}`.")
+        log.info(f"User {ctx.author.display_name} renamed channel from {old_name} to {name}.")
 
-    @commands.command(name="vckick")
+    @commands.command(name="vckick", help="Tendang user dari channel pribadimu.")
     @commands.check(is_temp_channel_owner)
     async def vc_kick(self, ctx, member: discord.Member):
         if member.id == ctx.author.id: return await ctx.send("Tidak bisa kick diri sendiri.")
         if member.bot: return await ctx.send("Tidak bisa kick bot.")
         if member.voice and member.voice.channel == ctx.author.voice.channel:
             await member.move_to(None)
-            await ctx.send(f"✅ {member.display_name} di-kick.")
+            await ctx.send(f"✅ {member.display_name} di-kick dari channelmu.")
+            log.info(f"User {ctx.author.display_name} kicked {member.display_name} from {ctx.author.voice.channel.name}.")
         else: await ctx.send(f"❌ {member.display_name} tidak ada di channelmu.")
 
-    @commands.command(name="vcgrant")
+    @commands.command(name="vcgrant", help="Beri user izin masuk channel pribadimu yang terkunci.")
     @commands.check(is_temp_channel_owner)
     async def vc_grant(self, ctx, member: discord.Member):
         if member.bot: return await ctx.send("Tidak bisa grant ke bot.")
         vc = ctx.author.voice.channel
         await vc.set_permissions(member, connect=True)
-        await ctx.send(f"✅ {member.display_name} diberikan akses.")
+        await ctx.send(f"✅ {member.display_name} diberikan akses ke channelmu.")
+        log.info(f"User {ctx.author.display_name} granted {member.display_name} access to {vc.name}.")
 
-    @commands.command(name="vcrevoke")
+    @commands.command(name="vcrevoke", help="Cabut izin masuk user dari channel pribadimu yang terkunci.")
     @commands.check(is_temp_channel_owner)
     async def vc_revoke(self, ctx, member: discord.Member):
         if member.bot: return await ctx.send("Tidak bisa revoke dari bot.")
         vc = ctx.author.voice.channel
         await vc.set_permissions(member, connect=False)
-        await ctx.send(f"✅ Akses {member.display_name} dicabut.")
+        await ctx.send(f"✅ Akses {member.display_name} dicabut dari channelmu.")
+        log.info(f"User {ctx.author.display_name} revoked {member.display_name}'s access to {vc.name}.")
 
-    @commands.command(name="vcowner", help="[ADMIN] Mengatur pemilik saluran suara sementara. Hanya bisa digunakan oleh admin atau pemilik bot.")
-    @commands.has_permissions(administrator=True)
-    async def vc_transfer_owner(self, ctx, channel: discord.VoiceChannel, new_owner: discord.Member):
+    @commands.command(name="vcowner", help="Transfer kepemilikan channel pribadimu ke user lain.")
+    @commands.check(is_temp_channel_owner) # Hanya pemilik channel yang bisa mentransfer
+    async def vc_transfer_owner(self, ctx, new_owner: discord.Member):
         guild_id_str = str(ctx.guild.id)
+        channel = ctx.author.voice.channel # Channel yang sedang diakses user
         channel_id_str = str(channel.id)
 
-        if guild_id_str not in self.active_temp_channels or channel_id_str not in self.active_temp_channels[guild_id_str]:
-            await ctx.send("Saluran ini bukan saluran suara sementara yang terdaftar.", ephemeral=True)
+        if new_owner.bot:
+            await ctx.send("❌ Tidak bisa mengalihkan kepemilikan ke bot.")
             return
-        
+        if new_owner.id == ctx.author.id:
+            await ctx.send("❌ Anda sudah menjadi pemilik channel ini.")
+            return
+
         old_owner_id = self.active_temp_channels[guild_id_str][channel_id_str].get('owner_id')
         old_owner = ctx.guild.get_member(int(old_owner_id)) if old_owner_id else None
 
+        # Update data kepemilikan
         self.active_temp_channels[guild_id_str][channel_id_str]['owner_id'] = str(new_owner.id)
-        self._save_temp_channels_state()
+        self._save_temp_channels_state() # Simpan perubahan
 
-        if old_owner and old_owner != new_owner:
+        # Hapus izin manajemen dari pemilik lama (ctx.author)
+        # Pastikan kita tidak menghapus izin jika old_owner == new_owner (meskipun sudah dicek di atas)
+        # Ini penting agar old_owner tidak memiliki izin ganda atau sisa
+        if old_owner and old_owner.id == ctx.author.id: # Pemilik lama adalah orang yang menjalankan perintah
             old_owner_overwrites = channel.overwrites_for(old_owner)
             old_owner_overwrites.manage_channels = None
             old_owner_overwrites.manage_roles = None
@@ -368,7 +395,9 @@ class TempVoice(commands.Cog):
             old_owner_overwrites.deafen_members = None
             old_owner_overwrites.move_members = None
             await channel.set_permissions(old_owner, overwrite=old_owner_overwrites)
+            log.info(f"Removed old owner permissions from {old_owner.display_name} for channel {channel.name}.")
 
+        # Berikan izin manajemen ke pemilik baru
         new_owner_overwrites = channel.overwrites_for(new_owner)
         new_owner_overwrites.manage_channels = True
         new_owner_overwrites.manage_roles = True
@@ -377,9 +406,54 @@ class TempVoice(commands.Cog):
         new_owner_overwrites.move_members = True
         await channel.set_permissions(new_owner, overwrite=new_owner_overwrites)
         
-        await ctx.send(f"✅ Kepemilikan saluran {channel.mention} telah dialihkan ke {new_owner.mention}.")
+        await ctx.send(f"✅ Kepemilikan saluran {channel.mention} telah dialihkan dari {ctx.author.mention} ke {new_owner.mention}.")
+        log.info(f"Ownership of channel {channel.name} transferred from {ctx.author.display_name} to {new_owner.display_name}.")
 
-    @commands.command(name="vchelp")
+
+    @commands.command(name="adminvcowner", help="[ADMIN] Mengatur pemilik saluran suara sementara mana pun.")
+    @commands.has_permissions(administrator=True)
+    async def admin_vc_transfer_owner(self, ctx, channel: discord.VoiceChannel, new_owner: discord.Member):
+        guild_id_str = str(ctx.guild.id)
+        channel_id_str = str(channel.id)
+
+        if guild_id_str not in self.active_temp_channels or channel_id_str not in self.active_temp_channels[guild_id_str]:
+            await ctx.send("❌ Saluran ini bukan saluran suara sementara yang terdaftar.", ephemeral=True)
+            return
+        
+        if new_owner.bot:
+            await ctx.send("❌ Tidak bisa mengalihkan kepemilikan ke bot.")
+            return
+
+        old_owner_id = self.active_temp_channels[guild_id_str][channel_id_str].get('owner_id')
+        old_owner = ctx.guild.get_member(int(old_owner_id)) if old_owner_id else None
+
+        self.active_temp_channels[guild_id_str][channel_id_str]['owner_id'] = str(new_owner.id)
+        self._save_temp_channels_state()
+
+        # Hapus izin dari pemilik lama jika ada dan berbeda dari pemilik baru
+        if old_owner and old_owner != new_owner:
+            old_owner_overwrites = channel.overwrites_for(old_owner)
+            old_owner_overwrites.manage_channels = None
+            old_owner_overwrites.manage_roles = None
+            old_owner_overwrites.mute_members = None
+            old_owner_overwrites.deafen_members = None
+            old_owner_overwrites.move_members = None
+            await channel.set_permissions(old_owner, overwrite=old_owner_overwrites)
+            log.info(f"Removed owner permissions from {old_owner.display_name} for channel {channel.name} (by admin).")
+
+        # Berikan izin ke pemilik baru
+        new_owner_overwrites = channel.overwrites_for(new_owner)
+        new_owner_overwrites.manage_channels = True
+        new_owner_overwrites.manage_roles = True
+        new_owner_overwrites.mute_members = True
+        new_owner_overwrites.deafen_members = True
+        new_owner_overwrites.move_members = True
+        await channel.set_permissions(new_owner, overwrite=new_owner_overwrites)
+        
+        await ctx.send(f"✅ Kepemilikan saluran {channel.mention} telah dialihkan ke {new_owner.mention} (oleh admin).")
+        log.info(f"Admin {ctx.author.display_name} transferred ownership of {channel.name} to {new_owner.display_name}.")
+
+    @commands.command(name="vchelp", help="Menampilkan panduan untuk mengelola channel pribadimu.")
     async def vc_help(self, ctx):
         embed = discord.Embed(
             title="🎧 Panduan Channel Pribadi",
@@ -396,6 +470,7 @@ class TempVoice(commands.Cog):
         `!vckick @user`: Tendang user dari channel
         `!vcgrant @user`: Beri user izin masuk channel yang terkunci
         `!vcrevoke @user`: Cabut izin masuk channel yang terkunci
+        `!vcowner @user`: Transfer kepemilikan channel ke user lain (hanya bisa 1 pemilik)
         """, inline=False)
         embed.set_footer(text="Channel akan otomatis terhapus jika kosong.")
         await ctx.send(embed=embed)
