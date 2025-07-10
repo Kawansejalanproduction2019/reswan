@@ -22,6 +22,7 @@ PROJECT_FILE = os.path.join(DATA_DIR, "active_projects.json")
 TRIVIA_QUESTIONS_FILE = os.path.join(DATA_DIR, "government_trivia.json")
 NGAWUR_PROJECTS_FILE = os.path.join(DATA_DIR, "ngawur_projects.json")
 JAIL_HELP_FILE = os.path.join(DATA_DIR, "jail_help_requests.json") 
+SATIRE_NARRATIONS_FILE = os.path.join(DATA_DIR, "satire_narrations.json") # File baru untuk narasi satir
 
 
 # --- KONFIGURASI ROLE DAN CHANNEL ---
@@ -61,141 +62,103 @@ CORRUPTION_CHARGE_COST_MAX = 500
 def ensure_data_files():
     """Memastikan folder data ada dan file JSON dasar terinisialisasi."""
     os.makedirs(DATA_DIR, exist_ok=True)
-    for file_path in [LEVEL_DATA_FILE, BANK_FILE, ECONOMY_CONFIG_FILE, PROJECT_FILE, TRIVIA_QUESTIONS_FILE, NGAWUR_PROJECTS_FILE, JAIL_HELP_FILE]: # Tambah JAIL_HELP_FILE
+    # List of all data files with their initial default structures
+    file_defaults = {
+        LEVEL_DATA_FILE: {},
+        BANK_FILE: {},
+        ECONOMY_CONFIG_FILE: {"global_tax_percentage": 0, "server_funds_balance": 0, "last_tax_run": None},
+        PROJECT_FILE: {},
+        TRIVIA_QUESTIONS_FILE: {"questions": []},
+        NGAWUR_PROJECTS_FILE: {"projects": []},
+        JAIL_HELP_FILE: {},
+        # SATIRE_NARRATIONS_FILE tidak perlu default di sini karena akan di-handle di load_json_safe()
+        # dan isinya harus manual diisi oleh user jika file kosong.
+    }
+    for file_path, default_content in file_defaults.items():
         if not os.path.exists(file_path):
             with open(file_path, "w", encoding="utf-8") as f:
-                if file_path == ECONOMY_CONFIG_FILE:
-                    json.dump({"global_tax_percentage": 0, "server_funds_balance": 0, "last_tax_run": None}, f, indent=4)
-                elif file_path == PROJECT_FILE:
-                    json.dump({}, f, indent=4)
-                elif file_path == TRIVIA_QUESTIONS_FILE:
-                    json.dump({"questions": []}, f, indent=4)
-                elif file_path == NGAWUR_PROJECTS_FILE:
-                    json.dump({"projects": []}, f, indent=4)
-                elif file_path == JAIL_HELP_FILE: # Inisialisasi file permintaan bantuan penjara
-                    json.dump({}, f, indent=4)
-                else:
-                    json.dump({}, f, indent=4)
+                json.dump(default_content, f, indent=4)
     log.info(f"Memastikan folder '{DATA_DIR}' dan file data exist.")
 
-def load_level_data(guild_id: str):
-    ensure_data_files()
+def load_json_safe(file_path):
+    """Loads JSON data from file, creates with default if not found or corrupted."""
+    ensure_data_files() # Ensure directories and files exist before attempting to load
     try:
-        with open(LEVEL_DATA_FILE, "r", encoding="utf-8") as f:
-            data = json.load(f)
-            log.debug(f"Level data loaded for guild {guild_id}.")
-            return data.get(guild_id, {})
+        with open(file_path, "r", encoding="utf-8") as f:
+            return json.load(f)
     except (json.JSONDecodeError, FileNotFoundError) as e:
-        log.warning(f"Failed to load level data for guild {guild_id}: {e}. Returning empty dict.")
+        log.warning(f"Failed to load {file_path}: {e}. Returning empty dict.")
+        # Untuk satire_narrations, kembalikan dict kosong dan user harus isi manual JSON-nya
+        # Default structures are handled by ensure_data_files for most files, 
+        # but for satire_narrations, its default content is too large to put here.
+        # It's expected to be pre-filled by the user.
         return {}
+
+
+def save_json_data(file_path, data): # Ubah nama fungsi ini menjadi lebih umum
+    """Saves data to a JSON file."""
+    os.makedirs(os.path.dirname(file_path), exist_ok=True) # Ensure data dir exists
+    with open(file_path, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=4)
+    log.debug(f"Data saved to {file_path}.")
+
+
+# Ganti panggilan fungsi load/save spesifik dengan yang umum
+def load_level_data(guild_id: str):
+    data = load_json_safe(LEVEL_DATA_FILE)
+    return data.get(guild_id, {})
 
 def save_level_data(guild_id: str, data: dict):
-    ensure_data_files()
-    try:
-        with open(LEVEL_DATA_FILE, "r", encoding="utf-8") as f:
-            all_data = json.load(f)
-    except (json.JSONDecodeError, FileNotFoundError):
-        all_data = {}
+    all_data = load_json_safe(LEVEL_DATA_FILE)
     all_data[guild_id] = data
-    with open(LEVEL_DATA_FILE, "w", encoding="utf-8") as f:
-        json.dump(all_data, f, indent=4)
-    log.debug(f"Level data saved for guild {guild_id}.")
+    save_json_data(LEVEL_DATA_FILE, all_data)
 
 def load_bank_data():
-    ensure_data_files()
-    try:
-        with open(BANK_FILE, "r", encoding="utf-8") as f:
-            data = json.load(f)
-            log.debug("Bank data loaded.")
-            return data
-    except (json.JSONDecodeError, FileNotFoundError) as e:
-        log.warning(f"Failed to load bank data: {e}. Returning empty dict.")
-        return {}
+    return load_json_safe(BANK_FILE)
 
 def save_bank_data(data):
-    ensure_data_files()
-    with open(BANK_FILE, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=4)
-    log.debug("Bank data saved.")
+    save_json_data(BANK_FILE, data)
 
 def load_economy_config():
-    ensure_data_files()
-    try:
-        with open(ECONOMY_CONFIG_FILE, "r", encoding="utf-8") as f:
-            data = json.load(f)
-            log.debug("Economy config loaded.")
-            return data
-    except (json.JSONDecodeError, FileNotFoundError) as e:
-        log.warning(f"Failed to load economy config: {e}. Returning default config.")
-        return {"global_tax_percentage": 0, "server_funds_balance": 0, "last_tax_run": None}
+    return load_json_safe(ECONOMY_CONFIG_FILE)
 
 def save_economy_config(data):
-    ensure_data_files()
-    with open(ECONOMY_CONFIG_FILE, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=4)
-    log.debug("Economy config saved.")
+    save_json_data(ECONOMY_CONFIG_FILE, data)
 
 def load_project_data():
-    ensure_data_files()
-    try:
-        with open(PROJECT_FILE, "r", encoding="utf-8") as f:
-            data = json.load(f)
-            log.debug("Project data loaded.")
-            return data
-    except (json.JSONDecodeError, FileNotFoundError) as e:
-        log.warning(f"Failed to load project data: {e}. Returning empty dict.")
-        return {}
+    return load_json_safe(PROJECT_FILE)
 
 def save_project_data(data):
-    ensure_data_files()
-    with open(PROJECT_FILE, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=4)
-    log.debug("Project data saved.")
+    save_json_data(PROJECT_FILE, data)
 
 def load_trivia_questions():
-    ensure_data_files()
-    try:
-        with open(TRIVIA_QUESTIONS_FILE, "r", encoding="utf-8") as f:
-            data = json.load(f)
-            log.debug("Trivia questions loaded.")
-            return data
-    except (json.JSONDecodeError, FileNotFoundError) as e:
-        log.warning(f"Failed to load trivia questions: {e}. Returning empty list.")
-        return {"questions": []}
+    return load_json_safe(TRIVIA_QUESTIONS_FILE)
 
 def save_trivia_questions(data):
-    ensure_data_files()
-    with open(TRIVIA_QUESTIONS_FILE, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=4)
-    log.debug("Trivia questions saved.")
+    save_json_data(TRIVIA_QUESTIONS_FILE, data)
 
-def load_ngawur_projects_data(): # Fungsi baru untuk memuat proyek ngawur
-    ensure_data_files()
-    try:
-        with open(NGAWUR_PROJECTS_FILE, "r", encoding="utf-8") as f:
-            data = json.load(f)
-            log.debug("Ngawur projects data loaded.")
-            return data
-    except (json.JSONDecodeError, FileNotFoundError) as e:
-        log.warning(f"Failed to load ngawur projects data: {e}. Returning empty list.")
-        return {"projects": []}
+def load_ngawur_projects_data():
+    return load_json_safe(NGAWUR_PROJECTS_FILE)
+
+def save_ngawur_projects_data(data):
+    save_json_data(NGAWUR_PROJECTS_FILE, data)
 
 def load_jail_help_requests():
-    ensure_data_files()
-    try:
-        with open(JAIL_HELP_FILE, "r", encoding="utf-8") as f:
-            data = json.load(f)
-            log.debug("Jail help requests loaded.")
-            return data
-    except (json.JSONDecodeError, FileNotFoundError) as e:
-        log.warning(f"Failed to load jail help requests: {e}. Returning empty dict.")
-        return {}
+    return load_json_safe(JAIL_HELP_FILE)
 
 def save_jail_help_requests(data):
-    ensure_data_files()
-    with open(JAIL_HELP_FILE, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=4)
-    log.debug("Jail help requests saved.")
+    save_json_data(JAIL_HELP_FILE, data)
+
+# Tambahkan fungsi untuk memuat narasi satir
+def load_satire_narrations():
+    narrations = load_json_safe(SATIRE_NARRATIONS_FILE)
+    # Jika file kosong, bot akan mencoba memuatnya sebagai default
+    # Ini adalah fallback, tapi lebih baik user sudah mengisi JSON ini secara manual
+    if not narrations:
+        log.warning(f"{SATIRE_NARRATIONS_FILE} is empty or invalid. Please ensure it's manually populated with the correct JSON structure.")
+        # Mengembalikan struktur kosong agar tidak crash, tapi fungsionalitas narasi tidak akan jalan
+        return {}
+    return narrations
 
 
 class EconomyEvents(commands.Cog):
@@ -205,11 +168,16 @@ class EconomyEvents(commands.Cog):
         self.active_fires = {}
         self.active_projects = load_project_data()
         self.active_quizzes = {}
-        self.jail_help_requests = load_jail_help_requests() # Muat permintaan bantuan penjara
-        self.active_investigations = {} # {guild_id: {'reporter_id': id, 'suspect_id': id, 'bribe_cost': int, 'message_id': id, 'status': 'pending'}}
+        self.jail_help_requests = load_jail_help_requests()
+        self.active_investigations = {}
+        self.satire_narrations = load_satire_narrations() # Muat narasi satir
+        # Memastikan narasi dimuat, jika kosong di file, akan jadi {}
+        if not self.satire_narrations:
+            log.critical("Satire narrations (satire_narrations.json) failed to load or is empty. Satirical messages will not appear correctly.")
 
         # --- Konfigurasi Pajak ---
         self.funny_tax_insults = [
+            # Ini contoh, narasi ini bisa juga dipindahkan ke JSON jika mau
             "Hmmph! Lihat ini! Dompetmu kosong melompong seperti janji kampanye! Mau bayar pakai daun kering? Pajakmu nihil karena saldo juga nihil! Kau sungguh menyedihkan! Cepat cari uang sana, jangan cuma jadi beban negara! Kami para pejabat butuh uang untuk pembangunan 'proyek pribadi'! Cih! 😤",
             "Dasar rakyat miskin! Saldo nol rupiah masih berani hidup?! Kami para pejabat pusing melihatmu! Ini bukan negara gratisan! Cepat cari pekerjaan, jangan bisanya cuma rebahan! Gih sana, bantu pembangunan negara dengan uangmu! Kalau ada. *uhuk* 🙄",
             "Ya ampun, kasihan sekali! Saldomu bahkan tidak cukup untuk beli permen karet! Karena Anda tidak punya uang, Anda kami bebaskan pajak kali ini, tapi jangan sampai ketahuan lagi ya! Nanti kami bisa dimarahi Bos Besar! *pura-pura marah*",
@@ -440,7 +408,7 @@ class EconomyEvents(commands.Cog):
             
             users_to_release = []  # List untuk mengumpulkan user yang akan dibebaskan
 
-            for user_id, user_data in list(data.items()): # Gunakan list(data.items()) untuk modifikasi dictionary saat iterasi
+            for user_id, user_data in list(data.items()): # Gunakan list(data.data.items()) untuk modifikasi dictionary saat iterasi
                 if "jailed_until" in user_data and user_data["jailed_until"]:
                     try:
                         jailed_until_dt = datetime.fromisoformat(user_data["jailed_until"])
@@ -741,23 +709,31 @@ class EconomyEvents(commands.Cog):
         }
         log.debug(f"Heist data stored: {self.active_heists[guild_id_str][victim_id_str]}")
         
-        heist_msg = (
-            f"🚨 **DRRRTT! DRRRTT!** Alarm keamananmu berteriak histeris! Kamu melihat siluet mencurigakan di jendela! Seseorang, sepertinya **{(initiator.display_name if initiator else 'sesosok misterius')}**, sedang mencoba menyelinap masuk! 🚨\n\n"
-            f"Cepat, **{victim.display_name}**! Panggil POLISI dengan mengetik `!polisi` di channel <#{EVENT_CHANNEL_ID}> dalam **{RESPONSE_TIME_SECONDS} detik** atau semua harta di rumahmu bisa lenyap tak bersisa! Jangan sampai telat, mereka bisa saja lagi minum kopi di pos! ☕"
+        heist_msg = self.satire_narrations.get("heist_messages", {}).get("warning_dm", "").format(
+            initiator_display_name=initiator.display_name if isinstance(initiator, discord.User) else initiator,
+            victim_display_name=victim.display_name,
+            event_channel_id=EVENT_CHANNEL_ID,
+            response_time_seconds=RESPONSE_TIME_SECONDS
         )
         try:
             await victim.send(heist_msg)
             log.info(f"Sent heist warning DM to {victim.display_name}.")
         except discord.Forbidden:
-            await event_channel.send(f"🚨 **PERINGATAN! {victim.mention}!** Alarm keamananmu berbunyi! Seseorang mencoba mencuri! Periksa DMmu untuk detail, atau ketik `!polisi` di sini dalam **{RESPONSE_TIME_SECONDS} detik**!", delete_after=RESPONSE_TIME_SECONDS + 10)
+            fallback_msg = self.satire_narrations.get("heist_messages", {}).get("warning_channel_fallback", "").format(
+                victim_mention=victim.mention,
+                response_time_seconds=RESPONSE_TIME_SECONDS
+            )
+            await event_channel.send(fallback_msg, delete_after=RESPONSE_TIME_SECONDS + 10)
             log.warning(f"Could not send heist DM to {victim.display_name} (DMs closed), sent to channel instead.")
 
 
         if initiator and initiator != self.bot.user:
+            initiator_dm_msg = self.satire_narrations.get("heist_messages", {}).get("initiator_dm", "").format(
+                response_time_seconds=RESPONSE_TIME_SECONDS,
+                heist_cost=HEIST_COST
+            )
             try:
-                await initiator.send(
-                    f"🕵️‍♂️ **Misi Pencurian Dimulai!** Kamu sudah masuk halaman, alarm si korban sudah bunyi, dan detak jantungmu berpacu! Jangan sampai polisi cepat datang! Kamu punya waktu **{RESPONSE_TIME_SECONDS} detik** sebelum dia lapor. Modalmu **{HEIST_COST} koin** sudah kami pegang."
-                )
+                await initiator.send(initiator_dm_msg)
             except discord.Forbidden:
                 log.warning(f"Could not send heist initiation DM to initiator {initiator.display_name} (DMs closed).")
             bank_data = load_bank_data()
@@ -810,70 +786,80 @@ class EconomyEvents(commands.Cog):
         loot_amount = random.randint(LOOT_MIN, LOOT_MAX)
         actual_loot = 0
 
-        heist_outcome_text = ""
-        announcement_text = ""
-        is_jailed = False
-        
-        police_names = ["Bripka Jono", "Aipda Siti", "Kompol Budi", "Iptu Rani", "Brigadir Cecep"]
-        random_police_name = random.choice(police_names)
-
         # Mendapatkan objek initiator dan victim yang aman dari NoneType
         initiator_display_name = initiator.display_name if isinstance(initiator, discord.User) else initiator
         initiator_mention = initiator.mention if isinstance(initiator, discord.User) else initiator_display_name
 
         victim_display_name = victim.display_name if isinstance(victim, discord.Member) else f"User Tak Dikenal ({victim_id_str})"
         victim_mention = victim.mention if isinstance(victim, discord.Member) else victim_display_name
+        
+        police_names = ["Bripka Jono", "Aipda Siti", "Kompol Budi", "Iptu Rani", "Brigadir Cecep"]
+        random_police_name = random.choice(police_names)
 
+        heist_messages = self.satire_narrations.get("heist_messages", {})
+        victim_outcome_msgs = heist_messages.get("victim_outcome", {})
+        announcement_outcome_msgs = heist_messages.get("announcement_outcome", {})
+
+        heist_outcome_text = ""
+        announcement_text = ""
+        is_jailed = False
 
         if responded and random.random() < BUREAUCRACY_CHANCE: # Birokrasi mengganggu respon (25% chance)
             log.info(f"Heist for {victim_display_name}: Birokrasi scenario triggered.")
-            heist_outcome_text = (
-                f"📞 Kamu buru-buru menelepon 110. 'Halo, ini darurat! Ada pencuri di rumah saya!' katamu panik. Petugas di seberang menjawab santai, 'Baik, Pak/Bu. Bisa tolong kirimkan **fotokopi KTP, KK, akta kelahiran, surat keterangan tidak mampu, bukti pembayaran PBB tiga bulan terakhir, dan surat pernyataan belum menikah bermaterai Rp 10.000** ke fax kami? Jangan lupa sertakan pas foto ukuran 3x4!' Kamu melongo. **Panggilan terputus!** Ah, sial! Kamu sibuk mencari berkas, pencuri **{initiator_display_name}** dengan santai menggasak rumahmu!\n"
-                f"Kamu kehilangan **{min(loot_amount, victim_balance)} RSWN**!"
-            )
-            announcement_text = f"KARENA BIROKRASI: **{victim_mention}** gagal melapor, rumahnya jadi sasaran empuk **{initiator_mention}**! Korbannya sibuk fotokopi KTP!"
             actual_loot = min(loot_amount, victim_balance)
             victim_balance -= actual_loot
+            heist_outcome_text = victim_outcome_msgs.get("bureaucracy", "").format(
+                initiator_display_name=initiator_display_name, actual_loot=actual_loot
+            )
+            announcement_text = announcement_outcome_msgs.get("bureaucracy", "").format(
+                victim_mention=victim_mention, initiator_mention=initiator_mention
+            )
             log.debug(f"Victim lost {actual_loot} due to bureaucracy.")
 
         elif responded: # Korban merespon, tapi tanpa birokrasi
             rand_chance = random.random()
             if rand_chance < 0.40: # 40% Cepat & Profesional: Pencuri Tertangkap
-                heist_outcome_text = (
-                    f"🚓💨 **NYIIIIEEEEEENGGG!** Sirene polisi meraung kencang, membelah keheningan malam! Mobil patroli tiba dalam hitungan detik, nge-drift epik di depan rumahmu! Petugas **{random_police_name}** dengan sigap melompat keluar, menodongkan senter ke arah **{initiator_display_name}** yang terkejut setengah mati! 'Tangan di atas!' teriaknya. Pencuri panik, menjatuhkan semua perkakasnya dan mencoba kabur, tapi kakinya tersandung pot bunga mawar kesayanganmu! **TERTANGKAP!** Rumahmu aman, **{victim_display_name}**! Barang-barangmu selamat! 🎉"
+                heist_outcome_text = victim_outcome_msgs.get("police_fast", "").format(
+                    random_police_name=random_police_name, initiator_display_name=initiator_display_name,
+                    victim_display_name=victim_display_name
                 )
-                announcement_text = f"BERITA PANAS! **{initiator_mention}** tertangkap basah saat mencoba mencuri dari **{victim_mention}**! Polisi tanggap, pencuri kini mendekam di balik jeruji besi! 🚨"
+                announcement_text = announcement_outcome_msgs.get("police_fast", "").format(
+                    initiator_mention=initiator_mention, victim_mention=victim_mention
+                )
                 is_jailed = True # Pencuri masuk penjara
                 log.info(f"Heist for {victim_display_name}: Police caught initiator {initiator_display_name}.")
             elif rand_chance < 0.75: # 35% Agak Lambat: Pencuri Kabur dengan Sebagian Jarahan
-                log.info(f"Heist for {victim_display_name}: Police a bit slow. Partial loot taken.")
                 partial_loot_amount = random.randint(int(LOOT_MIN * 0.2), int(LOOT_MAX * 0.4))
                 actual_loot = min(partial_loot_amount, victim_balance)
-                heist_outcome_text = (
-                    f"🚨💨 Kamu sudah memanggil polisi, tapi sepertinya mereka lagi menikmati donat di pos. Sirene terdengar samar-samar dan makin dekat, tapi butuh waktu! Pencuri **{initiator_display_name}** yang sudah di dalam rumah, mendengar itu dan sempat meraih **{actual_loot} RSWN** sebelum kabur lewat jendela belakang! 'Sial, cepat sekali!' desisnya sambil membawa kabur hasil jarahanmu. 😩 Kamu kehilangan **{actual_loot} RSWN**!"
-                )
-                announcement_text = f"Kabar Buruk! **{initiator_mention}** berhasil kabur dengan jarahan kecil dari **{victim_mention}**! Polisi agak telat! 😥"
                 victim_balance -= actual_loot
+                heist_outcome_text = victim_outcome_msgs.get("police_medium", "").format(
+                    initiator_display_name=initiator_display_name, actual_loot=actual_loot
+                )
+                announcement_text = announcement_outcome_msgs.get("police_medium", "").format(
+                    initiator_mention=initiator_mention, victim_mention=victim_mention
+                )
                 log.debug(f"Victim lost {actual_loot} due to slow police.")
             else: # 25% Gagal/Kocak: Pencuri Kabur dengan Banyak Jarahan
-                log.info(f"Heist for {victim_display_name}: Police failed/comical. Medium loot taken.")
                 medium_loot_amount = random.randint(int(LOOT_MIN * 0.5), int(LOOT_MAX * 0.8))
                 actual_loot = min(medium_loot_amount, victim_balance)
-                heist_outcome_text = (
-                    f"🚓💨 Kamu memanggil polisi, tapi rupanya mereka malah tersesat di peta Google! Ketika akhirnya tiba, mereka malah minta selfie dengan rumahmu yang sudah kosong! Pencuri **{initiator_display_name}** sudah jauh melesat dengan motor balapnya, membawa kabur **{actual_loot} RSWN**! 'Maaf, Pak, kami kira ini latihan evakuasi kucing,' kata salah satu petugas cengengesan. 🤦‍♂️ Kamu kehilangan **{actual_loot} RSWN**!"
-                )
-                announcement_text = f"WAH Gawat! Polisi salah jalan! **{initiator_mention}** berhasil merampok **{victim_mention}** tanpa halangan! 😭"
                 victim_balance -= actual_loot
+                heist_outcome_text = victim_outcome_msgs.get("police_slow", "").format(
+                    initiator_display_name=initiator_display_name, actual_loot=actual_loot
+                )
+                announcement_text = announcement_outcome_msgs.get("police_slow", "").format(
+                    initiator_mention=initiator_mention, victim_mention=victim_mention
+                )
                 log.debug(f"Victim lost {actual_loot} due to failed police.")
         else: # Korban tidak merespon atau terlambat
-            log.info(f"Heist for {victim_display_name}: Victim did not respond. Large loot taken.")
             large_loot_amount = random.randint(int(LOOT_MIN * 0.8), LOOT_MAX)
             actual_loot = min(large_loot_amount, victim_balance)
-            heist_outcome_text = (
-                f"⏱️ Waktu habis! Karena kamu terlalu lama, pencuri **{initiator_display_name}** dengan santai membersihkan seluruh rumahmu! Dia bahkan sempat menyeduh kopi dan membaca koran sebelum pergi! 'Terima kasih atas keramahannya!' teriaknya dari jauh.💔 Kamu kehilangan **{actual_loot} RSWN**!"
-            )
-            announcement_text = f"TRAGIS! **{victim_mention}** lupa ada pencurian, **{initiator_mention}** panen raya! 💀"
             victim_balance -= actual_loot
+            heist_outcome_text = victim_outcome_msgs.get("no_response", "").format(
+                initiator_display_name=initiator_display_name, actual_loot=actual_loot
+            )
+            announcement_text = announcement_outcome_msgs.get("no_response", "").format(
+                victim_mention=victim_mention, initiator_mention=initiator_mention
+            )
             log.debug(f"Victim lost {actual_loot} due to no response.")
         
         bank_data[victim_id_str]["balance"] = victim_balance
@@ -885,14 +871,18 @@ class EconomyEvents(commands.Cog):
             if is_jailed:
                 log.info(f"Initiator {initiator_display_name} jailed. No loot gained.")
                 await self._jail_user(initiator, JAIL_DURATION_HOURS)
-                try: await initiator.send(f"💔 Anda tertangkap basah dan dijebloskan ke penjara! Modalnya hangus dan tidak dapat hasil. Malu! 😱")
+                try: await initiator.send(heist_messages.get("initiator_result_jailed", ""))
                 except discord.Forbidden: log.warning(f"Could not send jail result DM to initiator {initiator_display_name} (DMs closed).")
             else:
-                bank_data.setdefault(str(initiator.id), {"balance":0, "debt":0})["balance"] += (HEIST_COST + actual_loot) # Modal kembali + hasil curian
+                heist_cost_plus_loot = HEIST_COST + actual_loot
+                bank_data.setdefault(str(initiator.id), {"balance":0, "debt":0})["balance"] += (heist_cost_plus_loot) # Modal kembali + hasil curian
                 save_bank_data(bank_data)
-                log.info(f"Initiator {initiator_display_name} gained {actual_loot} loot (total {HEIST_COST + actual_loot}). New balance: {bank_data[str(initiator.id)]['balance']}.")
+                log.info(f"Initiator {initiator_display_name} gained {actual_loot} loot (total {heist_cost_plus_loot}). New balance: {bank_data[str(initiator.id)]['balance']}.")
+                initiator_result_success_msg = heist_messages.get("initiator_result_success", "").format(
+                    actual_loot=actual_loot, heist_cost_plus_loot=heist_cost_plus_loot
+                )
                 try:
-                    await initiator.send(f"🎉 **MISI SELESAI!** Kamu berhasil mendapatkan **{actual_loot} RSWN** dari pencurian! Total yang kamu dapatkan (modal kembali + hasil curian) adalah **{HEIST_COST + actual_loot} RSWN**!")
+                    await initiator.send(initiator_result_success_msg)
                 except discord.Forbidden:
                     log.warning(f"Could not send heist result DM to initiator {initiator_display_name} (DMs closed).")
 
@@ -902,6 +892,16 @@ class EconomyEvents(commands.Cog):
             await event_channel.send(f"🚨 Laporan Heist untuk {victim_mention}:\n{heist_outcome_text}", delete_after=60)
             log.warning(f"Could not send victim DM to {victim_display_name} (DMs closed), sent to channel instead.")
             
+        # Hapus data heist setelah diselesaikan HANYA JIKA TIDAK ADA INVESTIGASI YANG DILAKUKAN
+        # Jika ada investigasi, data akan dihapus setelah pelaku dipenjara atau oleh cleanup task
+        if not heist_data.get("investigated", False):
+            self.active_heists[guild_id_str].pop(victim_id_str, None)
+            save_project_data(self.active_heists) # Perlu save active_heists karena di-pop
+            log.info(f"Heist data for {victim_display_name} removed (no investigation).")
+        else:
+            log.info(f"Heist data for {victim_display_name} kept for investigation.")
+
+
         await event_channel.send(announcement_text)
         log.info(f"Heist result announced in {event_channel.name}.")
         
@@ -992,17 +992,16 @@ class EconomyEvents(commands.Cog):
 
         time_elapsed = (datetime.utcnow() - heist_info["start_time"]).total_seconds()
 
+        initiator_id = heist_info["initiator_id"] 
+        initiator = self.bot.get_user(int(initiator_id)) if initiator_id != "bot" else self.bot.user
+        
         if time_elapsed > RESPONSE_TIME_SECONDS:
             log.info(f"Police called too late by {ctx.author.display_name} ({time_elapsed:.2f}s elapsed).")
             await ctx.send("⏱️ Kamu terlalu lambat! Polisi tidak bisa menanggapi panggilan yang terlambat. Pencurian sudah selesai.", ephemeral=True)
-            initiator_id = heist_info["initiator_id"] 
-            initiator = self.bot.get_user(int(initiator_id)) if initiator_id != "bot" else self.bot.user
             await self._resolve_heist(ctx.guild, ctx.author, ctx.channel, initiator, responded=False)
             return
 
         log.info(f"Police called in time by {ctx.author.display_name}. Resolving heist.")
-        initiator_id = heist_info["initiator_id"]
-        initiator = self.bot.get_user(int(initiator_id)) if initiator_id != "bot" else self.bot.user
         await self._resolve_heist(ctx.guild, ctx.author, ctx.channel, initiator, responded=True)
         try: await ctx.message.delete()
         except discord.HTTPException: pass
@@ -1027,15 +1026,20 @@ class EconomyEvents(commands.Cog):
         }
         log.debug(f"Fire data stored: {self.active_fires[guild_id_str][victim_id_str]}")
         
-        fire_msg = (
-            f"🔥 **API! API!** Kamu mencium bau gosong yang aneh, dan tiba-tiba alarm asap di rumahmu berteriak kencang! Asap tebal mengepul dari dapur, dan api mulai menjilat! 🔥\n\n"
-            f"**Panik boleh, tapi bertindak lebih baik!** Panggil PEMADAM KEBAKARAN dengan mengetik `!pemadam` di channel <#{EVENT_CHANNEL_ID}> dalam **{RESPONSE_TIME_SECONDS} detik** atau rumahmu bisa jadi abu! Jangan sampai petugasnya lagi asyik nge-Tiktok!🤳"
+        fire_messages = self.satire_narrations.get("fire_messages", {})
+        warning_dm_msg = fire_messages.get("warning_dm", "").format(
+            event_channel_id=EVENT_CHANNEL_ID,
+            response_time_seconds=RESPONSE_TIME_SECONDS
         )
         try:
-            await victim.send(fire_msg)
+            await victim.send(warning_dm_msg)
             log.info(f"Sent fire warning DM to {victim.display_name}.")
         except discord.Forbidden:
-            await event_channel.send(f"🔥 **PERINGATAN! {victim.mention}!** Rumahmu terbakar! Periksa DMmu untuk detail, atau ketik `!pemadam` di sini dalam **{RESPONSE_TIME_SECONDS} detik**!", delete_after=RESPONSE_TIME_SECONDS + 10)
+            warning_channel_fallback_msg = fire_messages.get("warning_channel_fallback", "").format(
+                victim_mention=victim.mention,
+                response_time_seconds=RESPONSE_TIME_SECONDS
+            )
+            await event_channel.send(warning_channel_fallback_msg, delete_after=RESPONSE_TIME_SECONDS + 10)
             log.warning(f"Could not send fire DM to {victim.display_name} (DMs closed), sent to channel instead.")
 
         log.debug(f"Fire timer started for {victim.display_name}. Waiting {RESPONSE_TIME_SECONDS} seconds.")
@@ -1067,15 +1071,16 @@ class EconomyEvents(commands.Cog):
         firefighter_names = ["Petugas Alex", "Komandan Bella", "Asisten Chandra", "Bapak Dedi", "Ibu Endang"]
         random_firefighter_name = random.choice(firefighter_names)
 
+        fire_messages = self.satire_narrations.get("fire_messages", {})
+        victim_outcome_msgs = fire_messages.get("victim_outcome", {})
+        announcement_outcome_msgs = fire_messages.get("announcement_outcome", {})
+
         if responded and random.random() < BUREAUCRACY_CHANCE: # Birokrasi mengganggu respon (25% chance)
             log.info(f"Fire for {victim.display_name}: Birokrasi scenario triggered.")
-            fire_outcome_text = (
-                f"📞 Kamu panik menelepon 112. 'Kebakaran! Rumah saya terbakar!' teriakmu. Petugas di seberang dengan suara malas menjawab, 'Bapak/Ibu, bisa tolong jelaskan dulu kronologinya dari awal? Lalu, berapa jumlah titik apinya? Sudah coba padamkan pakai air keran? Ah, dan jangan lupa, kami butuh **surat izin bakar dari RT/RW setempat** dan **fotokopi kartu keluarga**!' Kamu kaget bukan kepalang. **Panggilan terputus!** Sementara kamu mencari berkas, api sudah merajalela!\n"
-                f"Kamu kehilangan **{min(damage_amount, victim_balance)} RSWN**!"
-            )
-            announcement_text = f"KEBAKARAN PARAH! Rumah **{victim.mention}** hangus karena petugas pemadam kebakaran terlalu banyak birokrasi! 😭"
             actual_damage = min(damage_amount, victim_balance)
             victim_balance -= actual_damage
+            fire_outcome_text = victim_outcome_msgs.get("bureaucracy", "").format(actual_damage=actual_damage)
+            announcement_text = announcement_outcome_msgs.get("bureaucracy", "").format(victim_mention=victim.mention)
             log.debug(f"Victim lost {actual_damage} due to bureaucracy.")
 
         elif responded: # Korban merespon, tapi tanpa birokrasi
@@ -1086,11 +1091,11 @@ class EconomyEvents(commands.Cog):
                 max_loss = int(damage_amount * 0.2)
                 actual_damage = random.randint(min_loss, max_loss)
                 actual_damage = min(actual_damage, victim_balance)
-                fire_outcome_text = (
-                    f"🚒💨 **WWUUUUSSSHHHH!** Sirene meraung dan pemadam kebakaran tiba dalam sekejap mata! Petugas **{random_firefighter_name}** dengan helm khasnya langsung menyemprotkan air, memadamkan api hanya dalam hitungan menit! 'Untung cepat, Pak/Bu!' katanya. Kerugian minimal! Hanya **{actual_damage} RSWN** yang hangus, itu pun cuma sandal jepit favoritmu. 😅"
-                )
-                announcement_text = f"BERHASIL! Rumah **{victim.mention}** nyaris hangus, tapi pemadam kebakaran bertindak cepat! 🎉"
                 victim_balance -= actual_damage
+                fire_outcome_text = victim_outcome_msgs.get("fire_fast", "").format(
+                    random_firefighter_name=random_firefighter_name, actual_damage=actual_damage
+                )
+                announcement_text = announcement_outcome_msgs.get("fire_fast", "").format(victim_mention=victim.mention)
                 log.debug(f"Victim lost {actual_damage} due to fast firefighters.")
             elif rand_chance < 0.75: # 35% Agak Lambat: Kerugian Sedang
                 log.info(f"Fire for {victim.display_name}: Firefighters a bit slow. Medium damage.")
@@ -1098,11 +1103,9 @@ class EconomyEvents(commands.Cog):
                 max_loss = int(damage_amount * 0.6)
                 actual_damage = random.randint(min_loss, max_loss)
                 actual_damage = min(actual_damage, victim_balance)
-                fire_outcome_text = (
-                    f"🚨💨 Kamu sudah memanggil pemadam, tapi mereka sepertinya sedang sibuk melayani pesanan es krim. Mereka memang datang, tapi setelah api sempat melahap sebagian atap dan beberapa perabotan pentingmu. 'Maaf, Pak, tadi ada kucing nyangkut di pohon,' dalih mereka. Kamu kehilangan **{actual_damage} RSWN**!"
-                )
-                announcement_text = f"KEBAKARAN! Rumah **{victim.mention}** terbakar cukup parah, pemadam kebakaran agak lambat! 😩"
                 victim_balance -= actual_damage
+                fire_outcome_text = victim_outcome_msgs.get("fire_medium", "").format(actual_damage=actual_damage)
+                announcement_text = announcement_outcome_msgs.get("fire_medium", "").format(victim_mention=victim.mention)
                 log.debug(f"Victim lost {actual_damage} due to slow firefighters.")
             else: # 25% Gagal/Kocak: Kerugian Besar
                 log.info(f"Fire for {victim.display_name}: Firefighters failed/comical. Large damage.")
@@ -1110,21 +1113,17 @@ class EconomyEvents(commands.Cog):
                 max_loss = int(damage_amount * 0.9)
                 actual_damage = random.randint(min_loss, max_loss)
                 actual_damage = min(actual_damage, victim_balance)
-                fire_outcome_text = (
-                    f"🚒💥 Kamu memanggil pemadam, tapi entah selang airnya bocor, atau mereka lupa membawa air! Mereka hanya bisa menonton dengan mulut menganga saat api terus berkobar! 'Ehm, ini kan cuma api kecil...' kata salah satu petugas sambil garuk-garuk kepala. Rumahmu habis terbakar rata dengan tanah! 😭 Kamu kehilangan **{actual_damage} RSWN**!"
-                )
-                announcement_text = f"TRAGEDI! Rumah **{victim.mention}** hangus total, pemadam kebakaran cuma numpang lewat! 💀"
                 victim_balance -= actual_damage
+                fire_outcome_text = victim_outcome_msgs.get("fire_slow", "").format(actual_damage=actual_damage)
+                announcement_text = announcement_outcome_msgs.get("fire_slow", "").format(victim_mention=victim.mention)
                 log.debug(f"Victim lost {actual_damage} due to failed firefighters.")
         else: # Korban tidak merespon atau terlambat
             log.info(f"Fire for {victim.display_name}: Victim did not respond. Total loss.")
             total_loss_amount = random.randint(int(LOOT_MIN * 0.9), LOOT_MAX)
             actual_damage = min(total_loss_amount, victim_balance)
-            fire_outcome_text = (
-                f"⏱️ Waktu habis! Karena tidak ada tanggapan, api melalap habis seluruh rumahmu tanpa ampun. Semua hartamu, kenangan, semuanya ludes jadi abu! Mungkin kamu harus pindah ke goa sekarang.💔 Kamu kehilangan **{actual_damage} RSWN**!"
-            )
-            announcement_text = f"DUKA! Rumah **{victim.mention}** ludes terbakar karena tidak ada tanggapan! 😭"
             victim_balance -= actual_damage
+            fire_outcome_text = victim_outcome_msgs.get("no_response", "").format(actual_damage=actual_damage)
+            announcement_text = announcement_outcome_msgs.get("no_response", "").format(victim_mention=victim.mention)
             log.debug(f"Victim lost {actual_damage} due to no response.")
 
         bank_data[victim_id_str]["balance"] = victim_balance
@@ -1696,7 +1695,7 @@ class EconomyEvents(commands.Cog):
             return await ctx.send("❌ Kamu tidak bisa menghina bot! Mereka terlalu canggih untuk dihina.", ephemeral=True)
 
         if custom_insult:
-            final_insult = f"Perhatian rakyat! Pesan khusus untuk **{target_user.mention}**: {custom_insult}"
+            final_insult = f"Perhatian rakyat! Pesan khusus untuk **{target_user.mention}**: {self.special_insults[0].format(user_mention=target_user.mention) if not custom_insult else custom_insult}" # Fallback jika custom_insult kosong setelah split
             logging.info(f"Used custom insult for {target_user.display_name}: '{custom_insult}'.")
         else:
             insult_message = random.choice(self.special_insults)
@@ -2062,7 +2061,7 @@ class EconomyEvents(commands.Cog):
         
         questions_data.setdefault("questions", []).append(new_question)
         save_trivia_questions(questions_data)
-        logging.info(f"New trivia question added. ID: {new_question['id']}.")
+        logging.info(f"New trivia question added. ID: `{new_question['id']}`.")
         
         await ctx.send(f"✅ Soal kuis kebobrokan baru berhasil ditambahkan! ID: `{new_question['id']}`")
 
@@ -2227,23 +2226,29 @@ class EconomyEvents(commands.Cog):
         save_bank_data(bank_data)
 
         # NARASI AWAL LAPORAN (DI CHANNEL EVENT)
-        police_narration_initial = ""
+        police_report_messages = self.satire_narrations.get("police_report_messages", {})
+        initial_description_template = police_report_messages.get("initial_announcement_description", "")
+        bribe_details_msgs = police_report_messages.get("bribe_details", {})
+
+        police_narration_detail = ""
         if bribe_cost == 0:
-            police_narration_initial = "Inspektur Kepala menyeringai. 'Laporan gratis? Ada apa ini? Baiklah, ini kasus menarik!'"
+            police_narration_detail = bribe_details_msgs.get("0", "")
         elif bribe_cost <= 25:
-            police_narration_initial = "Seorang petugas menerima 'biaya administrasi'. 'Cukup untuk kopi dan donat kami, terima kasih!'"
+            police_narration_detail = bribe_details_msgs.get("low", "")
         elif bribe_cost <= 70:
-            police_narration_initial = "Suara gesekan amplop terdengar. 'Ah, ini yang kami suka! Laporan Anda langsung diprioritaskan!'"
+            police_narration_detail = bribe_details_msgs.get("medium", "")
         else: # bribe_cost > 70
-            police_narration_initial = "Senyum lebar di wajah petugas. 'Dana operasional mendesak ini sangat membantu! Kami jamin, investigasi akan sangat... intens!'"
+            police_narration_detail = bribe_details_msgs.get("high", "")
 
         report_initial_embed = discord.Embed(
-            title="🕵️‍♂️ Laporan Intelijen Baru Diterima!",
-            description=(
-                f"Warga **{ctx.author.display_name}** (`{ctx.author.mention}`) telah melaporkan "
-                f"aktivitas mencurigakan yang melibatkan **{target_user.display_name}** (`{target_user.mention}`)!\n\n"
-                f"**Biaya Laporan:** **{bribe_cost} RSWN** telah disisihkan.\n"
-                f"_{police_narration_initial}_"
+            title=police_report_messages.get("initial_announcement_title", "Laporan Intelijen Baru Diterima!"),
+            description=initial_description_template.format(
+                reporter_display_name=ctx.author.display_name,
+                reporter_mention=ctx.author.mention,
+                suspect_display_name=target_user.display_name,
+                suspect_mention=target_user.mention,
+                bribe_cost=bribe_cost,
+                police_narration_detail=police_narration_detail
             ),
             color=discord.Color.dark_blue()
         )
@@ -2272,12 +2277,11 @@ class EconomyEvents(commands.Cog):
             save_bank_data(bank_data)
 
             success_embed = discord.Embed(
-                title="🚨 KEPUTUSAN INVESTIGASI: PELAKU TERTANGKAP! 🚨",
-                description=(
-                    f"Setelah penyelidikan intensif (dan beberapa 'dana tambahan' tak terduga), tim detektif berhasil meringkus pelaku!\n"
-                    f"**{target_user.mention}** telah terbukti bersalah dan dijebloskan ke sel tahanan pemerintah!\n"
-                    f"Warga pelapor **{ctx.author.mention}** menerima bonus **{bounty} RSWN** atas 'jasanya'!\n\n"
-                    f"_"Mereka yang korup akhirnya mencicipi pahitnya jeruji besi... untuk sementara._"
+                title=police_report_messages.get("success_title", "KEPUTUSAN INVESTIGASI: PELAKU TERTANGKAP!"),
+                description=police_report_messages.get("success_description", "").format(
+                    suspect_mention=target_user.mention,
+                    reporter_mention=ctx.author.mention,
+                    bounty=bounty
                 ),
                 color=discord.Color.green()
             )
@@ -2290,12 +2294,9 @@ class EconomyEvents(commands.Cog):
             logging.info(f"Investigation against {target_user.display_name} failed. Target not jailed.")
             self.active_investigations[guild_id_str][user_id_str]['status'] = 'resolved_fail'
             fail_embed = discord.Embed(
-                title="⚠️ KEPUTUSAN INVESTIGASI: PELAKU LOLOS! ⚠️",
-                description=(
-                    f"Tim detektif telah berjuang keras, tapi sepertinya **{target_user.mention}** terlalu licin...\n"
-                    f"Laporan Anda tidak memiliki cukup 'bukti' (atau mungkin 'dana pelicin' mereka lebih besar).\n"
-                    f"Pelaku lolos dari jeratan hukum! Polisi meminta maaf atas ketidaknyamanan, dan menyarankan untuk 'melengkapi' laporan Anda lain kali dengan 'insentif' yang lebih menarik. 😉\n\n"
-                    f"_"Hukum terkadang buta, terutama jika matanya tertutup uang._"
+                title=police_report_messages.get("fail_title", "KEPUTUSAN INVESTIGASI: PELAKU LOLOS!"),
+                description=police_report_messages.get("fail_description", "").format(
+                    suspect_mention=target_user.mention
                 ),
                 color=discord.Color.red()
             )
@@ -2322,6 +2323,7 @@ class EconomyEvents(commands.Cog):
             return await ctx.send("❌ Anda tidak sedang dalam masa tahanan. Kenapa butuh orang dalam?", ephemeral=True)
 
         # Cek apakah user sudah meminta bantuan sebelumnya (cooldown)
+        jail_bribe_messages = self.satire_narrations.get("jail_bribe_messages", {})
         jail_help_requests_data = load_jail_help_requests()
         last_request_time_str = jail_help_requests_data.get(user_id_str, {}).get("last_request_time")
         
@@ -2355,35 +2357,29 @@ class EconomyEvents(commands.Cog):
             await self._release_user(ctx.author) # Bebaskan user
             
             success_sogok_embed = discord.Embed(
-                title="🎉 **JALUR BELAKANG TERBUKA! ANDA BEBAS!** 🎉",
-                description=(
-                    f"Biaya **{sogok_cost} RSWN** telah berhasil meluncur ke saku 'orang dalam'.\n"
-                    f"Pintu sel terbuka dengan sendirinya, seakan Anda tak pernah ada di sana.\n"
-                    f"**{ctx.author.mention}** kini bebas melenggang, tanpa jejak!\n\n"
-                    f"_"Keadilan? Itu cuma kata-kata, yang penting ada uang._"
+                title=jail_bribe_messages.get("success_title", ""),
+                description=jail_bribe_messages.get("success_description", "").format(
+                    sogok_cost=sogok_cost, jailed_user_mention=ctx.author.mention
                 ),
                 color=discord.Color.green()
             )
             success_sogok_embed.set_footer(text="Ingat, hutang budi pada kami tak ternilai harganya.")
             await ctx.send(embed=success_sogok_embed, ephemeral=False)
-            try: await ctx.author.send(f"Biaya sogokanmu sebesar **{sogok_cost} RSWN** telah diterima. Kau bebas sekarang, tapi jangan bilang siapa-siapa ya!")
+            try: await ctx.author.send(jail_bribe_messages.get("success_dm", "").format(sogok_cost=sogok_cost))
             except discord.Forbidden: pass
 
         else: # 40% gagal
             logging.info(f"User {ctx.author.display_name} failed to bribe for release. Cost: {sogok_cost}.")
             fail_sogok_embed = discord.Embed(
-                title="💔 **SOGOKAN GAGAL! TETAP BUSUK DI PENJARA!** 💔",
-                description=(
-                    f"Biaya **{sogok_cost} RSWN** Anda sudah raib, tapi 'orang dalam' nampaknya kurang 'terkesan'.\n"
-                    f"Atau mungkin pejabat yang menerima sogokan itu mendadak jadi 'jujur'.\n"
-                    f"Pintu sel tetap terkunci rapat, **{ctx.author.mention}** masih mendekam!\n\n"
-                    f"_"Ada harga untuk kebebasan, dan Anda belum membayarnya. Atau mungkin Anda salah bayar._"
+                title=jail_bribe_messages.get("fail_title", ""),
+                description=jail_bribe_messages.get("fail_description", "").format(
+                    sogok_cost=sogok_cost, jailed_user_mention=ctx.author.mention
                 ),
                 color=discord.Color.red()
             )
             fail_sogok_embed.set_footer(text="Coba lagi nanti, jika Anda masih punya uang busuk.")
             await ctx.send(embed=fail_sogok_embed, ephemeral=False)
-            try: await ctx.author.send(f"Sogokanmu sebesar **{sogok_cost} RSWN** gagal. Mungkin kau harus coba lagi nanti dengan jumlah yang lebih besar, atau pejabatnya lagi tidur.")
+            try: await ctx.author.send(jail_bribe_messages.get("fail_dm", "").format(sogok_cost=sogok_cost))
             except discord.Forbidden: pass
 
 async def setup(bot):
