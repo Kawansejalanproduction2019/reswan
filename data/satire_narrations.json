@@ -13,11 +13,11 @@
       "no_response": "💔 **ANDA DIAM SAJA?!** Karena tidak ada respon dari Anda, **Pencuri** berhasil membawa kabur semua harta Anda sebesar **{actual_loot} RSWN**! Polisi baru tiba setelah pencuri minum kopi di pos kamling. Semoga Anda menikmati hidup tanpa harta, karena 'ketenangan' itu mahal, kan? 😂"
     },
     "announcement_outcome": {
-      "bureaucracy": "🚨 **KEAMANAN SERVER: LAPORAN KEJADIAN KRIMINAL!** Sebuah insiden 'penyambutan tamu tak diundang' di rumah **{victim_mention}** berhasil 'diselesaikan' dengan intervensi birokrasi. Hasilnya: Dana korban terkurangi, dan **{initiator_mention}** meraup keuntungan 'tak terduga'. Ini bukti bahwa sistem kami sangat 'fleksibel'!",
+      "bureaucracy": "🚨 **KEAMANAN SERVER: LAPORAN KEJADIAN KRIMINAL!** Sebuah insiden 'penyambutan tamu tak diundang' di rumah **{victim_mention}** berhasil 'diselesaikan' dengan intervensi birokrasi. Hasilnya: Dana korban terkurangi, dan **Pencuri** meraup keuntungan 'tak terduga'. Ini bukti bahwa sistem kami sangat 'fleksibel'!",
       "police_fast": "🎉 **BERITA TERBARU!** Sebuah percobaan pencurian di rumah **{victim_mention}** berhasil digagalkan! **{initiator_mention}** kini mendekam di balik jeruji besi virtual. Ini adalah contoh nyata bahwa kadang-kadang, kami bisa bekerja! (Jangan terlalu sering berharap).",
       "police_medium": "⚠️ **LAPORAN PERKEMBANGAN KRIMINAL:** Upaya pencurian di properti **{victim_mention}** berakhir dengan keberhasilan parsial bagi **Pencuri**. Sebagian barang raib, polisi masih 'menyelidiki'. Warga diimbau untuk lebih waspada dan siapkan camilan untuk petugas jika datang terlambat.",
-      "police_slow": "🤦‍♂️ **BERITA VIRAL!** Pencurian di rumah **{victim_mention}** berakhir dengan kekonyolan! **{initiator_mention}** kabur dengan hasil curian, meninggalkan polisi kebingungan. Moral cerita: Jangan terlalu berharap pada sistem yang 'terlalu santai'.",
-      "no_response": "💔 **INSIDEN DISESALKAN!** Karena tidak ada respon dari **{victim_mention}**, propertinya berhasil 'dikunjungi' oleh **{initiator_mention}**. Seluruh harta raib! Ini pelajaran bagi kita semua: Di negara bobrok ini, yang diam akan tertelan oleh arus 'perubahan'!"
+      "police_slow": "🤦‍♂️ **BERITA VIRAL!** Pencurian di rumah **{victim_mention}** berakhir dengan kekonyolan! **Pencuri** kabur dengan hasil curian, meninggalkan polisi kebingungan. Moral cerita: Jangan terlalu berharap pada sistem yang 'terlalu santai'.",
+      "no_response": "💔 **INSIDEN DISESALKAN!** Karena tidak ada respon dari **{victim_mention}**, propertinya berhasil 'dikunjungi' oleh **Pencuri**. Seluruh harta raib! Ini pelajaran bagi kita semua: Di negara bobrok ini, yang diam akan tertelan oleh arus 'perubahan'!"
     }
   },
   "fire_messages": {
