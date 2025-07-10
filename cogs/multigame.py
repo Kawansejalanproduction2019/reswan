@@ -11,45 +11,63 @@ import pytz # Import pytz untuk zona waktu
 def load_json_from_root(file_path):
     """Memuat data JSON dari file yang berada di root direktori proyek."""
     try:
+        # Menggunakan os.path.join untuk memastikan path yang benar di berbagai OS
+        # dan os.path.dirname(__file__) untuk mendapatkan direktori file saat ini (cogs)
+        # Kemudian '..' untuk naik satu level ke root proyek
         base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
         full_path = os.path.join(base_dir, file_path)
-        os.makedirs(os.path.dirname(full_path), exist_ok=True)
+        os.makedirs(os.path.dirname(full_path), exist_ok=True) # Pastikan direktori ada
         with open(full_path, 'r', encoding='utf-8') as f:
             return json.load(f)
     except (FileNotFoundError, json.JSONDecodeError):
         print(f"Peringatan: Tidak dapat memuat {file_path}. Pastikan file ada dan formatnya benar.")
-        if any(key in file_path for key in ['bank_data', 'level_data', 'protected_users', 'sick_users_cooldown', 'config']):
+        # Mengembalikan struktur default berdasarkan nama file
+        if 'config.json' in file_path:
+            return {'last_spy_id': None}
+        if 'bank_data.json' in file_path or 'level_data.json' in file_path or 'protected_users.json' in file_path or 'sick_users_cooldown.json' in file_path:
             return {}
-        elif any(key in file_path for key in ['monsters', 'anomalies', 'medicines', 'siapakah_aku', 'pernah_gak_pernah', 'hitung_cepat', 'mata_mata_locations', 'deskripsi_tebak', 'perang_otak', 'cerita_pembuka', 'teka_teki_harian']):
-            return []
-        return {}
+        # Untuk file data game yang berisi list
+        if any(key in file_path for key in ['monsters', 'anomalies', 'medicines', 'siapakah_aku', 'pernah_gak_pernah', 'hitung_cepat', 'mata_mata_locations', 'deskripsi_tebak', 'perang_otak', 'cerita_pembuka', 'teka_teki_harian', 'donation_buttons']):
+            return [] # Mengembalikan list kosong untuk data game dan tombol donasi
+        return {} # Default fallback
 
 def save_json_to_root(data, file_path):
     """Menyimpan data ke file JSON di root direktori proyek."""
     base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
     full_path = os.path.join(base_dir, file_path)
-    os.makedirs(os.path.dirname(full_path), exist_ok=True)
+    os.makedirs(os.path.dirname(full_path), exist_ok=True) # Pastikan direktori ada
     with open(full_path, 'w', encoding='utf-8') as f:
         json.dump(data, f, indent=4)
 
-# New DonationView
+# New DonationView - MODIFIED TO LOAD BUTTONS FROM JSON
 class DonationView(discord.ui.View):
     def __init__(self):
         super().__init__(timeout=None) # Keep buttons active indefinitely
+        self.load_donation_buttons()
 
-        bagi_bagi_button = discord.ui.Button(
-            label="Dukung via Bagi-Bagi!",
-            style=discord.ButtonStyle.link,
-            url="https://bagibagi.co/Rh7155"
-        )
-        self.add_item(bagi_bagi_button)
+    def load_donation_buttons(self):
+        # Path relatif ke root proyek
+        donation_buttons_data = load_json_from_root('data/donation_buttons.json')
+        
+        if not donation_buttons_data:
+            print("Peringatan: File 'data/donation_buttons.json' kosong atau tidak ditemukan. Menggunakan tombol default.")
+            # Default buttons if JSON is empty or not found
+            default_buttons = [
+                {"label": "Dukung via Bagi-Bagi!", "url": "https://bagibagi.co/Rh7155"},
+                {"label": "Donasi via Saweria!", "url": "https://saweria.co/RH7155"}
+            ]
+            donation_buttons_data = default_buttons
 
-        saweria_button = discord.ui.Button(
-            label="Donasi via Saweria!",
-            style=discord.ButtonStyle.link,
-            url="https://saweria.co/RH7155"
-        )
-        self.add_item(saweria_button)
+        for button_info in donation_buttons_data:
+            if "label" in button_info and "url" in button_info:
+                button = discord.ui.Button(
+                    label=button_info["label"],
+                    style=discord.ButtonStyle.link,
+                    url=button_info["url"]
+                )
+                self.add_item(button)
+            else:
+                print(f"Peringatan: Format tombol donasi tidak valid: {button_info}")
 
 class TicTacToeView(discord.ui.View):
     def __init__(self, game_cog, player1, player2):
@@ -130,6 +148,10 @@ class UltimateGameArena(commands.Cog):
         self.daily_puzzle_channel_id = 765140300145360896 # Ganti dengan ID channel Anda
         self.post_daily_puzzle.start()
 
+        # Dictionary untuk melacak percobaan jawaban per user per soal
+        self.quiz_attempts_per_question = {} # {channel_id: {user_id: attempts}}
+        self.cooldown_users = {} # {user_id: datetime_obj}
+
     def cog_unload(self):
         self.post_daily_puzzle.cancel()
 
@@ -181,6 +203,20 @@ class UltimateGameArena(commands.Cog):
             del self.spyfall_game_states[channel_id]
         print(f"Game cleanup complete for channel {channel_id}.")
 
+        # Reset quiz attempts and cooldowns for this channel
+        if channel_id in self.quiz_attempts_per_question:
+            del self.quiz_attempts_per_question[channel_id]
+        # Clear cooldowns for users who were in this channel's game
+        # (This is a simplified approach, a more robust one might track users per channel)
+        users_in_cooldown_from_this_game = [
+            user_id for user_id, cooldown_end_time in self.cooldown_users.items()
+            if cooldown_end_time > datetime.now() # only clear active cooldowns
+        ]
+        for user_id in users_in_cooldown_from_this_game:
+            if user_id in self.cooldown_users:
+                del self.cooldown_users[user_id]
+
+
         # Add donation buttons at the end of the game
         if channel_obj:
             donation_message = (
@@ -203,65 +239,111 @@ class UltimateGameArena(commands.Cog):
             await ctx.send("Tidak cukup soal di database untuk memulai sesi (butuh minimal 10).")
             await self.end_game_cleanup(ctx.channel.id, ctx.channel)
             return
+        
         questions = random.sample(self.siapakah_aku_data, 10)
         leaderboard = {}
+        
+        # Inisialisasi attempts dan cooldown untuk channel ini
+        self.quiz_attempts_per_question[ctx.channel.id] = {}
+        
         game_start_embed = discord.Embed(title="🕵️‍♂️ Sesi Kuis 'Siapakah Aku?' Dimulai!", description="Akan ada **10 soal** berturut-turut. Petunjuk akan muncul setiap **10 detik**.", color=0x1abc9c)
         await ctx.send(embed=game_start_embed)
         await asyncio.sleep(5)
+        
         for i, item in enumerate(questions):
             word = item['name'].lower()
             clues = item['clues']
-            attempts = {}
-            timed_out_users = set()
+            
+            # Reset attempts for the new question
+            self.quiz_attempts_per_question[ctx.channel.id] = {} 
+            
             winner = None
             round_over = False
+            
             embed = discord.Embed(title=f"SOAL #{i+1} dari 10", description=f"Kategori: **{item['category']}**", color=0x1abc9c)
-            embed.set_footer(text="Anda punya 5x kesempatan menjawab salah per soal!")
+            embed.set_footer(text="Anda punya 2x kesempatan menjawab salah per soal! Jika lebih, Anda di-cooldown.")
             msg = await ctx.send(embed=embed)
+            
             for clue_index, clue in enumerate(clues):
                 if round_over: break
                 embed.add_field(name=f"Petunjuk #{clue_index + 1}", value=f"_{clue}_", inline=False)
                 await msg.edit(embed=embed)
+                
                 try:
                     async def listen_for_answer():
                         nonlocal winner, round_over
                         while True:
                             message = await self.bot.wait_for("message", check=lambda m: m.channel == ctx.channel and not m.author.bot)
-                            if message.author.id in timed_out_users: continue
+                            
+                            # Cek apakah user sedang dalam cooldown
+                            if message.author.id in self.cooldown_users:
+                                if datetime.now() < self.cooldown_users[message.author.id]:
+                                    # User masih dalam cooldown, abaikan pesan ini
+                                    try:
+                                        await message.delete() # Hapus pesan yang dikirim saat cooldown
+                                    except discord.Forbidden:
+                                        pass # Tidak bisa menghapus pesan
+                                    continue # Lanjutkan menunggu pesan lain
+                                else:
+                                    # Cooldown sudah berakhir, hapus dari daftar
+                                    del self.cooldown_users[message.author.id]
+
+                            # Lacak percobaan user
+                            user_attempts = self.quiz_attempts_per_question[ctx.channel.id].setdefault(message.author.id, 0)
+                            
                             if message.content.lower() == word:
                                 winner = message.author
                                 round_over = True
                                 return
                             else:
                                 await message.add_reaction("❌")
-                                user_attempts = attempts.get(message.author.id, 0) + 1
-                                attempts[message.author.id] = user_attempts
-                                if user_attempts >= 5:
-                                    timed_out_users.add(message.author.id)
+                                user_attempts += 1
+                                self.quiz_attempts_per_question[ctx.channel.id][message.author.id] = user_attempts
+                                
+                                if user_attempts >= 2: # Maksimal 2 kali percobaan salah
+                                    # Beri cooldown 30 detik (atau sampai soal selesai)
+                                    cooldown_end_time = datetime.now() + timedelta(seconds=30)
+                                    self.cooldown_users[message.author.id] = cooldown_end_time
+                                    
                                     try:
-                                        await message.author.timeout(timedelta(seconds=60), reason="Melebihi batas percobaan di game")
-                                        await ctx.send(f"🚨 {message.author.mention}, Anda kehabisan kesempatan & di-timeout sementara.", delete_after=10)
+                                        # Timeout user di channel jika bot punya izin
+                                        # Discord API v2: timeout() requires Manage Messages permission
+                                        await message.author.timeout(timedelta(seconds=30), reason="Melebihi batas percobaan kuis")
+                                        await ctx.send(f"🚨 {message.author.mention}, Anda kehabisan kesempatan & di-timeout sementara (30 detik).", delete_after=10)
                                     except discord.Forbidden:
-                                        await ctx.send(f"🚨 {message.author.mention}, Anda kehabisan kesempatan di ronde ini.", delete_after=10)
-                    await asyncio.wait_for(listen_for_answer(), timeout=10.0)
+                                        await ctx.send(f"🚨 {message.author.mention}, Anda kehabisan kesempatan di ronde ini. Anda tidak bisa menjawab sampai soal ini selesai.", delete_after=10)
+                                    except Exception as e:
+                                        print(f"Error applying timeout: {e}")
+                                        await ctx.send(f"🚨 {message.author.mention}, Anda kehabisan kesempatan di ronde ini. Anda tidak bisa menjawab sampai soal ini selesai.", delete_after=10)
+
+                    await asyncio.wait_for(listen_for_answer(), timeout=10.0) # Waktu per petunjuk
                 except asyncio.TimeoutError:
                     if clue_index == len(clues) - 1:
                         await ctx.send(f"Waktu habis! Jawaban yang benar adalah **{item['name']}**.")
                     else:
                         continue
+            
             if winner:
                 await self.give_rewards_with_bonus_check(winner, ctx.guild.id, ctx.channel)
                 await ctx.send(f"🎉 **Benar!** {winner.mention} berhasil menebak **{item['name']}**!")
                 leaderboard[winner.name] = leaderboard.get(winner.name, 0) + 1
-            for user_id in timed_out_users:
-                member = ctx.guild.get_member(user_id)
-                if member:
-                    try:
-                        await member.timeout(None, reason="Ronde game telah berakhir.")
-                    except discord.Forbidden: pass
+            
+            # Hapus cooldown untuk semua user di channel ini setelah soal selesai
+            for user_id in list(self.cooldown_users.keys()):
+                if ctx.guild.get_member(user_id) and ctx.guild.get_member(user_id).voice and ctx.guild.get_member(user_id).voice.channel == ctx.channel:
+                    if user_id in self.cooldown_users:
+                        del self.cooldown_users[user_id]
+                    member = ctx.guild.get_member(user_id)
+                    if member:
+                        try:
+                            await member.timeout(None, reason="Ronde game telah berakhir.") # Hapus timeout Discord
+                        except discord.Forbidden:
+                            pass # Bot tidak punya izin untuk menghapus timeout
+
             if i < len(questions) - 1:
                 await ctx.send(f"Soal berikutnya dalam **5 detik**...", delete_after=4.5)
                 await asyncio.sleep(5)
+        
         if leaderboard:
             sorted_leaderboard = sorted(leaderboard.items(), key=lambda item: item[1], reverse=True)
             leaderboard_text = "\n".join([f"{rank}. {name}: **{score}** poin" for rank, (name, score) in enumerate(sorted_leaderboard, 1)])
@@ -269,6 +351,7 @@ class UltimateGameArena(commands.Cog):
             await ctx.send(embed=final_embed)
         else:
             await ctx.send("Sesi game berakhir tanpa ada pemenang.")
+        
         await self.end_game_cleanup(ctx.channel.id, ctx.channel)
 
     # --- GAME 2: PERNAH GAK PERNAH (Disesuaikan) ---
@@ -278,7 +361,7 @@ class UltimateGameArena(commands.Cog):
         if not ctx.author.voice or not ctx.author.voice.channel:
             return await ctx.send("Kamu harus berada di voice channel untuk memulai game ini.", delete_after=10)
         vc = ctx.author.voice.channel
-        members = [m for m in vc.members if not m.bot]
+        members = [m for m m.bot]
         if len(members) < 2:
             return await ctx.send("Game ini butuh minimal 2 orang di voice channel.", delete_after=10)
         if not await self.start_game_check(ctx):
@@ -371,11 +454,17 @@ class UltimateGameArena(commands.Cog):
         problems = random.sample(self.hitung_cepat_data, 10)
         leaderboard = {} # {user_id: score}
 
+        # Inisialisasi attempts dan cooldown untuk channel ini
+        self.quiz_attempts_per_question[ctx.channel.id] = {}
+
         await ctx.send(embed=discord.Embed(title="⚡ Sesi Hitung Cepat Dimulai!", description="Akan ada **10 soal**! Jawab dengan cepat dan benar!", color=0xe74c3c))
         await asyncio.sleep(3)
 
         for i, item in enumerate(problems):
             problem, answer = item['problem'], str(item['answer'])
+            
+            # Reset attempts for the new question
+            self.quiz_attempts_per_question[ctx.channel.id] = {}
             
             embed = discord.Embed(title=f"🧮 Soal #{i+1} dari 10", description=f"## `{problem} = ?`", color=0xe74c3c)
             msg = await ctx.send(embed=embed)
@@ -384,12 +473,41 @@ class UltimateGameArena(commands.Cog):
                 async def listen_for_math_answer():
                     while True:
                         message = await self.bot.wait_for("message", check=lambda m: m.channel == ctx.channel and not m.author.bot)
+                        
+                        # Cek apakah user sedang dalam cooldown
+                        if message.author.id in self.cooldown_users:
+                            if datetime.now() < self.cooldown_users[message.author.id]:
+                                try:
+                                    await message.delete()
+                                except discord.Forbidden:
+                                    pass
+                                continue
+                            else:
+                                del self.cooldown_users[message.author.id]
+
+                        # Lacak percobaan user
+                        user_attempts = self.quiz_attempts_per_question[ctx.channel.id].setdefault(message.author.id, 0)
+
                         if message.content.strip() == answer:
                             return message
                         else:
-                            if message.content.strip().replace('-', '').isdigit():
+                            if message.content.strip().replace('-', '').isdigit(): # Hanya bereaksi jika inputnya angka
                                 await message.add_reaction("❌")
+                                user_attempts += 1
+                                self.quiz_attempts_per_question[ctx.channel.id][message.author.id] = user_attempts
 
+                                if user_attempts >= 2: # Maksimal 2 kali percobaan salah
+                                    cooldown_end_time = datetime.now() + timedelta(seconds=30)
+                                    self.cooldown_users[message.author.id] = cooldown_end_time
+                                    try:
+                                        await message.author.timeout(timedelta(seconds=30), reason="Melebihi batas percobaan kuis")
+                                        await ctx.send(f"🚨 {message.author.mention}, Anda kehabisan kesempatan & di-timeout sementara (30 detik).", delete_after=10)
+                                    except discord.Forbidden:
+                                        await ctx.send(f"🚨 {message.author.mention}, Anda kehabisan kesempatan di ronde ini. Anda tidak bisa menjawab sampai soal ini selesai.", delete_after=10)
+                                    except Exception as e:
+                                        print(f"Error applying timeout: {e}")
+                                        await ctx.send(f"🚨 {message.author.mention}, Anda kehabisan kesempatan di ronde ini. Anda tidak bisa menjawab sampai soal ini selesai.", delete_after=10)
+                
                 winner_msg = await asyncio.wait_for(listen_for_math_answer(), timeout=15.0)
                 winner = winner_msg.author
                 
@@ -403,6 +521,18 @@ class UltimateGameArena(commands.Cog):
             except Exception as e:
                 print(f"Error in Hitung Cepat round: {e}")
             
+            # Hapus cooldown untuk semua user di channel ini setelah soal selesai
+            for user_id in list(self.cooldown_users.keys()):
+                if ctx.guild.get_member(user_id) and ctx.guild.get_member(user_id).voice and ctx.guild.get_member(user_id).voice.channel == ctx.channel:
+                    if user_id in self.cooldown_users:
+                        del self.cooldown_users[user_id]
+                    member = ctx.guild.get_member(user_id)
+                    if member:
+                        try:
+                            await member.timeout(None, reason="Ronde game telah berakhir.")
+                        except discord.Forbidden:
+                            pass
+
             if i < len(problems) - 1:
                 await ctx.send(f"Soal berikutnya dalam **3 detik**...", delete_after=2.5)
                 await asyncio.sleep(3)
