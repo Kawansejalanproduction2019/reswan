@@ -10,7 +10,7 @@ import sys
 from collections import Counter
 
 # Setup logging
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 log = logging.getLogger(__name__)
 
 # --- KONFIGURASI FILE DATA ---
@@ -23,6 +23,8 @@ TRIVIA_QUESTIONS_FILE = os.path.join(DATA_DIR, "government_trivia.json")
 NGAWUR_PROJECTS_FILE = os.path.join(DATA_DIR, "ngawur_projects.json")
 JAIL_HELP_FILE = os.path.join(DATA_DIR, "jail_help_requests.json")
 SATIRE_NARRATIONS_FILE = os.path.join(DATA_DIR, "satire_narrations.json") # File baru untuk narasi satir
+# File baru untuk melacak heist yang "escaped" dan bisa dilaporkan
+ESCAPED_HEISTS_FILE = os.path.join(DATA_DIR, "escaped_heists.json")
 
 
 # --- KONFIGURASI ROLE DAN CHANNEL ---
@@ -73,8 +75,75 @@ def ensure_data_files():
         TRIVIA_QUESTIONS_FILE: {"questions": []},
         NGAWUR_PROJECTS_FILE: {"projects": []},
         JAIL_HELP_FILE: {},
-        # SATIRE_NARRATIONS_FILE tidak perlu default di sini karena akan di-handle di load_json_safe()
-        # dan isinya harus manual diisi oleh user jika file kosong.
+        ESCAPED_HEISTS_FILE: {}, # Default untuk file baru
+        SATIRE_NARRATIONS_FILE: { # Default minimal untuk satire agar tidak crash jika kosong
+            "heist_messages": {
+                "warning_dm": "🚨 **DARURAT KEAMANAN!** Kami menerima laporan aktivitas mencurigakan di sekitar tempat tinggal Anda, **{victim_display_name}**! Ada indikasi **Seseorang** sedang merencanakan sesuatu yang mencurigakan, mungkin terkait upaya 'penyambutan tamu tak diundang'. Anda punya waktu **{response_time_seconds} detik** untuk memanggil `!responpolisi` di <#{event_channel_id}> sebelum terjadi hal yang tidak diinginkan! Bertindak cepat, jangan sampai 'aset' Anda berpindah tangan secara ilegal! 😱",
+                "warning_channel_fallback": "🚨 **PERHATIAN!** Deteksi aktivitas mencurigakan di rumah **{victim_mention}**! Waktu respon **{response_time_seconds} detik** untuk memanggil `!responpolisi`!",
+                "initiator_dm": "🕵️‍♂️ Operasi `!curi` Anda sedang berjalan! Anda sudah membayar **{heist_cost} RSWN** sebagai 'dana operasional'. Target sudah diberitahu untuk 'bersiap'. Semoga beruntung, agen gelap! Jangan sampai ketahuan ya. Kalau tertangkap, kami tidak kenal Anda!",
+                "initiator_result_jailed": "💔 Sial! Operasi Anda gagal total! Anda tertangkap basah dan langsung digiring ke 'hotel prodeo' milik pemerintah. Selamat menikmati 'fasilitas' gratisan dari negara bobrok ini! Uang modal Anda hangus. Jangan coba-coba hubungi kami, kami sedang sibuk 'rapat internal'.",
+                "initiator_result_success": "🎉 Selamat! Operasi `!curi` Anda sukses! Anda berhasil membawa pulang **{actual_loot} RSWN**. Dengan modal **{heist_cost} RSWN** yang sudah dipotong, Anda untung bersih **{actual_loot} RSWN**! Waktu untuk foya-foya! 💰",
+                "victim_outcome": {
+                    "bureaucracy": "🚓 **POLISI DATANG!** Tapi... Aduh, sepertinya mereka terjebak macet birokrasi! Mereka datang, tapi setelah berdebat panjang soal surat izin parkir dan formulir pelaporan yang salah isi, mereka hanya berhasil menyelamatkan sedikit 'aset' Anda. Anda kehilangan **{actual_loot} RSWN** karena 'efisiensi' aparat. Lain kali, siapkan amplop lebih tebal!",
+                    "police_fast": "🎉 **POLISI TANGGAP!** Tim Satuan Anti-Kebobrokan berhasil bergerak cepat! Meskipun ada sedikit insiden 'salah tangkap' kucing tetangga, mereka berhasil membekuk **Pencuri**! Anda tidak kehilangan apa-apa, tapi mereka tetap minta ongkos 'operasional' karena telah menyelamatkan martabat Anda. Selamat! 🥳",
+                    "police_medium": "⚠️ **POLISI AGAK LAMBAT!** Tim investigasi tiba, tapi sepertinya mereka sedang dalam mood 'santai'. Mereka menemukan jejak **Seseorang**, tapi pencuri sudah sempat kabur dengan sebagian barang Anda. Anda kehilangan **{actual_loot} RSWN**. Mereka berjanji akan menindaklanjuti, mungkin di tahun depan.",
+                    "police_slow": "🤦‍♂️ **POLISI KOCAK!** Tim penegak hukum datang dengan seragam terbalik dan sirine lagu dangdut! Mereka terlalu sibuk selfie di TKP sampai **Pencuri** berhasil kabur dengan sebagian besar harta Anda. Anda kehilangan **{actual_loot} RSWN**. Mereka meminta maaf sambil menawari Anda kopi gratis dari warung sebelah. Sabar ya.",
+                    "no_response": "💔 **ANDA DIAM SAJA?!** Karena tidak ada respon dari Anda, **Pencuri** berhasil membawa kabur semua harta Anda sebesar **{actual_loot} RSWN**! Polisi baru tiba setelah pencuri minum kopi di pos kamling. Semoga Anda menikmati hidup tanpa harta, karena 'ketenangan' itu mahal, kan? 😂"
+                },
+                "announcement_outcome": {
+                    "bureaucracy": "🚨 **KEAMANAN SERVER: LAPORAN KEJADIAN KRIMINAL!** Sebuah insiden 'penyambutan tamu tak diundang' di rumah **{victim_mention}** berhasil 'diselesaikan' dengan intervensi birokrasi. Hasilnya: Dana korban terkurangi, dan **Pencuri** meraup keuntungan 'tak terduga'. Ini bukti bahwa sistem kami sangat 'fleksibel'!",
+                    "police_fast": "🎉 **BERITA TERBARU!** Sebuah percobaan pencurian di rumah **{victim_mention}** berhasil digagalkan! **{initiator_mention}** kini mendekam di balik jeruji besi virtual. Ini adalah contoh nyata bahwa kadang-kadang, kami bisa bekerja! (Jangan terlalu sering berharap).",
+                    "police_medium": "⚠️ **LAPORAN PERKEMBANGAN KRIMINAL:** Upaya pencurian di properti **{victim_mention}** berakhir dengan keberhasilan parsial bagi **Pencuri**. Sebagian barang raib, polisi masih 'menyelidiki'. Warga diimbau untuk lebih waspada dan siapkan camilan untuk petugas jika datang terlambat.",
+                    "police_slow": "🤦‍♂️ **BERITA VIRAL!** Pencurian di rumah **{victim_mention}** berakhir dengan kekonyolan! **Pencuri** kabur dengan hasil curian, meninggalkan polisi kebingungan. Moral cerita: Jangan terlalu berharap pada sistem yang 'terlalu santai'.",
+                    "no_response": "💔 **INSIDEN DISESALKAN!** Karena tidak ada respon dari **{victim_mention}**, propertinya berhasil 'dikunjungi' oleh **Pencuri**. Seluruh harta raib! Ini pelajaran bagi kita semua: Di negara bobrok ini, yang diam akan tertelan oleh arus 'perubahan'!"
+                }
+            },
+            "fire_messages": {
+                "warning_dm": "🔥 **DARURAT! KEBAKARAN!** Rumah Anda sedang dilalap api! Segera panggil `!pemadam` di <#{event_channel_id}> dalam **{response_time_seconds} detik** sebelum semuanya jadi abu! Jangan panik, kami sedang menyiapkan laporan 'kerugian negara' Anda! 🚒",
+                "warning_channel_fallback": "🔥 **PERHATIAN!** Kebakaran di rumah **{victim_mention}**! Waktu respon **{response_time_seconds} detik** untuk memanggil `!pemadam`!",
+                "victim_outcome": {
+                    "bureaucracy": "🚒 **PEMADAM DATANG!** Tapi mereka butuh tanda tangan di 10 lembar dokumen sebelum menyemprotkan air. Karena birokrasi yang 'efisien', api sudah melalap sebagian besar rumah Anda. Kerugian Anda: **{actual_damage} RSWN**. Semoga sabar.",
+                    "fire_fast": "🎉 **PEMADAM TANGGAP!** Petugas **{random_firefighter_name}** dan timnya tiba dalam sekejap dan memadamkan api dengan sigap! Kerugian minimal. Anda beruntung karena mereka tidak meminta kopi dan rokok dulu! Anda hanya rugi **{actual_damage} RSWN**.",
+                    "fire_medium": "⚠️ **PEMADAM AGAK LAMBAT!** Petugas tiba, tapi sepertinya mereka kelelahan setelah demo masak-masak. Api berhasil dipadamkan, namun Anda kehilangan **{actual_damage} RSWN**. Mereka berjanji akan lebih cepat lain kali, mungkin setelah cuti bersama.",
+                    "fire_slow": "🤦‍♂️ **PEMADAM KOCAK!** Mobil pemadam datang, tapi airnya habis karena dipakai buat cuci mobil pribadi pejabat! Api melalap habis properti Anda. Kerugian Anda: **{actual_damage} RSWN**. Petugas menyarankan Anda untuk ikut arisan agar bisa bangun rumah lagi. Semoga betah di emperan toko!",
+                    "no_response": "💔 **RUMAHMU JADI ARANG!** Karena Anda tidak merespon, pemadam kebakaran datang setelah api padam sendiri (atau rumah Anda sudah rata dengan tanah). Anda kehilangan **{actual_damage} RSWN**. Mungkin ini pertanda untuk memulai hidup baru di bawah jembatan? 😊"
+                },
+                "announcement_outcome": {
+                    "bureaucracy": "🚨 **LAPORAN KEJADIAN: KEBAKARAN BIROKRATIS!** Sebuah insiden kebakaran di properti **{victim_mention}** berhasil 'ditangani' oleh birokrasi. Kerugian signifikan dicatat. Ini adalah contoh nyata bagaimana sistem yang 'teratur' bisa memperlambat segalanya.",
+                    "fire_fast": "🎉 **BERITA TERBARU! KEBAKARAN BERHASIL DIPADAMKAN!** Kebakaran di rumah **{victim_mention}** berhasil diatasi dengan cepat. Kerugian minimal! Ini bukti bahwa kadang-kadang, 'orang dalam' di pemadam kebakaran memang berfungsi!",
+                    "fire_medium": "⚠️ **LAPORAN PERKEMBANGAN: API MASIH MENYALA!** Kebakaran di properti **{victim_mention}** berhasil dikendalikan, namun kerugian sedang. Pemadam berjanji akan melakukan evaluasi internal tentang 'kecepatan respon'.",
+                    "fire_slow": "🤦‍♂️ **BERITA VIRAL! KEBAKARAN PARAH!** Properti **{victim_mention}** hangus terbakar karena 'kendala teknis' pada pemadam. Warga diimbau untuk tidak percaya 100% pada infrastruktur negara.",
+                    "no_response": "💔 **KEBAKARAN TOTAL!** Karena tidak ada respon dari **{victim_mention}**, rumahnya musnah! Ini adalah tragedi yang bisa dihindari jika saja birokrasi tidak terlalu rumit. Pelajaran: Siapkan uang kecil untuk mempercepat urusan!"
+                }
+            },
+            "police_report_messages": {
+                "initial_announcement_title": "🚨 LAPORAN INTELIJEN BARU DITERIMA! 🚨",
+                "initial_announcement_description": "Kami menerima laporan mencurigakan dari warga **{reporter_display_name}** ({reporter_mention}) terhadap **seorang tersangka misterius**! Pihak kepolisian (dengan sedikit 'dorongan' dana operasional sebesar **{bribe_cost} RSWN** dari pelapor) sedang memulai investigasi rahasia. **{police_narration_detail}**\n\nPejabat IntelijenBot: 'Tunggu hasil laporan kami. Semoga saja tidak ada 'kesalahpahaman' di lapangan, ya.'",
+                "bribe_details": {
+                    "low": "Jumlah ini cukup untuk membeli kopi instan dan gorengan bagi petugas. Mereka akan bekerja dengan 'semangat kopi'.",
+                    "medium": "Dana ini cukup untuk makan siang mewah bagi para petugas. Mereka akan bekerja dengan 'motivasi makan besar'.",
+                    "high": "Wow! Dana ini cukup untuk membiayai perjalanan dinas petugas ke luar kota! Mereka akan bekerja dengan 'semangat liburan'."
+                },
+                "reveal_success_title": "🕵️‍♀️ KASUS TERUNGKAP: IDENTITAS TERSANGKA DIKETAHUI! 🕵️‍♀️",
+                "reveal_success_description": "Setelah investigasi 'mendalam' dan 'mahal', detektif kami dengan bangga mengumumkan identitas tersangka pencurian: **{suspect_mention}**! Pelapor **{reporter_mention}** kini dapat melanjutkan kasus ini ke ranah hukum. Persiapkan amunisi lagi!",
+                "reveal_fail_title": "❌ KASUS GAGAL: IDENTITAS TERSANGKA TETAP MISTERI! ❌",
+                "reveal_fail_description": "Maaf, **{reporter_mention}**! Meskipun dana sudah digelontorkan, detektif kami 'kesulitan' menemukan bukti. Identitas tersangka tetap rahasia ilahi. Mungkin detektifnya kurang 'terinspirasi' oleh dana yang Anda berikan. Coba lagi lain kali dengan 'dana yang lebih memotivasi'.",
+                "police_corrupt_title": "🚓 POLISI KORUP! LAPORAN ANDA DIABAIKAN! 💸",
+                "police_corrupt_description": "Laporan Anda mengenai **{suspect_mention}** telah 'ditinjau' oleh pihak kepolisian. Sayangnya, mereka memutuskan bahwa kasus ini 'tidak memiliki potensi' atau 'kurang menguntungkan'. Dana **{report_cost} RSWN** Anda untuk pelaporan akan dialihkan untuk 'kesejahteraan' aparat. Pejabat mengatakan: 'Kami sibuk, ya sudah begitu saja.'",
+                "police_success_title": "🎉 POLISI BERTINDAK! PELAKU DITANGKAP! 🎉",
+                "police_success_description": "Selamat, **{reporter_mention}**! Laporan Anda mengenai **{suspect_mention}** telah 'ditindaklanjuti' oleh pihak kepolisian. Dengan sedikit 'negosiasi' dan 'dana stimulan' sebesar **{report_cost} RSWN**, pelaku berhasil diamankan dan kini menuju 'hotel prodeo'!",
+                "police_report_bounty": "🎉 **BONUS INVESTIGASI!** Laporanmu berhasil dan kamu menerima **{bounty} RSWN** sebagai bonus rahasia dari polisi!",
+                "police_report_fail_dm": "💔 Laporan investigasimu gagal. Polisi tidak bisa menangkap {target_user_display_name}. Biaya laporanmu hangus."
+            },
+            "jail_bribe_messages": {
+                "success_title": "🎉 BEBAS BERSYARAT! KARENA ORANG DALAM! 🎉",
+                "success_description": "Selamat, **{jailed_user_mention}**! Dana sogokan Anda sebesar **{sogok_cost} RSWN** telah bekerja dengan 'ajaib'! Anda kini bebas dari 'hotel prodeo' virtual. Pejabat kami mengucapkan terima kasih atas 'kontribusi' Anda dalam memperlancar birokrasi. Ingat, persahabatan itu mahal. 😉",
+                "success_dm": "🎉 Anda berhasil menyogok jalan keluar dari penjara dengan **{sogok_cost} RSWN**! Rahasia ini aman bersama kami... dan dompet kami.🤫",
+                "fail_title": "🤦‍♂️ SOGOKAN GAGAL! UANG ANDA DIBAWA KABUR! 🤦‍♂️",
+                "fail_description": "Maaf, **{jailed_user_mention}**! Uang sogokan Anda sebesar **{sogok_cost} RSWN** sepertinya 'hilang' di tengah jalan. Pejabat yang dituju tiba-tiba 'cuti mendadak' atau mungkin 'salah alamat'. Anda masih tetap di penjara. Mungkin lain kali coba kirim uangnya pakai kurir pribadi pejabat, jangan via jalur umum. 😈",
+                "fail_dm": "💔 Sogokan Anda gagal! Uang **{sogok_cost} RSWN** Anda raib, dan Anda masih di penjara. Mungkin uangnya 'kurang' atau pejabatnya sedang 'tidak mood'. Coba lagi jika Anda masih punya sisa harta."
+            }
+        }
     }
     for file_path, default_content in file_defaults.items():
         if not os.path.exists(file_path):
@@ -148,6 +217,13 @@ def load_jail_help_requests():
 def save_jail_help_requests(data):
     save_json_data(JAIL_HELP_FILE, data)
 
+# Fungsi untuk memuat dan menyimpan data heist yang lolos
+def load_escaped_heists():
+    return load_json_safe(ESCAPED_HEISTS_FILE)
+
+def save_escaped_heists(data):
+    save_json_data(ESCAPED_HEISTS_FILE, data)
+
 # Tambahkan fungsi untuk memuat narasi satir
 def load_satire_narrations():
     # load_json_safe akan menangani FileNotFoundError atau JSONDecodeError
@@ -167,6 +243,8 @@ class EconomyEvents(commands.Cog):
         self.jail_help_requests = load_jail_help_requests()
         self.active_investigations = {} # {guild_id: {reporter_id: {suspect_id: ..., status: 'pending'/'revealed'/'resolved_success'/'resolved_fail', bribe_cost: ...}}}
         self.satire_narrations = load_satire_narrations() # Muat narasi satir
+        ## PERUBAHAN ALUR LAPORAN HEIST: Tambahkan data untuk heist yang lolos
+        self.escaped_heists = load_escaped_heists() # {guild_id: {victim_id: {initiator_id: ..., heist_id: ..., timestamp: ..., reported_by: {}}}}
 
         # --- Konfigurasi Pajak ---
         self.funny_tax_insults = [
@@ -204,6 +282,8 @@ class EconomyEvents(commands.Cog):
         self.jail_check_task.start()
         self.heist_fire_event_scheduler.start()
         self.project_scheduler.start()
+        ## PERUBAHAN ALUR LAPORAN HEIST: Tambahkan cleanup untuk heist yang lolos
+        self.escaped_heist_cleanup_task.start()
 
     # Pastikan untuk menghentikan task saat cog di-unload
     def cog_unload(self):
@@ -212,6 +292,8 @@ class EconomyEvents(commands.Cog):
         self.jail_check_task.cancel()
         self.heist_fire_event_scheduler.cancel()
         self.project_scheduler.cancel()
+        ## PERUBAHAN ALUR LAPORAN HEIST: Batalkan cleanup task
+        self.escaped_heist_cleanup_task.cancel()
         
         # Batalkan semua task resolusi heist yang mungkin aktif
         for guild_id_str in list(self.active_heists.keys()):
@@ -443,6 +525,48 @@ class EconomyEvents(commands.Cog):
         log.info("Waiting for bot to be ready before starting Jail check task.")
         await self.bot.wait_until_ready()
         log.info("Bot ready, Jail check task is about to start.")
+
+    ## PERUBAHAN ALUR LAPORAN HEIST: Tugas latar belakang untuk membersihkan heist yang lolos
+    @tasks.loop(hours=24) # Bersihkan setiap 24 jam
+    async def escaped_heist_cleanup_task(self):
+        log.info("Escaped heist cleanup task started.")
+        await self.bot.wait_until_ready()
+
+        cleaned_count = 0
+        escaped_heists_data = load_escaped_heists()
+        
+        guild_ids_to_clean = list(escaped_heists_data.keys())
+
+        for guild_id_str in guild_ids_to_clean:
+            heists_to_remove = []
+            for heist_id, heist_info in escaped_heists_data.get(guild_id_str, {}).items():
+                # Hapus heist yang sudah lewat 7 hari (misal) atau sudah dilaporkan
+                heist_timestamp = datetime.fromisoformat(heist_info["timestamp"])
+                if (datetime.utcnow() - heist_timestamp).days >= 7: # Hapus setelah 7 hari
+                    heists_to_remove.append(heist_id)
+                elif heist_info.get("reported_by") and heist_info["reported_by"].get("status") == "resolved_success":
+                    heists_to_remove.append(heist_id) # Hapus jika sudah berhasil dilaporkan
+
+            for heist_id in heists_to_remove:
+                escaped_heists_data[guild_id_str].pop(heist_id)
+                cleaned_count += 1
+                log.debug(f"Cleaned up escaped heist {heist_id} in guild {guild_id_str}.")
+            
+            if not escaped_heists_data.get(guild_id_str): # Hapus guild key jika kosong
+                escaped_heists_data.pop(guild_id_str)
+
+        if cleaned_count > 0:
+            save_escaped_heists(escaped_heists_data)
+            log.info(f"Escaped heist cleanup task finished. Cleaned {cleaned_count} heists.")
+        else:
+            log.info("Escaped heist cleanup task finished. No heists to clean.")
+
+    @escaped_heist_cleanup_task.before_loop
+    async def before_escaped_heist_cleanup_task(self):
+        log.info("Waiting for bot to be ready before starting escaped heist cleanup task.")
+        await self.bot.wait_until_ready()
+        log.info("Bot ready, escaped heist cleanup task is about to start.")
+
 
     # --- Background Task untuk Menjadwalkan Event Heist/Fire/Quiz Acak ---
     @tasks.loop(hours=random.randint(1, 4)) # Event setiap 1-4 jam
@@ -699,32 +823,31 @@ class EconomyEvents(commands.Cog):
             log.debug(f"Heist already active for {victim.display_name}. Skipping new heist.")
             return
 
+        # Generate unique heist ID
+        heist_id = f"heist-{victim_id_str}-{datetime.utcnow().timestamp()}"
+
         self.active_heists[guild_id_str][victim_id_str] = {
-            "initiator_id": str(initiator.id) if initiator else "bot",
+            "heist_id": heist_id, ## PERUBAHAN ALUR LAPORAN HEIST: Tambahkan heist_id
+            "initiator_id": str(initiator.id) if initiator else str(self.bot.user.id), # Pastikan initiator bot menggunakan ID bot
             "start_time": datetime.utcnow(),
             "channel_id": event_channel.id,
             "status": "pending", # Menambahkan status untuk melacak apakah sudah direspon
-            "investigated": False # Flag untuk menandai apakah heist ini sudah diselidiki oleh detektif
+            "victim_id": victim_id_str ## PERUBAHAN ALUR LAPORAN HEIST: Tambahkan victim_id untuk memudahkan pelacakan
         }
         log.debug(f"Heist data stored: {self.active_heists[guild_id_str][victim_id_str]}")
         
         heist_messages = self.satire_narrations.get("heist_messages", {})
 
-        # --- PERBAIKAN: Cara mendapatkan initiator_display_name ---
-        # Jika initiator adalah bot itu sendiri, gunakan nama generik.
-        # Jika initiator adalah user, gunakan display_name mereka.
-        # Jika initiator adalah string "bot" (dari data tersimpan), gunakan itu.
         actual_initiator_display_name = ""
-        if initiator == self.bot.user:
-            actual_initiator_display_name = "seorang perampok misterius"  
-        elif isinstance(initiator, (discord.User, discord.Member)): # Gabungkan User dan Member
+        if initiator and initiator.id == self.bot.user.id:
+            actual_initiator_display_name = "seorang perampok misterius (Bot)"  
+        elif isinstance(initiator, (discord.User, discord.Member)):
             actual_initiator_display_name = initiator.display_name
-        else: # Kasus lain jika initiator bukan objek User/Member (misal string "bot" dari data)
-            actual_initiator_display_name = str(initiator)
-        # --- AKHIR PERBAIKAN ---
+        else: # Fallback jika initiator bukan objek User/Member
+            actual_initiator_display_name = "seorang perampok misterius"
 
         warning_dm_msg = heist_messages.get("warning_dm", "").format(
-            initiator_display_name=actual_initiator_display_name, # Menggunakan variabel yang sudah diolah
+            initiator_display_name=actual_initiator_display_name, 
             victim_display_name=victim.display_name,
             event_channel_id=EVENT_CHANNEL_ID,
             response_time_seconds=RESPONSE_TIME_SECONDS
@@ -751,7 +874,6 @@ class EconomyEvents(commands.Cog):
 
 
         if initiator and initiator.id != self.bot.user.id: # Hanya jika initiator adalah user, bukan bot
-            # PERBAIKAN: Pastikan initiator_dm_msg juga diolah dengan benar
             initiator_dm_msg = heist_messages.get("initiator_dm", "").format(
                 response_time_seconds=RESPONSE_TIME_SECONDS,
                 heist_cost=HEIST_COST
@@ -803,38 +925,37 @@ class EconomyEvents(commands.Cog):
         guild_id_str = str(guild.id)
         victim_id_str = str(victim.id)
         
-        heist_data = self.active_heists.get(guild_id_str, {}).get(victim_id_str) # GET, not POP yet
+        heist_data = self.active_heists.get(guild_id_str, {}).get(victim_id_str)
         if not heist_data:  
             log.warning(f"Heist data not found for {victim.display_name}. Already resolved or not active. Skipping resolution.")
             return
         
-        # Hapus data heist dari active_heists di awal jika bukan untuk investigasi
-        # atau jika investigasi sudah selesai (resolved_fail dari !lapormata)
-        is_investigated_heist = heist_data.get("investigated", False)
+        ## PERUBAHAN ALUR LAPORAN HEIST: JANGAN POP HEIST DATA DI SINI, KECUALI JIKA PENCURI TERTANGKAP
+        # Data heist akan tetap di 'active_heists' hingga !lapormata/!laporpolisi atau cleanup
+        # Jika pencuri tertangkap (is_jailed = True), barulah kita bisa menghapus heist dari active_heists.
+        # Atau jika direspon dan polisi berhasil menangkap pencuri
         
-        # Pop data setelah kita tahu status investigasinya
-        self.active_heists[guild_id_str].pop(victim_id_str, None) # Hapus dari daftar aktif setelah informasi diambil
-
         bank_data = load_bank_data()
         victim_balance = bank_data.get(victim_id_str, {}).get("balance", 0)
         
         loot_amount = random.randint(LOOT_MIN, LOOT_MAX)
         actual_loot = 0
 
-        # Mendapatkan objek initiator dan victim yang aman dari NoneType
-        # PERBAIKAN: Pastikan initiator_display_name di sini juga menangani bot dengan string generik
         actual_initiator_display_name = ""
         actual_initiator_mention = ""
-        if initiator == self.bot.user:
-            actual_initiator_display_name = "Perampok Misterius" # Atau bisa juga 'bot'
+        # FIX: Dapatkan initiator_id dari heist_data, bukan dari objek initiator yang mungkin None
+        initiator_id_from_data = heist_data.get("initiator_id") 
+        if initiator_id_from_data == str(self.bot.user.id):
+            actual_initiator_display_name = "Perampok Misterius"
             actual_initiator_mention = "seorang perampok misterius"
-        elif isinstance(initiator, (discord.User, discord.Member)): # Gabungkan User dan Member
-            actual_initiator_display_name = initiator.display_name
-            actual_initiator_mention = initiator.mention
-        else: # Kasus lain jika initiator adalah ID string "bot" dari data yang disimpan
-            actual_initiator_display_name = str(initiator)
-            actual_initiator_mention = str(initiator) # ini bisa jadi tidak valid sebagai mention, tapi untuk fallback
-        # --- AKHIR PERBAIKAN ---
+        else:
+            initiator_member = guild.get_member(int(initiator_id_from_data))
+            if initiator_member:
+                actual_initiator_display_name = initiator_member.display_name
+                actual_initiator_mention = initiator_member.mention
+            else: # Fallback jika member tidak ditemukan (misal sudah keluar guild)
+                actual_initiator_display_name = f"Perampok ID {initiator_id_from_data}"
+                actual_initiator_mention = f"Perampok ID {initiator_id_from_data}"
 
         victim_display_name = victim.display_name if isinstance(victim, discord.Member) else f"User Tak Dikenal ({victim_id_str})"
         victim_mention = victim.mention if isinstance(victim, discord.Member) else victim_display_name
@@ -849,6 +970,8 @@ class EconomyEvents(commands.Cog):
         heist_outcome_text = ""
         announcement_text = ""
         is_jailed = False
+        ## PERUBAHAN ALUR LAPORAN HEIST: Tambahkan flag apakah pencuri lolos
+        escaped_successfully = False 
 
         if responded and random.random() < BUREAUCRACY_CHANCE: # Birokrasi mengganggu respon (25% chance)
             log.info(f"Heist for {victim_display_name}: Birokrasi scenario triggered.")
@@ -860,6 +983,7 @@ class EconomyEvents(commands.Cog):
             announcement_text = announcement_outcome_msgs.get("bureaucracy", "").format(
                 victim_mention=victim_mention, initiator_mention=actual_initiator_mention
             )
+            escaped_successfully = True ## PERUBAHAN ALUR LAPORAN HEIST: Pencuri lolos karena birokrasi
             log.debug(f"Victim lost {actual_loot} due to bureaucracy.")
 
         elif responded: # Korban merespon, tapi tanpa birokrasi
@@ -872,7 +996,7 @@ class EconomyEvents(commands.Cog):
                 announcement_text = announcement_outcome_msgs.get("police_fast", "").format(
                     initiator_mention=actual_initiator_mention, victim_mention=victim_mention
                 )
-                if isinstance(initiator, discord.Member) and initiator.id != self.bot.user.id: # Hanya jika initiator adalah user
+                if initiator and initiator.id != self.bot.user.id: # Hanya jika initiator adalah user
                     is_jailed = True # Pencuri masuk penjara
                 log.info(f"Heist for {victim_display_name}: Police caught initiator {actual_initiator_display_name}.")
             elif rand_chance < 0.75: # 35% Agak Lambat: Pencuri Kabur dengan Sebagian Jarahan
@@ -885,6 +1009,7 @@ class EconomyEvents(commands.Cog):
                 announcement_text = announcement_outcome_msgs.get("police_medium", "").format(
                     initiator_mention=actual_initiator_mention, victim_mention=victim_mention
                 )
+                escaped_successfully = True ## PERUBAHAN ALUR LAPORAN HEIST: Pencuri lolos sebagian
                 log.debug(f"Victim lost {actual_loot} due to slow police.")
             else: # 25% Gagal/Kocak: Pencuri Kabur dengan Banyak Jarahan
                 medium_loot_amount = random.randint(int(LOOT_MIN * 0.5), int(LOOT_MAX * 0.8))
@@ -896,6 +1021,7 @@ class EconomyEvents(commands.Cog):
                 announcement_text = announcement_outcome_msgs.get("police_slow", "").format(
                     initiator_mention=actual_initiator_mention, victim_mention=victim_mention
                 )
+                escaped_successfully = True ## PERUBAHAN ALUR LAPORAN HEIST: Pencuri lolos banyak
                 log.debug(f"Victim lost {actual_loot} due to failed police.")
         else: # Korban tidak merespon atau terlambat
             large_loot_amount = random.randint(int(LOOT_MIN * 0.8), LOOT_MAX)
@@ -907,13 +1033,14 @@ class EconomyEvents(commands.Cog):
             announcement_text = announcement_outcome_msgs.get("no_response", "").format(
                 victim_mention=victim_mention, initiator_mention=actual_initiator_mention
             )
+            escaped_successfully = True ## PERUBAHAN ALUR LAPORAN HEIST: Pencuri lolos total
             log.debug(f"Victim lost {actual_loot} due to no response.")
         
         bank_data[victim_id_str]["balance"] = victim_balance
         save_bank_data(bank_data)
         log.info(f"Victim {victim_display_name}'s new balance: {victim_balance}.")
 
-        if isinstance(initiator, discord.Member) and initiator.id != self.bot.user.id: # Jika pencurian dipicu oleh user (bukan bot)
+        if initiator and initiator.id != self.bot.user.id: # Jika pencurian dipicu oleh user (bukan bot)
             if is_jailed:
                 log.info(f"Initiator {actual_initiator_display_name} jailed. No loot gained.")
                 await self._jail_user(initiator, JAIL_DURATION_HOURS)
@@ -929,7 +1056,7 @@ class EconomyEvents(commands.Cog):
                 save_bank_data(bank_data)
                 log.info(f"Initiator {actual_initiator_display_name} gained {actual_loot} loot (total {heist_cost_plus_loot}). New balance: {bank_data[str(initiator.id)]['balance']}.")
                 initiator_result_success_msg = heist_messages.get("initiator_result_success", "").format(
-                    actual_loot=actual_loot, heist_cost_plus_loot=heist_cost_plus_loot
+                    actual_loot=actual_loot, heist_cost=HEIST_COST, heist_cost_plus_loot=heist_cost_plus_loot
                 )
                 try:
                     if not initiator_result_success_msg.strip():
@@ -963,6 +1090,28 @@ class EconomyEvents(commands.Cog):
             await event_channel.send(announcement_text)
             log.info(f"Heist result announced in {event_channel.name}.")
         
+        ## PERUBAHAN ALUR LAPORAN HEIST: Simpan data heist yang lolos untuk !lapormata
+        if escaped_successfully:
+            escaped_heists_data = load_escaped_heists()
+            guild_heists = escaped_heists_data.setdefault(guild_id_str, {})
+            # Gunakan heist_id yang sudah dibuat di _start_heist
+            heist_id = heist_data.get("heist_id", f"heist-{victim_id_str}-{datetime.utcnow().timestamp()}") 
+            
+            guild_heists[heist_id] = {
+                "victim_id": victim_id_str,
+                "initiator_id": initiator_id_from_data,
+                "timestamp": datetime.utcnow().isoformat(),
+                "actual_loot": actual_loot,
+                "reported_by": {} # Untuk melacak siapa yang melaporkan dan status investigasinya
+            }
+            save_escaped_heists(escaped_heists_data)
+            log.info(f"Escaped heist {heist_id} by {initiator_id_from_data} from {victim_id_str} saved for potential future reporting.")
+        
+        # Hapus heist dari active_heists setelah proses ini selesai, terutama jika tidak lolos (ditangkap)
+        # Jika berhasil lolos, kita sudah menyimpannya di escaped_heists, jadi bisa dihapus dari active_heists.
+        self.active_heists[guild_id_str].pop(victim_id_str, None)
+        log.debug(f"Heist for victim {victim_id_str} removed from active_heists.")
+
 
     @commands.command(name="curi") # Command tanpa prefiks rtm
     async def curi(self, ctx, target_user: discord.Member):
@@ -992,18 +1141,19 @@ class EconomyEvents(commands.Cog):
             logging.debug(f"Robber {ctx.author.display_name} is jailed. Cannot rob.")
             return await ctx.send(f"❌ Kamu sedang dalam masa tahanan sampai {jailed_until.strftime('%d-%m-%Y %H:%M WIB')}! Tidak bisa melakukan aksi kriminal.", ephemeral=True)
         
-        # Cek apakah initiator atau target sedang dalam event aktif lainnya
+        # Cek apakah initiator atau target sedang dalam event aktif lainnya (heist sebagai korban, fire sebagai korban, atau kuis)
         if str(ctx.author.id) in self.active_heists.get(guild_id_str, {}) or \
            str(ctx.author.id) in self.active_fires.get(guild_id_str, {}) or \
            str(ctx.guild.id) in self.active_quizzes: # Cek jika user sendiri sedang di heist/fire/quiz
             logging.debug(f"Robber {ctx.author.display_name} is in another active event/quiz.")
             return await ctx.send("❌ Kamu sedang dalam proses event lain!", ephemeral=True)
         
-        # Juga cek jika target sedang dalam investigasi
-        active_investigations_for_guild = self.active_investigations.get(guild_id_str, {})
-        if any(inv['suspect_id'] == str(target_user.id) and (inv['status'] == 'pending' or inv['status'] == 'revealed') for inv in active_investigations_for_guild.values()):
-            logging.debug(f"Target {target_user.display_name} is currently under investigation. Cannot rob.")
-            return await ctx.send("❌ Target ini sedang dalam investigasi aktif. Tidak bisa melakukan pencurian saat ini!", ephemeral=True)
+        ## PERUBAHAN ALUR LAPORAN HEIST: Hapus pengecekan 'target_user' di 'active_investigations' saat !curi.
+        # Karena investigasi sekarang terjadi *setelah* pencurian.
+        # active_investigations_for_guild = self.active_investigations.get(guild_id_str, {})
+        # if any(inv['suspect_id'] == str(target_user.id) and (inv['status'] == 'pending' or inv['status'] == 'revealed') for inv in active_investigations_for_guild.values()):
+        #     logging.debug(f"Target {target_user.display_name} is currently under investigation. Cannot rob.")
+        #     return await ctx.send("❌ Target ini sedang dalam investigasi aktif. Tidak bisa melakukan pencurian saat ini!", ephemeral=True)
 
         if str(target_user.id) in self.active_heists.get(guild_id_str, {}): # Cek jika target sedang di heist (sebagai korban)
             logging.debug(f"Target {target_user.display_name} is in another active heist event (as victim).")
@@ -1064,14 +1214,17 @@ class EconomyEvents(commands.Cog):
         time_elapsed = (datetime.utcnow() - heist_info["start_time"]).total_seconds()
 
         initiator_id = heist_info["initiator_id"]  # Pencuri ID
-        initiator = self.bot.get_user(int(initiator_id)) if initiator_id != "bot" else self.bot.user
+        initiator = self.bot.get_user(int(initiator_id)) if initiator_id != str(self.bot.user.id) else self.bot.user # Dapatkan objek initiator
         
         if time_elapsed > RESPONSE_TIME_SECONDS:
             log.info(f"Police called too late by {ctx.author.display_name} ({time_elapsed:.2f}s elapsed).")
+            # Tandai status sebagai 'responded' sebelum memanggil _resolve_heist
+            self.active_heists[guild_id][user_id]["status"] = "responded"
             await ctx.send("⏱️ Kamu terlalu lambat! Polisi tidak bisa menanggapi panggilan yang terlambat. Pencurian sudah selesai.", ephemeral=True)
             await self._resolve_heist(ctx.guild, ctx.author, ctx.channel, initiator, responded=False)
             return
 
+        self.active_heists[guild_id][user_id]["status"] = "responded" # Tandai sudah direspon
         log.info(f"Police called in time by {ctx.author.display_name}. Resolving heist.")
         await self._resolve_heist(ctx.guild, ctx.author, ctx.channel, initiator, responded=True)
         try: await ctx.message.delete()
@@ -1283,18 +1436,17 @@ class EconomyEvents(commands.Cog):
             return await ctx.send("❌ Tidak bisa memaksakan event ke bot.", ephemeral=True)
         
         guild_id_str = str(ctx.guild.id)
-        # Cek jika target sedang dalam event aktif lainnya (heist sebagai korban, fire sebagai korban, atau kuis)
         if str(target_user.id) in self.active_heists.get(guild_id_str, {}) or \
            str(target_user.id) in self.active_fires.get(guild_id_str, {}) or \
            str(ctx.guild.id) in self.active_quizzes: 
             logging.debug(f"Target {target_user.display_name} is in another active event/quiz. Cannot force heist.")
             return await ctx.send("❌ Pengguna ini atau server ini sedang dalam proses event lain!", ephemeral=True)
 
-        # Juga cek jika target sedang dalam investigasi
-        active_investigations_for_guild = self.active_investigations.get(guild_id_str, {})
-        if any(inv['suspect_id'] == str(target_user.id) and (inv['status'] == 'pending' or inv['status'] == 'revealed') for inv in active_investigations_for_guild.values()):
-            logging.debug(f"Target {target_user.display_name} is currently under investigation. Cannot force heist.")
-            return await ctx.send("❌ Target ini sedang dalam investigasi aktif. Tidak bisa memaksakan pencurian saat ini!", ephemeral=True)
+        ## PERUBAHAN ALUR LAPORAN HEIST: Hapus pengecekan 'target_user' di 'active_investigations' saat !forceheist.
+        # active_investigations_for_guild = self.active_investigations.get(guild_id_str, {})
+        # if any(inv['suspect_id'] == str(target_user.id) and (inv['status'] == 'pending' or inv['status'] == 'revealed') for inv in active_investigations_for_guild.values()):
+        #     logging.debug(f"Target {target_user.display_name} is currently under investigation. Cannot force heist.")
+        #     return await ctx.send("❌ Target ini sedang dalam investigasi aktif. Tidak bisa memaksakan pencurian saat ini!", ephemeral=True)
 
 
         bank_data = load_bank_data()
@@ -1637,7 +1789,7 @@ class EconomyEvents(commands.Cog):
                                         else:
                                             logging.debug("Penalty too small to distribute among investors.")
                                             await channel.send("Audit menemukan korupsi, tapi jumlahnya terlalu kecil untuk dibagikan. Pejabat sudah menerima sanksi moral!")
-                                    
+                                        
                                     try: await initiator_member.send(f"💔 Anda ketahuan korupsi sebesar **{corrupt_amount} RSWN**! Anda didenda **{penalty_amount} RSWN** yang dibagikan ke investor. Malu! 😱")
                                     except discord.Forbidden: logging.warning(f"Could not send corruption penalty DM to {initiator_member.display_name} (DMs closed).")
                                 else: # Tidak tertangkap
@@ -2306,10 +2458,23 @@ class EconomyEvents(commands.Cog):
         if any(inv['suspect_id'] == str(target_user.id) and (inv['status'] == 'pending' or inv['status'] == 'revealed') for inv in guild_investigations.values()):
             return await ctx.send("❌ Target Anda sedang dalam investigasi aktif. Mohon tunggu.", ephemeral=True)
 
-        # Pastikan ada heist aktif yang belum diinvestigasi untuk target
-        heist_info = self.active_heists.get(guild_id_str, {}).get(str(target_user.id))
-        if not heist_info or heist_info.get("investigated"):
-            return await ctx.send(f"❌ Tidak ada pencurian aktif dari **{target_user.display_name}** yang perlu diselidiki. Atau detektif sudah tahu. 🤔", ephemeral=True)
+        ## PERUBAHAN ALUR LAPORAN HEIST: Cari heist yang lolos untuk dilaporkan
+        escaped_heists_data = load_escaped_heists()
+        relevant_heists = []
+        for heist_id, heist_info in escaped_heists_data.get(guild_id_str, {}).items():
+            # Cek jika korban adalah ctx.author, pencuri adalah target_user, dan belum pernah dilaporkan oleh ctx.author
+            if heist_info.get("victim_id") == user_id_str and \
+               heist_info.get("initiator_id") == str(target_user.id) and \
+               user_id_str not in heist_info.get("reported_by", {}): # Pastikan pelapor belum melaporkan heist ini
+                relevant_heists.append((heist_id, heist_info))
+        
+        if not relevant_heists:
+            return await ctx.send(f"❌ Tidak ada kasus pencurian oleh **{target_user.display_name}** yang lolos dari rumah Anda **yang belum Anda laporkan** dan masih bisa diselidiki. Pencuri ini sudah aman atau sudah 'disentuh' polisi lain. 🤔", ephemeral=True)
+        
+        # Pilih kasus terbaru jika ada beberapa (opsional, bisa juga minta user specify)
+        # Untuk kesederhanaan, kita ambil yang pertama ditemukan atau yang paling baru
+        chosen_heist_id, chosen_heist_info = relevant_heists[-1] # Ambil yang paling baru
+
 
         bank_data = load_bank_data()
         user_balance = bank_data.get(user_id_str, {}).get("balance", 0)
@@ -2326,10 +2491,14 @@ class EconomyEvents(commands.Cog):
             'suspect_id': str(target_user.id),
             'bribe_cost': bribe_cost,
             'status': 'pending', # Status investigasi: pending, revealed, resolved_success, resolved_fail
-            'start_time': datetime.utcnow().isoformat()
+            'start_time': datetime.utcnow().isoformat(),
+            'related_heist_id': chosen_heist_id ## PERUBAHAN ALUR LAPORAN HEIST: Kaitkan dengan ID heist yang lolos
         }
-        # Tandai heist sebagai sedang diinvestigasi
-        self.active_heists[guild_id_str][str(target_user.id)]["investigated"] = True
+        
+        # Tandai heist yang lolos sebagai sedang diinvestigasi oleh pelapor ini
+        escaped_heists_data[guild_id_str][chosen_heist_id].setdefault("reported_by", {})[user_id_str] = {"status": "pending"}
+        save_escaped_heists(escaped_heists_data)
+        log.info(f"Escaped heist {chosen_heist_id} marked as 'pending' investigation by {user_id_str}.")
         
         # Potong biaya pungli dari pelapor
         bank_data[user_id_str]["balance"] -= bribe_cost
@@ -2388,6 +2557,10 @@ class EconomyEvents(commands.Cog):
         if is_revealed: # Target identitas tertangkap
             logging.info(f"Investigation against {target_user.display_name} succeeded. Identity revealed.")
             self.active_investigations[guild_id_str][user_id_str]['status'] = 'revealed'
+            # Tandai heist yang lolos sebagai 'revealed'
+            escaped_heists_data = load_escaped_heists()
+            escaped_heists_data.setdefault(guild_id_str, {}).setdefault(chosen_heist_id, {}).setdefault("reported_by", {})[user_id_str] = {"status": "revealed"}
+            save_escaped_heists(escaped_heists_data)
             
             revealed_embed = discord.Embed(
                 title=police_report_messages.get("reveal_success_title", "KASUS TERUNGKAP: IDENTITAS TERSANGKA DIKETAHUI!"),
@@ -2417,6 +2590,11 @@ class EconomyEvents(commands.Cog):
             logging.info(f"Investigation against {target_user.display_name} failed. Identity not revealed.")
             self.active_investigations[guild_id_str][user_id_str]['status'] = 'resolved_fail' # Langsung fail karena tidak ada kelanjutan
             
+            # Tandai heist yang lolos sebagai 'resolved_fail' untuk pelapor ini
+            escaped_heists_data = load_escaped_heists()
+            escaped_heists_data.setdefault(guild_id_str, {}).setdefault(chosen_heist_id, {}).setdefault("reported_by", {})[user_id_str] = {"status": "resolved_fail"}
+            save_escaped_heists(escaped_heists_data)
+
             fail_embed = discord.Embed(
                 title=police_report_messages.get("reveal_fail_title", "KASUS GAGAL: IDENTITAS TERSANGKA TETAP MISTERI!"),
                 description=police_report_messages.get("reveal_fail_description", "").format(
@@ -2463,7 +2641,9 @@ class EconomyEvents(commands.Cog):
 
         # Cek apakah ada investigasi yang berhasil 'revealed' untuk user ini
         investigation_info = self.active_investigations.get(guild_id_str, {}).get(user_id_str)
-        if not investigation_info or investigation_info['status'] != 'revealed' or investigation_info['suspect_id'] != str(suspect_user.id):
+        if not investigation_info or \
+           investigation_info['status'] != 'revealed' or \
+           investigation_info['suspect_id'] != str(suspect_user.id):
             return await ctx.send(f"❌ Anda belum berhasil mengungkap identitas pencuri ini atau laporan Anda sudah kedaluwarsa. Gunakan `!lapormata` terlebih dahulu.", ephemeral=True)
             
         bank_data = load_bank_data()
@@ -2487,6 +2667,12 @@ class EconomyEvents(commands.Cog):
             logging.info(f"Police report for {suspect_user.display_name} resulted in corruption. Cost: {report_cost}.")
             self.active_investigations[guild_id_str][user_id_str]['status'] = 'resolved_fail' # Tetap dianggap gagal
             
+            # Tandai heist yang lolos sebagai 'resolved_fail' untuk pelapor ini
+            escaped_heists_data = load_escaped_heists()
+            related_heist_id = investigation_info['related_heist_id']
+            escaped_heists_data.setdefault(guild_id_str, {}).setdefault(related_heist_id, {}).setdefault("reported_by", {})[user_id_str] = {"status": "resolved_fail"}
+            save_escaped_heists(escaped_heists_data)
+
             corrupt_embed = discord.Embed(
                 title=police_report_messages.get("police_corrupt_title", "POLISI KORUP! LAPORAN ANDA DIABAIKAN!"),
                 description=police_report_messages.get("police_corrupt_description", "").format(
@@ -2517,6 +2703,12 @@ class EconomyEvents(commands.Cog):
             await self._jail_user(suspect_user, JAIL_DURATION_HOURS) # Penjarakan tersangka
             self.active_investigations[guild_id_str][user_id_str]['status'] = 'resolved_success'
             
+            # Tandai heist yang lolos sebagai 'resolved_success' untuk pelapor ini
+            escaped_heists_data = load_escaped_heists()
+            related_heist_id = investigation_info['related_heist_id']
+            escaped_heists_data.setdefault(guild_id_str, {}).setdefault(related_heist_id, {}).setdefault("reported_by", {})[user_id_str] = {"status": "resolved_success"}
+            save_escaped_heists(escaped_heists_data)
+
             success_embed = discord.Embed(
                 title=police_report_messages.get("police_success_title", "POLISI BERTINDAK! PELAKU DITANGKAP!"),
                 description=police_report_messages.get("police_success_description", "").format(
