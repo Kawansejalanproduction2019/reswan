@@ -1,4 +1,3 @@
-import discord
 from discord.ext import commands, tasks
 import json
 import random
@@ -61,6 +60,9 @@ POLICE_REPORT_COST_MAX = 250 # Biaya lapor polisi maksimal (setelah detektif)
 JAIL_BRIBE_COST = 1000 # Biaya sogokan untuk bebas penjara
 JAIL_BRIBE_CHANCE = 0.50 # 50% peluang berhasil sogok
 
+# --- KONFIGURASI SANKSI TAMBAHAN UNTUK TAHANAN ---
+JAIL_MESSAGE_COOLDOWN_SECONDS = 120 # 2 menit
+JAIL_MUTE_DURATION_HOURS = 3 # Durasi mute setelah mengirim pesan
 
 # --- FUNGSI UTILITAS UNTUK LOAD/SAVE JSON ---
 def ensure_data_files():
@@ -353,10 +355,12 @@ class EconomyEvents(commands.Cog):
             except discord.Forbidden: pass
 
         release_time = datetime.utcnow() + timedelta(hours=duration_hours)
-        message_cooldown_end = datetime.utcnow() + timedelta(hours=duration_hours)
+        message_cooldown_end = datetime.utcnow() # Reset cooldown pesan saat masuk penjara (akan diterapkan setelah pesan pertama)
+        muted_until = datetime.utcnow() # Awalnya tidak dimute, mute dimulai setelah pesan pertama
 
         user_data["jailed_until"] = release_time.isoformat()
         user_data["message_cooldown_end"] = message_cooldown_end.isoformat()
+        user_data["muted_until"] = muted_until.isoformat() 
         
         save_level_data(guild_id, data)
         log.debug(f"Saved jail status for {member.display_name}.")
@@ -364,7 +368,7 @@ class EconomyEvents(commands.Cog):
             await member.send(
                 f"🚨 **ANDA DITANGKAP!** Anda dijebloskan ke penjara virtual selama **{duration_hours} jam**!\n"
                 f"Nickname Anda sekarang: **{member.display_name}**.\n"
-                f"Selama di penjara, Anda hanya bisa mengirim pesan **1 menit sekali** dan tidak bisa menggunakan command ekonomi/game lainnya."
+                f"Selama di penjara, Anda hanya bisa mengirim pesan **2 menit sekali** dan akan **dibisukan selama 3 jam** setelah mengirim pesan. Tidak bisa menggunakan command ekonomi/game lainnya."
             )
         except discord.Forbidden:
             log.warning(f"Could not send jail DM to {member.display_name} (DMs closed).")
@@ -378,7 +382,6 @@ class EconomyEvents(commands.Cog):
         user_data = data.get(user_id_str, {})
 
         jail_role = member.guild.get_role(JAIL_ROLE_ID)
-        # PERBAIKAN: Pastikan jail_role adalah objek Role yang valid sebelum mencoba menghapusnya
         if jail_role and jail_role in member.roles:
             try: 
                 await member.remove_roles(jail_role)
@@ -400,6 +403,11 @@ class EconomyEvents(commands.Cog):
         user_data.pop("jailed_until", None)
         user_data.pop("original_nickname", None)
         user_data.pop("message_cooldown_end", None)
+        # Hapus juga status mute dan kembalikan permission mereka
+        if "muted_until" in user_data and user_data["muted_until"]:
+            await self._remove_mute_permissions(member)
+        user_data.pop("muted_until", None) 
+
         data[user_id_str] = user_data # Update data di dictionary utama
         
         save_level_data(guild_id_str, data)
@@ -407,7 +415,48 @@ class EconomyEvents(commands.Cog):
         try: await member.send("🎉 **BEBAS!** Masa penjaramu sudah berakhir! Kamu bebas lagi menjelajahi server ini!")
         except discord.Forbidden: log.warning(f"Could not send freedom DM to {member.display_name} (DMs closed).")
 
-    # --- Background Task untuk Pemungutan Pajak Otomatis ---
+    # --- Helper baru untuk menerapkan izin mute ---
+    async def _apply_mute_permissions(self, member: discord.Member):
+        log.info(f"Applying mute permissions for {member.display_name}.")
+        # Dapatkan izin dasar yang akan diterapkan untuk 'mute'
+        # Yaitu, menonaktifkan izin untuk mengirim pesan
+        overwrite = discord.PermissionOverwrite(send_messages=False)
+        
+        # Iterasi melalui semua channel teks di guild
+        for channel in member.guild.text_channels:
+            try:
+                # Periksa apakah bot memiliki izin untuk mengelola izin di channel ini
+                if channel.permissions_for(member.guild.me).manage_channels:
+                    await channel.set_permissions(member, overwrite=overwrite)
+                    log.debug(f"Applied mute overwrite for {member.display_name} in channel {channel.name}.")
+                else:
+                    log.warning(f"Bot lacks 'manage_channels' permission in {channel.name} to apply mute for {member.display_name}.")
+            except discord.HTTPException as e:
+                log.error(f"Failed to apply mute permission for {member.display_name} in channel {channel.name}: {e}")
+        try:
+            await member.send("🔇 Anda telah di-'bisukan' dan tidak bisa mengirim pesan di channel manapun untuk sementara waktu.")
+        except discord.Forbidden:
+            log.warning(f"Could not send mute DM to {member.display_name} (DMs closed).")
+
+    # --- Helper baru untuk menghapus izin mute ---
+    async def _remove_mute_permissions(self, member: discord.Member):
+        log.info(f"Removing mute permissions for {member.display_name}.")
+        for channel in member.guild.text_channels:
+            try:
+                if channel.permissions_for(member.guild.me).manage_channels:
+                    # Menghapus overwrite permission spesifik untuk member di channel ini
+                    await channel.set_permissions(member, overwrite=None)
+                    log.debug(f"Removed mute overwrite for {member.display_name} in channel {channel.name}.")
+                else:
+                    log.warning(f"Bot lacks 'manage_channels' permission in {channel.name} to remove mute for {member.display_name}.")
+            except discord.HTTPException as e:
+                log.error(f"Failed to remove mute permission for {member.display_name} in channel {channel.name}: {e}")
+        try:
+            await member.send("🔊 Anda tidak lagi di-'bisukan' dan sudah bisa mengirim pesan kembali.")
+        except discord.Forbidden:
+            log.warning(f"Could not send unmute DM to {member.display_name} (DMs closed).")
+
+
     @tasks.loop(hours=24)
     async def auto_tax_task(self):
         log.info("Auto tax task started.")
@@ -492,6 +541,7 @@ class EconomyEvents(commands.Cog):
             users_to_release = []  # List untuk mengumpulkan user yang akan dibebaskan
 
             for user_id, user_data in list(data.items()): # Gunakan list(data.data.items()) untuk modifikasi dictionary saat iterasi
+                # Cek masa tahanan
                 if "jailed_until" in user_data and user_data["jailed_until"]:
                     try:
                         jailed_until_dt = datetime.fromisoformat(user_data["jailed_until"])
@@ -500,6 +550,23 @@ class EconomyEvents(commands.Cog):
                     except ValueError: # Tangani jika data jailed_until corrupt
                         log.error(f"Invalid datetime format for jailed_until for user {user_id}. Removing corrupted data.")
                         users_to_release.append(user_id) # Hapus data yang korup
+
+                # Cek masa mute akibat sanksi pesan
+                if "muted_until" in user_data and user_data["muted_until"]:
+                    try:
+                        muted_until_dt = datetime.fromisoformat(user_data["muted_until"])
+                        member = guild.get_member(int(user_id))
+                        # Hanya un-mute jika sudah bukan tahanan atau memang waktu mute sudah habis
+                        if member and datetime.utcnow() >= muted_until_dt:
+                            # Jika user masih di-mute tapi waktunya sudah habis, un-mute dia
+                            await self._remove_mute_permissions(member) # Hapus izin mute
+                            user_data.pop("muted_until", None)
+                            log.info(f"User {member.display_name} unmuted (muted_until passed).")
+                            save_level_data(guild_id_str, data) # Simpan perubahan muted_until
+                    except ValueError:
+                        log.error(f"Invalid datetime format for muted_until for user {user_id}. Removing corrupted data.")
+                        user_data.pop("muted_until", None)
+                        save_level_data(guild_id_str, data) # Simpan perubahan muted_until
 
             for user_id in users_to_release:
                 log.info(f"Releasing user {user_id} from jail in guild {guild.name}.")
@@ -513,6 +580,7 @@ class EconomyEvents(commands.Cog):
                     user_data.pop("jailed_until", None)
                     user_data.pop("original_nickname", None)
                     user_data.pop("message_cooldown_end", None)
+                    user_data.pop("muted_until", None) # Bersihkan juga muted_until
                     data[user_id] = user_data # Update data di dictionary utama
                     save_level_data(guild_id_str, data) # Simpan perubahan data
 
@@ -833,12 +901,12 @@ class EconomyEvents(commands.Cog):
         heist_id = f"heist-{victim_id_str}-{datetime.utcnow().timestamp()}"
 
         self.active_heists[guild_id_str][victim_id_str] = {
-            "heist_id": heist_id, 
+            "heist_id": heist_id,  
             "initiator_id": str(initiator.id) if initiator else str(self.bot.user.id), # Pastikan initiator bot menggunakan ID bot
             "start_time": datetime.utcnow(),
             "channel_id": event_channel.id,
             "status": "pending", # Menambahkan status untuk melacak apakah sudah direspon
-            "victim_id": victim_id_str 
+            "victim_id": victim_id_str  
         }
         log.debug(f"Heist data stored: {self.active_heists[guild_id_str][victim_id_str]}")
         
@@ -855,7 +923,7 @@ class EconomyEvents(commands.Cog):
 
 
         warning_dm_msg = heist_messages.get("warning_dm", "").format(
-            initiator_display_name=actual_initiator_display_name, 
+            initiator_display_name=actual_initiator_display_name,  
             victim_display_name=victim.display_name,
             event_channel_id=EVENT_CHANNEL_ID,
             response_time_seconds=RESPONSE_TIME_SECONDS
@@ -946,7 +1014,7 @@ class EconomyEvents(commands.Cog):
 
         actual_initiator_display_name = ""
         actual_initiator_mention = ""
-        initiator_id_from_data = heist_data.get("initiator_id") 
+        initiator_id_from_data = heist_data.get("initiator_id")  
         
         # FIX: Dapatkan objek Member untuk initiator, jika memungkinkan.
         # Ini penting agar _jail_user bisa berfungsi.
@@ -975,7 +1043,7 @@ class EconomyEvents(commands.Cog):
         heist_outcome_text = ""
         announcement_text = ""
         is_jailed = False
-        escaped_successfully = False 
+        escaped_successfully = False  
 
         if responded and random.random() < BUREAUCRACY_CHANCE:
             log.info(f"Heist for {victim_display_name}: Birokrasi scenario triggered.")
@@ -1050,11 +1118,11 @@ class EconomyEvents(commands.Cog):
             if is_jailed:
                 log.info(f"Initiator {actual_initiator_display_name} jailed. No loot gained.")
                 await self._jail_user(initiator_member_obj, JAIL_DURATION_HOURS) # Menggunakan initiator_member_obj yang adalah discord.Member
-                try: 
+                try:  
                     dm_msg = heist_messages.get("initiator_result_jailed", "")
                     if not dm_msg.strip(): raise ValueError("initiator_result_jailed DM is empty.")
                     await initiator_member_obj.send(dm_msg)
-                except (discord.Forbidden, ValueError) as e: 
+                except (discord.Forbidden, ValueError) as e:  
                     log.warning(f"Could not send jail result DM to initiator {actual_initiator_display_name} (DMs closed or empty message): {e}")
             else:
                 heist_cost_plus_loot = HEIST_COST + actual_loot
@@ -1100,7 +1168,7 @@ class EconomyEvents(commands.Cog):
         if escaped_successfully and not is_jailed: # Jika lolos DAN tidak dipenjara
             escaped_heists_data = load_escaped_heists()
             guild_heists = escaped_heists_data.setdefault(guild_id_str, {})
-            heist_id = heist_data.get("heist_id", f"heist-{victim_id_str}-{datetime.utcnow().timestamp()}") 
+            heist_id = heist_data.get("heist_id", f"heist-{victim_id_str}-{datetime.utcnow().timestamp()}")  
             
             guild_heists[heist_id] = {
                 "victim_id": victim_id_str,
@@ -1437,7 +1505,7 @@ class EconomyEvents(commands.Cog):
         guild_id_str = str(ctx.guild.id)
         if str(target_user.id) in self.active_heists.get(guild_id_str, {}) or \
            str(target_user.id) in self.active_fires.get(guild_id_str, {}) or \
-           str(ctx.guild.id) in self.active_quizzes: 
+           str(ctx.guild.id) in self.active_quizzes:  
             logging.debug(f"Target {target_user.display_name} is in another active event/quiz. Cannot force heist.")
             return await ctx.send("❌ Pengguna ini atau server ini sedang dalam proses event lain!", ephemeral=True)
 
@@ -1781,7 +1849,7 @@ class EconomyEvents(commands.Cog):
                                         else:
                                             logging.debug("Penalty too small to distribute among investors.")
                                             await channel.send("Audit menemukan korupsi, tapi jumlahnya terlalu kecil untuk dibagikan. Pejabat sudah menerima sanksi moral!")
-                                        
+                                    
                                     try: await initiator_member.send(f"💔 Anda ketahuan korupsi sebesar **{corrupt_amount} RSWN**! Anda didenda **{penalty_amount} RSWN** yang dibagikan ke investor. Malu! 😱")
                                     except discord.Forbidden: logging.warning(f"Could not send corruption penalty DM to {initiator_member.display_name} (DMs closed).")
                                 else: # Tidak tertangkap
@@ -2154,98 +2222,182 @@ class EconomyEvents(commands.Cog):
         if message.author.bot or not message.guild:
             return
             
+        # Periksa apakah user adalah tahanan dan sedang dalam cooldown pesan atau di-mute
         guild_id_str = str(message.guild.id)
-        if guild_id_str not in self.active_quizzes:
-            return # Tidak ada kuis aktif di guild ini
-
-        quiz_session = self.active_quizzes[guild_id_str]
-        if message.channel.id != quiz_session["channel_id"]:
-            return # Pesan bukan di channel kuis yang aktif
-
-        if quiz_session["responded_to_current"]:
-            logging.debug(f"Message from {message.author.display_name} ignored, question already answered.")
-            return # Pertanyaan sudah dijawab, abaikan pesan lain
-
-        question_info = quiz_session["questions_list"][quiz_session["current_question_idx"]]
-        user_answer = message.content.strip()
-        correct_answer = question_info["answer"].strip()
+        user_id_str = str(message.author.id)
         
-        is_correct = False
-        if question_info["type"] == "multiple_choice":
-            # Periksa jawaban berdasarkan huruf opsi (A, B, C, D) atau teks lengkap
-            # Asumsi correct_answer di JSON adalah huruf opsi (misal "A", "B")
-            if user_answer.lower() == correct_answer.lower():
-                is_correct = True
-            elif len(user_answer) == 1 and user_answer.upper() in [chr(65+i) for i in range(len(question_info["options"]))]:
-                if user_answer.upper() == correct_answer.upper():
+        level_data = load_level_data(guild_id_str)
+        user_data = level_data.get(user_id_str, {})
+
+        # Cek apakah user memiliki peran tahanan
+        jail_role = message.guild.get_role(JAIL_ROLE_ID)
+        is_jailed_by_role = jail_role and jail_role in message.author.roles
+
+        if is_jailed_by_role and "jailed_until" in user_data and \
+           datetime.utcnow() < datetime.fromisoformat(user_data["jailed_until"]):
+            # User adalah tahanan dan masa tahanan belum berakhir
+
+            # 1. Periksa Cooldown Pesan (selalu aktif untuk tahanan)
+            message_cooldown_end_str = user_data.get("message_cooldown_end")
+            if message_cooldown_end_str:
+                message_cooldown_end = datetime.fromisoformat(message_cooldown_end_str)
+                if datetime.utcnow() < message_cooldown_end:
+                    # Masih dalam cooldown pesan, hapus pesan dan beri peringatan
+                    time_left = message_cooldown_end - datetime.utcnow()
+                    minutes, seconds = divmod(int(time_left.total_seconds()), 60)
+                    try:
+                        await message.delete()
+                        await message.author.send(
+                            f"🤫 Anda masih dalam masa 'bisukan' karena terlalu banyak bicara di penjara. "
+                            f"Anda hanya bisa mengirim pesan lagi dalam **{minutes} menit {seconds} detik**."
+                        )
+                    except discord.Forbidden:
+                        if message.channel.permissions_for(message.guild.me).send_messages:
+                            await message.channel.send(
+                                f"🤫 {message.author.mention}, Anda masih dalam masa 'bisukan' karena terlalu banyak bicara di penjara. "
+                                f"Anda hanya bisa mengirim pesan lagi dalam **{minutes} menit {seconds} detik**."
+                            , delete_after=10)
+                    logging.info(f"Message from jailed user {message.author.display_name} deleted due to message cooldown.")
+                    return # Hentikan pemrosesan pesan (pesan tidak diproses dan user tidak di-mute Penuh)
+
+            # 2. Periksa Muted Status (mute penuh)
+            # Ini adalah bagian yang akan menerapkan mute penuh setelah pesan pertama dalam cooldown baru
+            muted_until_str = user_data.get("muted_until")
+            if muted_until_str: # Jika sudah ada 'muted_until' di data
+                muted_until = datetime.fromisoformat(muted_until_str)
+                if datetime.utcnow() < muted_until:
+                    # User seharusnya sudah di-mute penuh. Ini adalah pesan yang tidak seharusnya terkirim.
+                    # Kita tetap akan menghapus pesannya dan memastikan permisis mute diterapkan
+                    try:
+                        await message.delete() # Hapus pesan yang lolos
+                        # Pastikan izin mute diterapkan (misal bot baru restart atau ada bug)
+                        await self._apply_mute_permissions(message.author) 
+                        await message.author.send(
+                            f"🔇 Anda masih di-'bisukan' oleh petugas penjara sampai **{muted_until.strftime('%H:%M WIB')}**. "
+                            f"Anda tidak bisa mengirim pesan sama sekali saat ini."
+                        )
+                    except discord.Forbidden:
+                        if message.channel.permissions_for(message.guild.me).send_messages:
+                            await message.channel.send(
+                                f"🔇 {message.author.mention}, Anda masih di-'bisukan' oleh petugas penjara dan tidak bisa mengirim pesan."
+                            , delete_after=10)
+                    logging.info(f"Message from jailed user {message.author.display_name} deleted because they are fully muted.")
+                    return # Hentikan pemrosesan pesan
+            
+            # Jika user adalah tahanan, tidak dalam cooldown pesan, DAN belum di-mute penuh:
+            # Ini berarti mereka baru saja mengirim pesan pertama mereka (atau pesan setelah cooldown 2m berakhir).
+            # Terapkan mute penuh dan reset cooldown 2 menit
+            user_data["muted_until"] = (datetime.utcnow() + timedelta(hours=JAIL_MUTE_DURATION_HOURS)).isoformat()
+            user_data["message_cooldown_end"] = (datetime.utcnow() + timedelta(seconds=JAIL_MESSAGE_COOLDOWN_SECONDS)).isoformat()
+            save_level_data(guild_id_str, level_data)
+            
+            logging.info(f"Jailed user {message.author.display_name} sent a message. Applying full mute and {JAIL_MESSAGE_COOLDOWN_SECONDS}s cooldown.")
+            
+            # Terapkan permission overwrite untuk mute penuh
+            await self._apply_mute_permissions(message.author)
+            
+            try:
+                await message.author.send(
+                    f"Anda berhasil mengirim pesan! Namun, sebagai konsekuensi dari kejahatan Anda, "
+                    f"Anda sekarang **di-'bisukan' sepenuhnya** selama **{JAIL_MUTE_DURATION_HOURS} jam** dan hanya bisa mengirim pesan lagi dalam **{JAIL_MESSAGE_COOLDOWN_SECONDS // 60} menit** setelah itu."
+                )
+            except discord.Forbidden:
+                logging.warning(f"Could not send mute details DM to {message.author.display_name} (DMs closed).")
+
+            # Hapus pesan yang baru saja dikirim oleh user, karena sekarang dia di-mute penuh
+            try:
+                await message.delete()
+            except discord.HTTPException as e:
+                logging.warning(f"Failed to delete message from {message.author.display_name} after applying mute: {e}")
+            return # Hentikan pemrosesan pesan ini, karena sudah di-mute
+
+        # Logic untuk kuis kebobrokan (yang sudah ada sebelumnya)
+        quiz_session = self.active_quizzes.get(guild_id_str)
+        if quiz_session and message.channel.id == quiz_session["channel_id"]:
+            if quiz_session["responded_to_current"]:
+                logging.debug(f"Message from {message.author.display_name} ignored, question already answered.")
+                return # Pertanyaan sudah dijawab, abaikan pesan lain
+            
+            question_info = quiz_session["questions_list"][quiz_session["current_question_idx"]]
+            user_answer = message.content.strip()
+            correct_answer = question_info["answer"].strip()
+            
+            is_correct = False
+            if question_info["type"] == "multiple_choice":
+                # Periksa jawaban berdasarkan huruf opsi (A, B, C, D) atau teks lengkap
+                # Asumsi correct_answer di JSON adalah huruf opsi (misal "A", "B")
+                if user_answer.lower() == correct_answer.lower():
                     is_correct = True
-        else: # Tipe 'essay'
-            is_correct = user_answer.lower() == correct_answer.lower()
+                elif len(user_answer) == 1 and user_answer.upper() in [chr(65+i) for i in range(len(question_info["options"]))]:
+                    if user_answer.upper() == correct_answer.upper():
+                        is_correct = True
+            else: # Tipe 'essay'
+                is_correct = user_answer.lower() == correct_answer.lower()
 
-        if is_correct:
-            quiz_session["responded_to_current"] = True # Set flag agar tidak ada jawaban lain yang masuk
-            
-            reward = random.randint(QUIZ_REWARD_MIN, QUIZ_REWARD_MAX)
-            corruption_text = ""
-            if reward > (QUIZ_REWARD_MAX * 0.8) and random.random() < CORRUPTION_CHANCE_HIGH_REWARD: # Peluang korupsi jika hadiah besar
-                corrupted_amount = int(reward * random.uniform(0.1, 0.4)) # Ambil 10-40% dari hadiah
-                reward -= corrupted_amount
-                corruption_text = f"\n\n*(Catatan dari Pejabat PajakBot: Sebagian kecil hadiah Anda ({corrupted_amount} RSWN) terpaksa kami 'amankan' untuk 'dana operasional mendesak' para pejabat. Jangan protes, ini demi negara, kok!)* 😈"
+            if is_correct:
+                quiz_session["responded_to_current"] = True # Set flag agar tidak ada jawaban lain yang masuk
                 
-                config = load_economy_config()
-                config["server_funds_balance"] += corrupted_amount
-                save_economy_config(config)
-                logging.info(f"Corruption: {corrupted_amount} RSWN taken from {message.author.display_name}'s quiz reward.")
+                reward = random.randint(QUIZ_REWARD_MIN, QUIZ_REWARD_MAX)
+                corruption_text = ""
+                if reward > (QUIZ_REWARD_MAX * 0.8) and random.random() < CORRUPTION_CHANCE_HIGH_REWARD: # Peluang korupsi jika hadiah besar
+                    corrupted_amount = int(reward * random.uniform(0.1, 0.4)) # Ambil 10-40% dari hadiah
+                    reward -= corrupted_amount
+                    corruption_text = f"\n\n*(Catatan dari Pejabat PajakBot: Sebagian kecil hadiah Anda ({corrupted_amount} RSWN) terpaksa kami 'amankan' untuk 'dana operasional mendesak' para pejabat. Jangan protes, ini demi negara, kok!)* 😈"
+                    
+                    config = load_economy_config()
+                    config["server_funds_balance"] += corrupted_amount
+                    save_economy_config(config)
+                    logging.info(f"Corruption: {corrupted_amount} RSWN taken from {message.author.display_name}'s quiz reward.")
 
-            bank_data = load_bank_data()
-            user_id_str = str(message.author.id)
-            bank_data.setdefault(user_id_str, {"balance":0, "debt":0})["balance"] += reward
-            save_bank_data(bank_data)
-            logging.info(f"User {message.author.display_name} answered correctly. Gained {reward} RSWN. New balance: {bank_data[user_id_str]['balance']}.")
+                bank_data = load_bank_data()
+                user_id_str = str(message.author.id)
+                bank_data.setdefault(user_id_str, {"balance":0, "debt":0})["balance"] += reward
+                save_bank_data(bank_data)
+                logging.info(f"User {message.author.display_name} answered correctly. Gained {reward} RSWN. New balance: {bank_data[user_id_str]['balance']}.")
 
-            quiz_session["score_board"].setdefault(user_id_str, 0)
-            quiz_session["score_board"][user_id_str] += 1
-            
-            result_embed_title = "🎉 BENAR! Anda Jenius Bobrok! 🎉"
-            result_embed_desc = f"{message.author.mention}, {question_info['correct_response']}\nAnda mendapatkan **{reward} RSWN**!{corruption_text}"
-            result_embed_color = discord.Color.green()
-            
-        else: # Jawaban salah
-            user_balance = load_bank_data().get(str(message.author.id), {}).get("balance", 0)
-            
-            result_embed_title = "💔 SALAH! Anda Terlalu Jujur! 💔"
-            result_embed_desc = f"{message.author.mention}, {question_info['wrong_response']}\nJawaban yang benar adalah: **{question_info['answer']}**."
-            result_embed_color = discord.Color.red()
-            
-            # Logika penalti di sini DIHAPUS, tapi sisakan pesan salah
-            # if user_balance >= QUIZ_PENALTY:
-            #     bank_data = load_bank_data()
-            #     bank_data.setdefault(user_id_str, {"balance":0, "debt":0})["balance"] -= QUIZ_PENALTY
-            #     save_bank_data(bank_data)
-            #     result_embed_desc += f"\nAnda didenda **{QUIZ_PENALTY} RSWN** karena 'gagal memahami sistem'!"
-            #     logging.info(f"User {message.author.display_name} answered incorrectly. Penalized {QUIZ_PENALTY} RSWN. New balance: {bank_data[user_id_str]['balance']}.")
-            # else:
-            #     result_embed_desc += "\nAnda lolos denda karena dompet Anda sudah dihisap habis oleh birokrasi sebelumnya. Syukurlah!"
-            #     logging.info(f"User {message.author.display_name} answered incorrectly. No penalty (insufficient funds).")
+                quiz_session["score_board"].setdefault(user_id_str, 0)
+                quiz_session["score_board"][user_id_str] += 1
+                
+                result_embed_title = "🎉 BENAR! Anda Jenius Bobrok! 🎉"
+                result_embed_desc = f"{message.author.mention}, {question_info['correct_response']}\nAnda mendapatkan **{reward} RSWN**!{corruption_text}"
+                result_embed_color = discord.Color.green()
+                
+            else: # Jawaban salah
+                user_balance = load_bank_data().get(str(message.author.id), {}).get("balance", 0)
+                
+                result_embed_title = "💔 SALAH! Anda Terlalu Jujur! 💔"
+                result_embed_desc = f"{message.author.mention}, {question_info['wrong_response']}\nJawaban yang benar adalah: **{question_info['answer']}**."
+                result_embed_color = discord.Color.red()
+                
+                # Logika penalti di sini DIHAPUS, tapi sisakan pesan salah
+                # if user_balance >= QUIZ_PENALTY:
+                #      bank_data = load_bank_data()
+                #      bank_data.setdefault(user_id_str, {"balance":0, "debt":0})["balance"] -= QUIZ_PENALTY
+                #      save_bank_data(bank_data)
+                #      result_embed_desc += f"\nAnda didenda **{QUIZ_PENALTY} RSWN** karena 'gagal memahami sistem'!"
+                #      logging.info(f"User {message.author.display_name} answered incorrectly. Penalized {QUIZ_PENALTY} RSWN. New balance: {bank_data[user_id_str]['balance']}.")
+                # else:
+                #      result_embed_desc += "\nAnda lolos denda karena dompet Anda sudah dihisap habis oleh birokrasi sebelumnya. Syukurlah!"
+                #      logging.info(f"User {message.author.display_name} answered incorrectly. No penalty (insufficient funds).")
 
-        result_embed = discord.Embed(
-            title=result_embed_title,
-            description=result_embed_desc,
-            color=result_embed_color
-        )
-        await message.channel.send(embed=result_embed, delete_after=15)
-        
-        # Hapus pesan pertanyaan dan pesan jawaban user untuk kerapian
-        if quiz_session["question_message"]:
-            try: await quiz_session["question_message"].delete()
+            result_embed = discord.Embed(
+                title=result_embed_title,
+                description=result_embed_desc,
+                color=result_embed_color
+            )
+            await message.channel.send(embed=result_embed, delete_after=15)
+            
+            # Hapus pesan pertanyaan dan pesan jawaban user untuk kerapian
+            if quiz_session["question_message"]:
+                try: await quiz_session["question_message"].delete()
+                except discord.HTTPException: pass
+            try:
+                await message.delete() # Hapus pesan user yang menjawab
             except discord.HTTPException: pass
-        try:
-            await message.delete() # Hapus pesan user yang menjawab
-        except discord.HTTPException: pass
-        
-        quiz_session["current_question_idx"] += 1
-        await asyncio.sleep(2) # Jeda singkat sebelum pertanyaan berikutnya
-        await self._start_next_quiz_question(message.guild, message.channel)
+            
+            quiz_session["current_question_idx"] += 1
+            await asyncio.sleep(2) # Jeda singkat sebelum pertanyaan berikutnya
+            await self._start_next_quiz_question(message.guild, message.channel)
 
 
     async def _end_quiz_session(self, guild: discord.Guild, channel: discord.TextChannel):
@@ -2462,7 +2614,7 @@ class EconomyEvents(commands.Cog):
         
         if not relevant_heists:
             return await ctx.send(f"❌ Tidak ada kasus pencurian oleh **{target_user.display_name}** yang lolos dari rumah Anda **yang belum Anda laporkan** dan masih bisa diselidiki. Pencuri ini sudah aman atau sudah 'disentuh' polisi lain. 🤔", ephemeral=True)
-        
+            
         # Pilih kasus terbaru jika ada beberapa (opsional, bisa juga minta user specify)
         # Untuk kesederhanaan, kita ambil yang pertama ditemukan atau yang paling baru
         chosen_heist_id, chosen_heist_info = relevant_heists[-1] # Ambil yang paling baru
@@ -2584,7 +2736,8 @@ class EconomyEvents(commands.Cog):
             
             # Tandai heist yang lolos sebagai 'resolved_fail' untuk pelapor ini
             escaped_heists_data = load_escaped_heists()
-            escaped_heists_data.setdefault(guild_id_str, {}).setdefault(chosen_heist_id, {}).setdefault("reported_by", {})[user_id_str] = {"status": "resolved_fail"}
+            related_heist_id = investigation_info['related_heist_id']
+            escaped_heists_data.setdefault(guild_id_str, {}).setdefault(related_heist_id, {}).setdefault("reported_by", {})[user_id_str] = {"status": "resolved_fail"}
             save_escaped_heists(escaped_heists_data)
 
             fail_embed = discord.Embed(
