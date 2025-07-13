@@ -299,7 +299,7 @@ class ServerBoostModal(discord.ui.Modal, title="Atur Pesan Server Booster"):
         row=2
     )
     boost_image_url = discord.ui.TextInput(
-        label="URL Gambar (Opsional, akan muncul besar)",
+        label="URL Gambar (Opsional, untuk banner)", # Updated label
         placeholder="Contoh: https://example.com/booster_banner.png",
         max_length=2000,
         required=False,
@@ -430,7 +430,6 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
         self.color_log = 0x95A5A6
         self.color_welcome = 0x9B59B6
         self.color_announce = 0x7289DA
-        # Anda bisa menggunakan warna khusus untuk booster jika mau, contoh:
         self.color_booster = 0xF47FFF # Pinkish color for Discord Nitro Boost
 
         self.settings = load_data(self.settings_file)
@@ -451,13 +450,11 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
                 "log_channel_id": None, 
                 "reaction_roles": {},
                 "channel_rules": {},
-                # --- PENGATURAN BARU UNTUK BOOSTER ---
                 "boost_channel_id": None,
                 "boost_message": "Terima kasih banyak, {user}, telah menjadi **Server Booster** kami di {guild_name}! Kami sangat menghargai dukunganmu! ❤️",
                 "boost_embed_title": "TERIMA KASIH SERVER BOOSTER!",
                 "boost_sender_name": "Tim Server",
                 "boost_image_url": None # URL gambar utama di embed
-                # --- AKHIR PENGATURAN BOOSTER ---
             }
             save_data(self.settings_file, self.settings)
             print(f"[{datetime.now()}] [DEBUG ADMIN] Default settings created for guild {guild_id}.")
@@ -625,22 +622,44 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
             boost_message_content = guild_settings.get("boost_message", "Terima kasih banyak, {user}, telah menjadi **Server Booster** kami di {guild_name}! Kami sangat menghargai dukunganmu! ❤️")
             boost_embed_title = guild_settings.get("boost_embed_title", "TERIMA KASIH SERVER BOOSTER!")
             boost_sender_name = guild_settings.get("boost_sender_name", "Tim Server")
-            boost_image_url = guild_settings.get("boost_image_url")
+            boost_image_url = guild_settings.get("boost_image_url") # Mengambil URL gambar yang disetel pengguna
 
             embed = discord.Embed(
                 description=boost_message_content.format(user=after.mention, guild_name=after.guild.name),
                 color=self.color_booster, # Menggunakan warna khusus booster
                 timestamp=discord.utils.utcnow()
             )
+            
+            # Menggunakan set_author untuk menampilkan "Njan" atau "Tim Server"
+            # icon_url bisa icon guild atau jika ada, icon_url khusus yang disetel user (walaupun di modal ini tidak ada)
             embed.set_author(name=boost_sender_name, icon_url=after.guild.icon.url if after.guild.icon else None)
             embed.title = boost_embed_title
             
+            # --- MODIFIKASI UNTUK MENJADIKAN FOTO PROFIL SEBAGAI BANNER UTAMA ---
+            # Jika boost_image_url disetel di pengaturan, gunakan itu.
             if boost_image_url:
-                embed.set_image(url=boost_image_url) # Gambar utama di sini
-            else: # Jika tidak ada gambar utama, gunakan thumbnail member
-                embed.set_thumbnail(url=after.display_avatar.url)
+                embed.set_image(url=boost_image_url) 
+            # Jika boost_image_url TIDAK disetel (None/kosong), gunakan avatar user yang nge-boost sebagai gambar utama (banner).
+            # Ini adalah bagian yang akan membuat tampilan seperti yang Anda inginkan.
+            else: 
+                embed.set_image(url=after.display_avatar.url)
+            # --- AKHIR MODIFIKASI ---
             
-            embed.set_footer(text=f"Jumlah boost server: {after.guild.premium_subscription_count} ✨")
+            # Footer: "Di atas foto orang baik • 10/06/2025 1:29" (tanggal akan dinamis)
+            # Dan juga menampilkan jumlah boost server seperti di contoh Anda.
+            # Perhatikan: Bagian "Di atas foto orang baik" kemungkinan adalah teks statis yang menjadi bagian dari gambar yang Anda upload
+            # atau merupakan deskripsi di bawah gambar. Karena embed tidak mendukung teks di atas gambar secara langsung,
+            # kita bisa memasukkannya di deskripsi jika memang teks statis, atau di footer jika berhubungan dengan data embed.
+            # Untuk meniru tampilan Anda, saya asumsikan itu adalah bagian dari footer.
+            
+            # Menambahkan waktu saat ini ke footer untuk meniru format tanggal/waktu
+            footer_text = f"Jumlah boost server: {after.guild.premium_subscription_count} ✨"
+            # Jika Anda ingin menambahkan teks statis seperti "Di atas foto orang baik", bisa diletakkan di sini:
+            # footer_text = f"Di atas foto orang baik • {discord.utils.utcnow().strftime('%d/%m/%Y %H:%M')} WIB • Jumlah boost server: {after.guild.premium_subscription_count} ✨"
+            # Namun, untuk meniru persis gambar yang Anda kirim, hanya teks jumlah boost dan foto profil sebagai image sudah cukup.
+            # Bagian "Di atas foto orang baik" pada gambar contoh Anda terlihat seperti teks di bawah gambar, jadi saya menempatkannya di footer.
+            embed.set_footer(text=footer_text)
+
 
             try:
                 await boost_channel.send(embed=embed)
@@ -1569,7 +1588,7 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
                         f"**Channel Booster**: {boost_ch.mention if isinstance(boost_ch, discord.TextChannel) else boost_ch}\n"
                         f"**Judul Embed**: `{settings.get('boost_embed_title', 'Tidak diatur')}`\n"
                         f"**Pengirim Kustom**: `{settings.get('boost_sender_name', 'Tidak diatur')}`\n"
-                        f"**URL Gambar**: {boost_image}\n"
+                        f"**URL Gambar (Banner)**: {boost_image}\n" # Updated label here too
                         f"**Isi Pesan**: ```{settings.get('boost_message')}```"
                     ),
                     inline=False
@@ -1594,7 +1613,7 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
                     print(f"[{datetime.now()}] [DEBUG ADMIN] AddFilterModal: Item already exists.")
                 else:
                     filters[self.filter_type].append(item); self.cog.save_filters()
-                    await interaction.response.send_message(embed=self.cog._create_embed(description=f"✅ `{item}` berhasil ditambahkan ke filter.", color=self.cog.color_success), ephemeral=True)
+                    await interaction.response.send_message(embed=self.cog._create_create_embed(description=f"✅ `{item}` berhasil ditambahkan ke filter.", color=self.cog.color_success), ephemeral=True)
                     print(f"[{datetime.now()}] [DEBUG ADMIN] AddFilterModal: Item '{item}' added.")
 
         class RemoveFilterModal(discord.ui.Modal, title="Hapus Filter"):
