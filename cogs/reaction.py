@@ -2,7 +2,6 @@ import json
 import discord
 from discord.ext import commands
 import logging
-import json
 
 # --- Konfigurasi Logging ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -11,7 +10,6 @@ log = logging.getLogger(__name__)
 # --- Konfigurasi Awal Bot ---
 CONFIG_FILE = 'apreciator_config.json'
 
-# Fungsi untuk mengecek izin administrator
 def is_allowed_user(ctx):
     """Mengecek apakah user yang menjalankan perintah memiliki izin Administrator di server."""
     if ctx.author.guild_permissions.administrator:
@@ -19,6 +17,7 @@ def is_allowed_user(ctx):
     return False
 
 def load_apreciator_config():
+    """Memuat konfigurasi dari file JSON."""
     try:
         with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
             data = json.load(f)
@@ -32,6 +31,7 @@ def load_apreciator_config():
         return {"link_channels": {}, "text_triggers": {}}
 
 def save_apreciator_config(config_data):
+    """Menyimpan konfigurasi ke file JSON."""
     with open(CONFIG_FILE, 'w', encoding='utf-8') as f:
         json.dump(config_data, f, indent=4)
     log.info(f"Konfigurasi '{CONFIG_FILE}' berhasil disimpan.")
@@ -43,6 +43,7 @@ class Apreciator(commands.Cog):
         log.info("Apreciator Cog diinisialisasi.")
 
     async def _add_reactions_ordered(self, message: discord.Message, emojis: list):
+        """Menambahkan reaksi ke pesan dalam urutan yang ditentukan."""
         emojis_to_add = emojis[:30] 
         for emoji_str in emojis_to_add:
             try:
@@ -269,7 +270,7 @@ class Apreciator(commands.Cog):
                     except discord.NotFound:
                         await ctx.send(f"ℹ️ Emoji '{emoji_str}' tidak ditemukan pada pesan ID `{message_id}`.")
                     except Exception as e:
-                        log.error(f"Error menghapus reaksi '{emoji_str}' dari pesan {message_id}: {e}", exc_info=True)
+                        log.error(f"Error menghapus reaksi '{emoji_str}' dari pesan {message.id}: {e}", exc_info=True)
                         await ctx.send(f"❌ Gagal menghapus emoji '{emoji_str}': {e}")
                 log.info(f"Reaksi spesifik dihapus dari pesan ID {message_id} di <#{channel_id}> oleh {ctx.author.name} (ID: {ctx.author.id}).")
                 await ctx.send(f"✅ Reaksi spesifik berhasil diproses untuk pesan ID `{message_id}` di <#{channel_id}>.")
@@ -283,7 +284,7 @@ class Apreciator(commands.Cog):
             await ctx.send(f"❌ Terjadi kesalahan Discord API: {e}")
         except Exception as e:
             log.error(f"Error tak terduga di /msgrem (oleh {ctx.author.name}, Guild: {ctx.guild.id}): {e}", exc_info=True)
-            await ctx.send(f"❌ Terjadi error tak terduga: {e}")
+            await ctx.send("❌ Terjadi error tak terduga: {e}")
 
     @remove_message_reaction.error
     async def remove_message_reaction_error(self, ctx: commands.Context, error):
