@@ -355,7 +355,6 @@ async def load_cogs():
         "cogs.multigame",
         "cogs.dunia",
         "cogs.koruptor",
-        "cogs.tempvoice",
         "cogs.endgame",
         "cogs.psikotes", 
         "cogs.reaction"
