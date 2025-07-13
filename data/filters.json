@@ -6,7 +6,7 @@
         ],
         "link_patterns": [
             "discord.gg/",
-            "http://bit.ly", 
+            "http://bit.ly",
             "steamcommunity.com"
         ]
     },
@@ -15,5 +15,17 @@
             "bodoh"
         ],
         "link_patterns": []
+    },
+    "765138959625486357": {
+        "bad_words": [],
+        "link_patterns": [
+            "steamcommunity.com"
+        ]
+    },
+    "788337048997199882": {
+        "bad_words": [],
+        "link_patterns": [
+            "steamcommunity.com"
+        ]
     }
 }
