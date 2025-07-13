@@ -1,5 +1,5 @@
 import discord
-from discord.ext import commands, tasks # Import tasks
+from discord.ext import commands, tasks # tasks tetap diimport tapi loop idle akan dihentikan
 import yt_dlp
 import asyncio
 import os
@@ -26,7 +26,7 @@ ytdl_opts = {
     'postprocessors': [{
         'key': 'FFmpegExtractAudio',
         'preferredcodec': 'm4a',
-        'preferredquality': '192',
+        'preferredquality': '192', # Tetap 192, tapi pertimbangkan turunkan jika ffmpeg -9 muncul
     }],
 }
 
@@ -373,7 +373,7 @@ class MusicControlView(discord.ui.View):
 
             embed = discord.Embed(
                 title=f"🎶 Sedang Memutar: {info['title']}",
-                description=f"Oleh: {info['artist']}\n[Link YouTube]({info['webpage_url']})", # Gunakan info['webpage_url'] yang lebih akurat
+                description=f"Oleh: {info['artist']}\n[Link YouTube]({info['webpage_url']})",
                 color=discord.Color.purple()
             )
             if source.thumbnail:
@@ -403,7 +403,7 @@ class Music(commands.Cog):
         self.old_volume = {}
         self.now_playing_info = {}
         
-        self.check_voice_idle.start() # Mulai tugas untuk mengecek idle
+        # self.check_voice_idle.start() # Hentikan task ini
 
         GENIUS_API_TOKEN = os.getenv("GENIUS_API")
         self.genius = None
@@ -586,33 +586,28 @@ class Music(commands.Cog):
                 queue.insert(0, current_song_url)
 
         if not queue:
-            # Jika antrean kosong, jangan putuskan koneksi otomatis.
-            # Biarkan bot di voice channel sampai semua user pergi.
-            # Pesan "Musik Berhenti" tetap dikirim
+            # Mengembalikan perilaku "brutal disconnect"
             embed = discord.Embed(
                 title="Musik Berhenti 🎶",
-                description="Antrean kosong.", # Hapus "Bot akan keluar..."
+                description="Antrean kosong. Bot akan keluar dari voice channel.",
                 color=discord.Color.red()
             )
             view_instance = MusicControlView(self)
-            # Biarkan tombol aktif jika bot tetap di channel
-            # Atau nonaktifkan jika Anda ingin menunjukkan tidak ada lagu aktif
+            # Menonaktifkan semua tombol saat bot akan keluar
             for item in view_instance.children:
-                if item.custom_id not in ["music:join_button_id"]: # Contoh: biarkan join kalau ada
-                    pass # Biarkan tombol tetap aktif jika bot standby
-                # Atau nonaktifkan semua tombol jika tidak ada lagu aktif
-                # item.disabled = True # Ini akan menonaktifkan semua jika tidak ada lagu
+                item.disabled = True
             
             message_sent = await target_channel.send(embed=embed, view=view_instance)
             self.current_music_message_info[guild_id] = {
                 'message_id': message_sent.id,
                 'channel_id': message_sent.channel.id
             }
-            self.now_playing_info.pop(guild_id, None) # Hapus info lagu
+            self.now_playing_info.pop(guild_id, None)
 
-            # Hapus baris ini: await target_channel.send("Antrian kosong. Keluar dari voice channel.")
-            # Hapus baris ini: if ctx.voice_client: await ctx.voice_client.disconnect()
-            return # Keluar dari fungsi
+            await target_channel.send("Antrian kosong. Keluar dari voice channel.", ephemeral=True) # Tambah ephemeral
+            if ctx.voice_client:
+                await ctx.voice_client.disconnect()
+            return
 
         url = queue.pop(0)
         try:
@@ -666,10 +661,9 @@ class Music(commands.Cog):
         except Exception as e:
             logging.error(f'Failed to play song for guild {guild_id}: {e}')
             await target_channel.send(f'Gagal memutar lagu: {e}')
-            # Jangan langsung play_next, biarkan bot di channel
-            # asyncio.run_coroutine_threadsafe(self.play_next(ctx), self.bot.loop)
-            # Anda bisa menambahkan logika di sini untuk menghapus lagu bermasalah dari queue
-            pass # Lanjutkan tanpa play next jika gagal memutar
+            # Jika gagal memutar, tetap coba lagu berikutnya atau putus koneksi
+            asyncio.run_coroutine_threadsafe(self.play_next(ctx), self.bot.loop)
+
 
     async def _after_play_handler(self, ctx, error):
         guild_id = ctx.guild.id
@@ -689,34 +683,11 @@ class Music(commands.Cog):
                 
         await asyncio.sleep(1)
 
-        # Cek apakah bot masih di voice channel dan ada user selain bot
+        # Mengembalikan perilaku "brutal disconnect"
         if ctx.voice_client and ctx.voice_client.is_connected():
-            members_in_channel = [m for m in ctx.voice_client.channel.members if not m.bot]
-            if len(members_in_channel) > 0: # Ada user selain bot
-                await self.play_next(ctx)
-            else: # Hanya bot di channel, atau tidak ada user sama sekali
-                logging.info(f"Bot is alone in voice channel {ctx.voice_client.channel.name} in guild {guild_id}. Disconnecting.")
-                await ctx.voice_client.disconnect()
-                # Clear state setelah disconnect
-                self.queues[guild_id] = []
-                self.loop_status[guild_id] = False
-                self.is_muted[guild_id] = False
-                self.old_volume.pop(guild_id, None)
-                self.now_playing_info.pop(guild_id, None)
-                # Hapus pesan kontrol musik terakhir
-                if guild_id in self.current_music_message_info:
-                    old_message_info = self.current_music_message_info[guild_id]
-                    try:
-                        old_channel = ctx.guild.get_channel(old_message_info['channel_id']) or await ctx.guild.fetch_channel(old_message_info['channel_id'])
-                        if old_channel:
-                            old_message = await old_channel.fetch_message(old_message_info['message_id'])
-                            await old_message.delete()
-                    except (discord.NotFound, discord.HTTPException):
-                        logging.warning(f"Could not delete old music message on auto-disconnect (idle check): {old_message_info['message_id']} in channel {old_message_info['channel_id']}.")
-                    finally:
-                        del self.current_music_message_info[guild_id]
+            await self.play_next(ctx) # Lanjut ke lagu berikutnya atau disconnect jika antrean kosong
         else: # Bot sudah tidak di voice channel (mungkin di-kick manual)
-            logging.info(f"Bot disconnected from voice channel in guild {guild_id} (manual disconnect). Cleaning up.")
+            logging.info(f"Bot disconnected from voice channel in guild {guild_id} (manual disconnect or after play handler). Cleaning up.")
             # Clear state
             self.queues[guild_id] = []
             self.loop_status[guild_id] = False
@@ -732,50 +703,18 @@ class Music(commands.Cog):
                         old_message = await old_channel.fetch_message(old_message_info['message_id'])
                         await old_message.delete()
                 except (discord.NotFound, discord.HTTPException):
-                    logging.warning(f"Could not delete old music message on auto-disconnect (after play, no vc): {old_message_info['message_id']} in channel {old_message_info['channel_id']}.")
+                    logging.warning(f"Could not delete old music message on auto-disconnect: {old_message_info['message_id']} in channel {old_message_info['channel_id']}.")
                 finally:
                     del self.current_music_message_info[guild_id]
 
 
-    @tasks.loop(minutes=5) # Cek setiap 5 menit
-    async def check_voice_idle(self):
-        logging.info("Running check_voice_idle task.")
-        for guild in self.bot.guilds:
-            vc = guild.voice_client
-            if vc: # Jika bot ada di voice channel
-                # Filter hanya member non-bot
-                members_in_channel = [m for m in vc.channel.members if not m.bot]
-                
-                if len(members_in_channel) == 0: # Jika tidak ada user (hanya bot sendiri)
-                    logging.info(f"Bot is alone in voice channel {vc.channel.name} in guild {guild.name}. Disconnecting due to idle check.")
-                    try:
-                        await vc.disconnect()
-                        # Clear state for this guild
-                        self.queues.pop(guild.id, None)
-                        self.loop_status.pop(guild.id, None)
-                        self.is_muted.pop(guild.id, None)
-                        self.old_volume.pop(guild.id, None)
-                        self.now_playing_info.pop(guild.id, None)
-                        # Hapus pesan kontrol musik terakhir
-                        if guild.id in self.current_music_message_info:
-                            old_message_info = self.current_music_message_info[guild.id]
-                            try:
-                                old_channel = guild.get_channel(old_message_info['channel_id']) or await guild.fetch_channel(old_message_info['channel_id'])
-                                if old_channel:
-                                    old_message = await old_channel.fetch_message(old_message_info['message_id'])
-                                    await old_message.delete()
-                            except (discord.NotFound, discord.HTTPException):
-                                logging.warning(f"Could not delete old music message on idle disconnect: {old_message_info['message_id']} in channel {old_message_info['channel_id']}.")
-                            finally:
-                                del self.current_music_message_info[guild.id]
-                    except Exception as e:
-                        logging.error(f"Error during idle disconnect for guild {guild.id}: {e}")
+    # @tasks.loop(minutes=5) # Hentikan task ini
+    # async def check_voice_idle(self):
+    #     pass # Kosongkan atau hapus task ini jika tidak digunakan
 
-    @check_voice_idle.before_loop
-    async def before_check_voice_idle(self):
-        await self.bot.wait_until_ready()
-        logging.info("Idle check task is ready.")
-
+    # @check_voice_idle.before_loop
+    # async def before_check_voice_idle(self):
+    #     pass # Kosongkan atau hapus
 
     @commands.command(name="resjoin")
     async def join(self, ctx):
