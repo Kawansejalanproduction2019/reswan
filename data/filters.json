@@ -19,13 +19,15 @@
     "765138959625486357": {
         "bad_words": [],
         "link_patterns": [
-            "steamcommunity.com"
+            "steamcommunity.com",
+            "discord.gg/"
         ]
     },
     "788337048997199882": {
         "bad_words": [],
         "link_patterns": [
-            "steamcommunity.com"
+            "steamcommunity.com",
+            "discord.gg/"
         ]
     }
 }
