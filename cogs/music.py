@@ -12,7 +12,7 @@ from spotipy.oauth2 import SpotifyClientCredentials
 import logging
 import json
 import random
-import time # Tambahkan import time untuk cooldown
+import time
 
 # Konfigurasi logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -220,13 +220,13 @@ class MusicControlView(discord.ui.View):
     async def queue_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         queue = self.cog.get_queue(interaction.guild.id)
         if queue:
-            display_queue = queue[:10] # Pindahkan deklarasi display_queue ke sini
-            display_queue_titles = await asyncio.gather(
-                *[
-                    (await self.cog.get_song_info_from_url(q))['title']
-                    for q in display_queue
-                ]
+            display_queue = queue[:10]
+            display_queue_titles = await asyncio.gather( # Panggil coroutine di sini
+                *[self.cog.get_song_info_from_url(q) for q in display_queue]
             )
+            # Ambil hanya judul setelah semua info didapatkan
+            display_queue_titles = [info['title'] for info in display_queue_titles] 
+
             msg = "\n".join([f"{i+1}. {q}" for i, q in enumerate(display_queue_titles)])
             
             embed = discord.Embed(
@@ -268,7 +268,6 @@ class MusicControlView(discord.ui.View):
         guild_id = interaction.guild.id
         cooldown_time = 10 # Cooldown 10 detik
 
-        # Cooldown per user per guild
         if guild_id not in self.cog.lyrics_cooldowns:
             self.cog.lyrics_cooldowns[guild_id] = {}
         
@@ -277,27 +276,21 @@ class MusicControlView(discord.ui.View):
 
         if time_since_last_request < cooldown_time:
             remaining_cooldown = round(cooldown_time - time_since_last_request)
-            cooldown_message = await interaction.response.send_message(
+            # Menggunakan interaction.followup.send untuk pesan ephemeral yang bisa dihapus
+            cooldown_message_obj = await interaction.followup.send(
                 f"Kamu sedang dalam cooldown! Coba lagi dalam {remaining_cooldown} detik.", 
                 ephemeral=True
             )
-            # Menghapus pesan cooldown otomatis
-            await asyncio.sleep(remaining_cooldown) # Tunggu sampai cooldown selesai
+            await asyncio.sleep(remaining_cooldown)
             try:
-                if isinstance(cooldown_message, discord.InteractionResponse): # Pastikan ini objek pesan
-                    # Tidak bisa menghapus InteractionResponse langsung
-                    # Jadi, perlu fetch message yang dikirim sebagai follow-up
-                    followup_message = await interaction.followup.get_message(cooldown_message.id) # Ini tidak bekerja dengan ephemeral
-                    await followup_message.delete(delay=0) # Coba hapus segera jika memungkinkan
-                else:
-                    await cooldown_message.delete(delay=0)
+                await cooldown_message_obj.delete() # Hapus pesan setelah cooldown
             except discord.NotFound:
-                pass # Pesan mungkin sudah dihapus user
+                pass 
             except Exception as e:
                 logging.error(f"Error deleting cooldown message: {e}")
-            return # Keluar dari fungsi
+            return
 
-        self.cog.lyrics_cooldowns[guild_id][user_id] = time.time() # Atur waktu request baru
+        self.cog.lyrics_cooldowns[guild_id][user_id] = time.time()
 
         if not interaction.guild.id in self.cog.now_playing_info:
              await interaction.response.send_message("Tidak ada lagu yang sedang diputar. Harap gunakan `!reslyrics <nama lagu>` untuk mencari lirik.", ephemeral=True)
@@ -863,7 +856,7 @@ class Music(commands.Cog):
                 await ctx.send(f'Gagal memutar lagu: {e}', ephemeral=True)
                 return
         else:
-            await ctx.send(f"Ditambahkan ke antrian: **{len(urls)} lagu**." if is_spotify_link else f"Ditambahkan ke antrean: **{urls[0]}**.", ephemeral=True)
+            await ctx.send(f"Ditambahkan ke antrian: **{len(urls)} lagu**." if is_spotify_link else f"Ditambahkan ke antrian: **{urls[0]}**.", ephemeral=True)
             queue.extend(urls)
                 
             if ctx.guild.id in self.current_music_message_info:
@@ -1044,7 +1037,6 @@ class Music(commands.Cog):
         if not self.genius:
             return await ctx.send("Fitur lirik tidak aktif karena API token Genius belum diatur.", ephemeral=True)
             
-        # Cooldown untuk command lyrics (jika ada)
         user_id = ctx.author.id
         guild_id = ctx.guild.id
         cooldown_time = 10 
@@ -1063,14 +1055,14 @@ class Music(commands.Cog):
             )
             await asyncio.sleep(remaining_cooldown)
             try:
-                await cooldown_message.delete(delay=0)
+                await cooldown_message.delete() # Hapus pesan
             except discord.NotFound:
                 pass
             except Exception as e:
                 logging.error(f"Error deleting cooldown message from command: {e}")
             return
 
-        self.lyrics_cooldowns[guild_id][user_id] = time.time() # Atur waktu request baru
+        self.lyrics_cooldowns[guild_id][user_id] = time.time()
 
         if song_name is None:
             if ctx.guild.id not in self.now_playing_info:
