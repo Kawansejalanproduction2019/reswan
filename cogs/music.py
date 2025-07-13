@@ -10,31 +10,33 @@ from lyricsgenius import Genius
 import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials
 import re # Import regex
+from datetime import datetime # Sudah diperbaiki import datetime
 
 # Konfigurasi Genius API untuk lirik
 GENIUS_API_TOKEN = os.getenv("GENIUS_API")
 if not GENIUS_API_TOKEN:
-    print("Warning: GENIUS_API_TOKEN is not set in environment variables.")
-    print("Lyrics feature might not work without it.")
+    print(f"[{datetime.now()}] Warning: GENIUS_API_TOKEN is not set in environment variables.")
+    print(f"[{datetime.now()}] Lyrics feature might not work without it.")
 genius = Genius(GENIUS_API_TOKEN) if GENIUS_API_TOKEN else None
 
 # Spotify API setup
 SPOTIFY_CLIENT_ID = os.getenv("SPOTIFY_CLIENT_ID")
-SPOTIFY_CLIENT_SECRET = os.getenv("SPOTIFY_CLIENT_SECRET")
+SPOTIFY_CLIENT_SECRET = os.getenv("SPOTIFY_CLIENT_SECRET") # Sudah diperbaiki pengejaan
 
 spotify = None
-if SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET:
+if SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET: # Sudah diperbaiki pengejaan
     try:
         spotify = spotipy.Spotify(auth_manager=SpotifyClientCredentials(
             client_id=SPOTIFY_CLIENT_ID,
-            client_secret=SPOTIPY_CLIENT_SECRET
+            client_secret=SPOTIFY_CLIENT_SECRET
         ))
+        print(f"[{datetime.now()}] Spotify client initialized successfully.")
     except Exception as e:
-        print(f"Warning: Could not initialize Spotify client: {e}")
-        print("Spotify features might not work.")
+        print(f"[{datetime.now()}] Warning: Could not initialize Spotify client: {e}")
+        print(f"[{datetime.now()}] Spotify features might not work.")
 else:
-    print("Warning: SPOTIFY_CLIENT_ID or SPOTIPY_CLIENT_SECRET not set.")
-    print("Spotify features might not work without them.")
+    print(f"[{datetime.now()}] Warning: SPOTIFY_CLIENT_ID or SPOTIFY_CLIENT_SECRET not set.")
+    print(f"[{datetime.now()}] Spotify features might not work without them.")
 
 # YTDL dan FFMPEG opsi
 ytdl_opts = {
@@ -152,7 +154,7 @@ class MusicControlView(discord.ui.View):
                 self._update_button_states()
                 await self.original_message.edit(view=self)
             except (discord.NotFound, discord.HTTPException) as e:
-                print(f"Error updating control message after interaction: {e}")
+                print(f"[{datetime.now()}] Error updating control message after interaction: {e}")
                 # Hapus referensi jika pesan hilang
                 if self.original_message.guild.id in self.cog.current_music_message:
                     del self.cog.current_music_message[self.original_message.guild.id]
@@ -163,7 +165,7 @@ class MusicControlView(discord.ui.View):
                 self._update_button_states()
                 await interaction.message.edit(view=self)
             except (discord.NotFound, discord.HTTPException) as e:
-                print(f"Error updating interaction message: {e}")
+                print(f"[{datetime.now()}] Error updating interaction message: {e}")
 
     @discord.ui.button(emoji="▶️", style=discord.ButtonStyle.primary, custom_id="music:play_pause")
     async def play_pause_button(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -231,7 +233,7 @@ class MusicControlView(discord.ui.View):
                 except discord.NotFound:
                     pass
                 except Exception as e:
-                    print(f"Error deleting original music message: {e}")
+                    print(f"[{datetime.now()}] Error deleting original music message: {e}")
         else:
             await interaction.response.send_message("Bot tidak ada di voice channel.", ephemeral=True)
         
@@ -323,6 +325,7 @@ class Music(commands.Cog):
         # Buat folder downloads jika belum ada
         if not os.path.exists('downloads'):
             os.makedirs('downloads')
+            print(f"[{datetime.now()}] 'downloads' folder created.")
 
     def get_queue(self, guild_id):
         return self.queues.setdefault(guild_id, [])
@@ -387,13 +390,13 @@ class Music(commands.Cog):
                     await interaction_or_ctx.response.send_message(error_message, ephemeral=True)
             else:
                 await interaction_or_ctx.send(error_message)
-            print(f"Error fetching lyrics: {e}")
+            print(f"[{datetime.now()}] Error fetching lyrics: {e}")
 
     async def play_next(self, guild_id):
         # Gunakan guild_id untuk mendapatkan channel dan voice client yang benar
         guild = self.bot.get_guild(guild_id)
         if not guild:
-            print(f"Guild {guild_id} tidak ditemukan di play_next.")
+            print(f"[{datetime.now()}] Guild {guild_id} tidak ditemukan di play_next.")
             return
 
         target_channel_id = self.current_music_channel.get(guild_id)
@@ -403,7 +406,7 @@ class Music(commands.Cog):
             # Fallback ke system channel jika channel asli tidak ada/ditemukan
             target_channel = guild.system_channel or guild.text_channels[0] if guild.text_channels else None
             if not target_channel:
-                print(f"Tidak ada channel teks yang ditemukan di guild {guild_id} untuk mengirim pesan play_next.")
+                print(f"[{datetime.now()}] Tidak ada channel teks yang ditemukan di guild {guild_id} untuk mengirim pesan play_next.")
                 return
 
         voice_client = guild.voice_client
@@ -416,7 +419,7 @@ class Music(commands.Cog):
             print(f"[{datetime.now()}] [Music Cog] Disconnect timer untuk {guild.name} dibatalkan (lagu berikutnya akan diputar).")
 
 
-        if self.loop_status.get(guild_id, False) and voice_client and voice_client.source:
+        if self.loop_status.get(guild_id, False) and voice_client and voice_client.is_connected() and voice_client.source:
             # Re-add current song if looping, but ensure it's added as a searchable query for consistency
             current_song_query = voice_client.source.title 
             if voice_client.source.uploader and voice_client.source.uploader != "Unknown":
@@ -441,14 +444,14 @@ class Music(commands.Cog):
                     
                     del self.current_music_message[guild_id] 
                 except discord.NotFound:
-                    print(f"Pesan kontrol musik tidak ditemukan di guild {guild_id} saat antrean kosong. Tidak dapat memperbarui.")
+                    print(f"[{datetime.now()}] Pesan kontrol musik tidak ditemukan di guild {guild_id} saat antrean kosong. Tidak dapat memperbarui.")
                     if guild_id in self.current_music_message:
                         del self.current_music_message[guild_id]
                 except Exception as e:
-                    print(f"Error updating music message on queue empty for guild {guild_id}: {e}")
+                    print(f"[{datetime.now()}] Error updating music message on queue empty for guild {guild_id}: {e}")
             
             await target_channel.send("Antrean kosong. Keluar dari voice channel.") 
-            if voice_client:
+            if voice_client and voice_client.is_connected():
                 # Clean up ffmpeg source before disconnecting
                 if voice_client.source:
                     voice_client.source.cleanup()
@@ -457,6 +460,24 @@ class Music(commands.Cog):
             if guild_id in self.current_music_channel:
                 del self.current_music_channel[guild_id]
             return
+
+        # Pastikan voice_client masih terhubung sebelum mencoba memutar
+        if not voice_client or not voice_client.is_connected():
+            print(f"[{datetime.now()}] Voice client tidak terhubung di guild {guild_id}. Tidak dapat memutar lagu berikutnya.")
+            # Coba cleanup dan disconnect jika ada voice_client yang bermasalah tapi tidak terputus
+            if voice_client and voice_client.source:
+                voice_client.source.cleanup()
+            if voice_client:
+                await voice_client.disconnect() # Paksa disconnect jika kondisi aneh
+            
+            # Coba kirim pesan ke channel target bahwa bot keluar
+            await target_channel.send("Bot keluar karena masalah koneksi voice channel. Silakan coba lagi.")
+            if guild_id in self.current_music_channel:
+                del self.current_music_channel[guild_id]
+            if guild_id in self.current_music_message:
+                del self.current_music_message[guild_id]
+            return
+
 
         url_or_query = queue.pop(0)
         try:
@@ -489,7 +510,7 @@ class Music(commands.Cog):
                     await old_message.edit(embed=embed, view=view_instance)
                     message_sent = old_message
                 except (discord.NotFound, discord.HTTPException):
-                    print(f"Pesan musik lama tidak ditemukan atau tidak dapat diakses di guild {guild_id}. Mengirim pesan baru.")
+                    print(f"[{datetime.now()}] Pesan musik lama tidak ditemukan atau tidak dapat diakses di guild {guild_id}. Mengirim pesan baru.")
                     message_sent = await target_channel.send(embed=embed, view=MusicControlView(self))
             else:
                 message_sent = await target_channel.send(embed=embed, view=MusicControlView(self))
@@ -504,7 +525,7 @@ class Music(commands.Cog):
 
         except Exception as e:
             await target_channel.send(f'Gagal memutar lagu: {e}')
-            print(f"Error playing next song in guild {guild_id}: {e}")
+            print(f"[{datetime.now()}] Error playing next song in guild {guild_id}: {e}")
             # Lanjut ke lagu berikutnya meskipun ada error
             asyncio.run_coroutine_threadsafe(self.play_next(guild_id), self.bot.loop)
 
@@ -512,7 +533,7 @@ class Music(commands.Cog):
         # Dipanggil ketika lagu selesai diputar atau error
         guild = self.bot.get_guild(guild_id)
         if not guild:
-            print(f"Guild {guild_id} tidak ditemukan di _after_play_handler.")
+            print(f"[{datetime.now()}] Guild {guild_id} tidak ditemukan di _after_play_handler.")
             return
 
         target_channel_id = self.current_music_channel.get(guild_id)
@@ -521,16 +542,16 @@ class Music(commands.Cog):
         if not target_channel:
             target_channel = guild.system_channel or guild.text_channels[0] if guild.text_channels else None
             if not target_channel:
-                print(f"Tidak ada channel teks yang ditemukan di guild {guild_id} untuk mengirim pesan after_play_handler.")
+                print(f"[{datetime.now()}] Tidak ada channel teks yang ditemukan di guild {guild_id} untuk mengirim pesan after_play_handler.")
                 return
 
         if error:
-            print(f"Player error in guild {guild_id}: {error}")
+            print(f"[{datetime.now()}] Player error in guild {guild_id}: {error}")
             await target_channel.send(f"Terjadi error saat memutar lagu: {error}")
         
         # Cleanup ffmpeg source
         voice_client = guild.voice_client
-        if voice_client and voice_client.source:
+        if voice_client and voice_client.is_connected() and voice_client.source:
             voice_client.source.cleanup()
         
         # Perbarui pesan kontrol musik setelah lagu selesai atau ada error
@@ -539,15 +560,15 @@ class Music(commands.Cog):
                 msg = await target_channel.fetch_message(self.current_music_message[guild_id])
                 view_instance = MusicControlView(self, original_message=msg)
                 view_instance._update_button_states() # Perbarui status tombol
-                await msg.edit(view=view_instance)
+                await msg.edit(embed=msg.embeds[0] if msg.embeds else None, view=view_instance) # Ensure embed is kept
             except (discord.NotFound, discord.HTTPException):
-                print(f"Pesan kontrol musik tidak ditemukan atau tidak dapat diakses di guild {guild_id} setelah lagu selesai.")
+                print(f"[{datetime.now()}] Pesan kontrol musik tidak ditemukan atau tidak dapat diakses di guild {guild_id} setelah lagu selesai.")
                 if guild_id in self.current_music_message:
                     del self.current_music_message[guild_id]
                 if guild_id in self.current_music_channel:
                     del self.current_music_channel[guild_id]
             except Exception as e:
-                print(f"Error updating music message in after_play_handler for guild {guild_id}: {e}")
+                print(f"[{datetime.now()}] Error updating music message in after_play_handler for guild {guild_id}: {e}")
 
         await asyncio.sleep(1) # Beri sedikit jeda sebelum memutar lagu berikutnya
         await self.play_next(guild_id) # Panggil play_next dengan guild_id
@@ -567,7 +588,8 @@ class Music(commands.Cog):
 
             await ctx.author.voice.channel.connect()
             await ctx.send(f"Joined **{ctx.author.voice.channel.name}**")
-            self.current_music_channel[ctx.guild.id] = ctx.channel.id 
+            self.current_music_channel[ctx.guild.id] = ctx.channel.id # Simpan channel ID
+            print(f"[{datetime.now()}] Bot joined VC {ctx.author.voice.channel.name} in {ctx.guild.name}. Storing text channel {ctx.channel.id}.")
         else:
             await ctx.send("Kamu harus berada di voice channel dulu.")
 
@@ -575,11 +597,13 @@ class Music(commands.Cog):
     async def play(self, ctx, *, query):
         if not ctx.voice_client:
             await ctx.invoke(self.join)
-            if not ctx.voice_client:
+            if not ctx.voice_client: # Check again if join failed
                 return await ctx.send("Gagal bergabung ke voice channel.")
         
         # Simpan channel ID saat perintah play dipanggil
         self.current_music_channel[ctx.guild.id] = ctx.channel.id 
+        print(f"[{datetime.now()}] Play command invoked. Storing text channel {ctx.channel.id} for guild {ctx.guild.id}.")
+
 
         await ctx.defer()
 
@@ -604,6 +628,7 @@ class Music(commands.Cog):
                     urls.append(f"{track['name']} {track['artists'][0]['name']}")
                 except Exception as e:
                     await ctx.send(f"Terjadi kesalahan saat memproses track Spotify: {e}")
+                    print(f"[{datetime.now()}] Error processing Spotify track {track_id}: {e}")
                     return
             elif playlist_match:
                 is_spotify = True
@@ -616,6 +641,7 @@ class Music(commands.Cog):
                             urls.append(f"{track['name']} {track['artists'][0]['name']}")
                 except Exception as e:
                     await ctx.send(f"Terjadi kesalahan saat memproses playlist Spotify: {e}")
+                    print(f"[{datetime.now()}] Error processing Spotify playlist {playlist_id}: {e}")
                     return
             elif album_match:
                 is_spotify = True
@@ -628,6 +654,7 @@ class Music(commands.Cog):
                             urls.append(f"{track['name']} {track['artists'][0]['name']}")
                 except Exception as e:
                     await ctx.send(f"Terjadi kesalahan saat memproses album Spotify: {e}")
+                    print(f"[{datetime.now()}] Error processing Spotify album {album_id}: {e}")
                     return
             else:
                 urls.append(query) # Jika bukan link Spotify yang dikenali, anggap sebagai query biasa
@@ -677,7 +704,7 @@ class Music(commands.Cog):
                 
             except Exception as e:
                 await ctx.send(f'Gagal memutar lagu: {e}')
-                print(f"Error starting first song in guild {ctx.guild.id}: {e}")
+                print(f"[{datetime.now()}] Error starting first song in guild {ctx.guild.id}: {e}")
                 return
         else:
             queue.extend(urls)
@@ -697,11 +724,11 @@ class Music(commands.Cog):
                         view_instance._update_button_states()
                         await msg.edit(embed=embed, view=view_instance)
                     else:
-                        print(f"Channel {self.current_music_channel[ctx.guild.id]} not found for updating queue message.")
+                        print(f"[{datetime.now()}] Channel {self.current_music_channel[ctx.guild.id]} not found for updating queue message.")
                 except (discord.NotFound, IndexError):
-                    print(f"Pesan kontrol musik atau channel tidak ditemukan untuk guild {ctx.guild.id}. Tidak dapat memperbarui footer antrean.")
+                    print(f"[{datetime.now()}] Pesan kontrol musik atau channel tidak ditemukan untuk guild {ctx.guild.id}. Tidak dapat memperbarui footer antrean.")
                 except Exception as e:
-                    print(f"Error updating queue message for guild {ctx.guild.id}: {e}")
+                    print(f"[{datetime.now()}] Error updating queue message for guild {ctx.guild.id}: {e}")
 
     @commands.command(name="resskip")
     async def skip_cmd(self, ctx):
@@ -726,7 +753,7 @@ class Music(commands.Cog):
             except (discord.NotFound, IndexError):
                 pass
             except Exception as e:
-                print(f"Error updating music message after skip for guild {ctx.guild.id}: {e}")
+                print(f"[{datetime.now()}] Error updating music message after skip for guild {ctx.guild.id}: {e}")
 
     @commands.command(name="respause")
     async def pause_cmd(self, ctx):
@@ -744,7 +771,7 @@ class Music(commands.Cog):
                 except (discord.NotFound, IndexError):
                     pass
                 except Exception as e:
-                    print(f"Error updating music message after pause for guild {ctx.guild.id}: {e}")
+                    print(f"[{datetime.now()}] Error updating music message after pause for guild {ctx.guild.id}: {e}")
         else:
             await ctx.send("Tidak ada lagu yang sedang diputar.")
 
@@ -764,7 +791,7 @@ class Music(commands.Cog):
                 except (discord.NotFound, IndexError):
                     pass
                 except Exception as e:
-                    print(f"Error updating music message after resume for guild {ctx.guild.id}: {e}")
+                    print(f"[{datetime.now()}] Error updating music message after resume for guild {ctx.guild.id}: {e}")
         else:
             await ctx.send("Tidak ada lagu yang dijeda.")
 
@@ -792,11 +819,11 @@ class Music(commands.Cog):
                         await msg.edit(embed=embed, view=view_instance)
                         del self.current_music_message[ctx.guild.id]
                     else:
-                        print(f"Channel {self.current_music_channel[ctx.guild.id]} not found for updating stop message.")
+                        print(f"[{datetime.now()}] Channel {self.current_music_channel[ctx.guild.id]} not found for updating stop message.")
                 except (discord.NotFound, discord.HTTPException):
                     pass
                 except Exception as e:
-                    print(f"Error updating music message after stop for guild {ctx.guild.id}: {e}")
+                    print(f"[{datetime.now()}] Error updating music message after stop for guild {ctx.guild.id}: {e}")
             
             # Cleanup ffmpeg source before disconnecting
             if ctx.voice_client.source:
@@ -864,7 +891,7 @@ class Music(commands.Cog):
             except (discord.NotFound, IndexError):
                 pass
             except Exception as e:
-                print(f"Error updating music message after loop for guild {ctx.guild.id}: {e}")
+                print(f"[{datetime.now()}] Error updating music message after loop for guild {ctx.guild.id}: {e}")
 
 
     @commands.command(name="reslyrics")
@@ -887,10 +914,11 @@ class Music(commands.Cog):
             return
 
         guild_id = member.guild.id
-        voice_client = member.guild.voice_client
+        guild = member.guild
+        voice_client = guild.voice_client
 
         # Abaikan jika bot tidak berada di voice channel di guild ini
-        if not voice_client:
+        if not voice_client or not voice_client.is_connected():
             return
             
         # Cek apakah perubahan terjadi di channel tempat bot berada
@@ -917,20 +945,26 @@ class Music(commands.Cog):
                 try:
                     await asyncio.sleep(30) # Tunggu 30 detik
                     
+                    # Ambil voice client terbaru untuk menghindari stale object
+                    current_voice_client = guild.voice_client
+                    
                     # Cek lagi apakah channel masih kosong dan bot masih di VC sebelum disconnect
                     current_human_members = [
                         m for m in voice_channel.members 
                         if not m.bot and not m.voice.self_deaf and not m.voice.self_mute
                     ]
-                    if len(current_human_members) == 0 and voice_client and voice_client.is_connected():
+                    if len(current_human_members) == 0 and current_voice_client and current_voice_client.is_connected():
                         # Jangan disconnect jika bot sedang memutar musik atau ada lagu di antrean
-                        if voice_client.is_playing() or voice_client.is_paused() or self.get_queue(guild_id):
+                        if current_voice_client.is_playing() or current_voice_client.is_paused() or self.get_queue(guild_id):
                             print(f"[{datetime.now()}] [Music Cog] Bot sedang memutar/menjeda/memiliki antrean di {member.guild.name}. Melewatkan auto-disconnect.")
                             # Jika ada lagu, mulai lagi timer jika lagu berhenti atau antrean habis
                             self.disconnect_timers[guild_id] = asyncio.create_task(disconnect_countdown())
                             return 
 
-                        await voice_client.disconnect()
+                        # Lakukan cleanup FFmpeg sebelum disconnect
+                        if current_voice_client.source:
+                            current_voice_client.source.cleanup()
+                        await current_voice_client.disconnect()
                         print(f"[{datetime.now()}] [Music Cog] Bot keluar dari {voice_channel.name} karena kosong.")
                         
                         # Kirim pesan ke channel yang benar yang disimpan saat join/play
