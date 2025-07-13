@@ -200,6 +200,78 @@ class AnnouncementModalGlobal(discord.ui.Modal, title="Buat Pengumuman"):
         else:
             await interaction.followup.send(embed=self.cog._create_embed(description=f"❌ Terjadi kesalahan tak terduga saat memproses formulir: {error}", color=self.cog.color_error), ephemeral=True)
 
+# =======================================================================================
+# WELCOME MESSAGE MODAL CLASS
+# =======================================================================================
+class WelcomeMessageModal(discord.ui.Modal, title="Atur Pesan Selamat Datang"):
+    welcome_title = discord.ui.TextInput(
+        label="Judul Pesan Selamat Datang",
+        placeholder="Contoh: Selamat Datang Anggota Baru!",
+        max_length=256,
+        required=True,
+        row=0
+    )
+    custom_sender_name = discord.ui.TextInput(
+        label="Pengirim (Contoh: Tim Admin)",
+        placeholder="Contoh: Tim Admin / Bot Resmi",
+        max_length=256,
+        required=True,
+        row=1
+    )
+    welcome_content = discord.ui.TextInput(
+        label="Isi Pesan (Gunakan {user}, {guild_name})",
+        placeholder="Contoh: Halo {user}, selamat datang di {guild_name}!",
+        max_length=4000, # Max embed description is 4096, give some buffer
+        required=True,
+        style=discord.TextStyle.paragraph,
+        row=2
+    )
+
+    def __init__(self, cog_instance, guild_id, current_settings):
+        super().__init__()
+        self.cog = cog_instance
+        self.guild_id = guild_id
+        # Isi dengan nilai saat ini jika ada
+        self.welcome_title.default = current_settings.get("welcome_embed_title", "")
+        self.custom_sender_name.default = current_settings.get("welcome_sender_name", "")
+        self.welcome_content.default = current_settings.get("welcome_message", "Selamat datang di **{guild_name}**, {user}! 🎉")
+        print(f"[{datetime.now()}] [DEBUG WELCOME] WelcomeMessageModal initialized for guild {guild_id}.")
+
+    async def on_submit(self, interaction: discord.Interaction):
+        print(f"[{datetime.now()}] [DEBUG WELCOME] WelcomeMessageModal: on_submit triggered by {interaction.user.display_name}.")
+        await interaction.response.defer(ephemeral=True)
+
+        guild_settings = self.cog.get_guild_settings(self.guild_id)
+        
+        # Simpan semua nilai baru
+        guild_settings["welcome_embed_title"] = self.welcome_title.value.strip()
+        guild_settings["welcome_sender_name"] = self.custom_sender_name.value.strip()
+        guild_settings["welcome_message"] = self.welcome_content.value.strip()
+        
+        self.cog.save_settings()
+        
+        await interaction.followup.send(embed=self.cog._create_embed(description="✅ Pengaturan pesan selamat datang berhasil diperbarui!", color=self.cog.color_success), ephemeral=True)
+        
+        await self.cog.log_action(
+            interaction.guild,
+            "🎉 Pengaturan Selamat Datang Diperbarui",
+            {
+                "Moderator": interaction.user.mention,
+                "Judul Embed": guild_settings["welcome_embed_title"],
+                "Nama Pengirim": guild_settings["welcome_sender_name"],
+                "Isi Pesan": f"```{guild_settings['welcome_message']}```"
+            },
+            self.cog.color_welcome
+        )
+        print(f"[{datetime.now()}] [DEBUG WELCOME] Welcome message settings saved and logged for guild {self.guild_id}.")
+
+    async def on_error(self, interaction: discord.Interaction, error: Exception) -> None:
+        print(f"[{datetime.now()}] [ERROR WELCOME] Error in WelcomeMessageModal (on_error): {error}", file=sys.stderr)
+        if not interaction.response.is_done():
+            await interaction.response.send_message(embed=self.cog._create_embed(description=f"❌ Terjadi kesalahan tak terduga saat memproses formulir: {error}", color=self.cog.color_error), ephemeral=True)
+        else:
+            await interaction.followup.send(embed=self.cog._create_embed(description=f"❌ Terjadi kesalahan tak terduga saat memproses formulir: {error}", color=self.cog.color_error), ephemeral=True)
+
 
 # =======================================================================================
 # VIEW CLASSES
@@ -282,19 +354,30 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
         guild_id_str = str(guild_id)
         if guild_id_str not in self.settings:
             self.settings[guild_id_str] = {
-                "auto_role_id": None, "welcome_channel_id": None,
+                "auto_role_id": None, 
+                "welcome_channel_id": None,
                 "welcome_message": "Selamat datang di **{guild_name}**, {user}! 🎉",
-                "log_channel_id": None, "reaction_roles": {},
+                "welcome_embed_title": "SELAMAT DATANG!", # BARU
+                "welcome_sender_name": "Admin Server", # BARU
+                "log_channel_id": None, 
+                "reaction_roles": {},
                 "channel_rules": {}
             }
             save_data(self.settings_file, self.settings)
             print(f"[{datetime.now()}] [DEBUG ADMIN] Default settings created for guild {guild_id}.")
-        elif "channel_rules" not in self.settings[guild_id_str]:
+        
+        # Pastikan field baru ada, untuk kompatibilitas mundur
+        if "welcome_embed_title" not in self.settings[guild_id_str]:
+            self.settings[guild_id_str]["welcome_embed_title"] = "SELAMAT DATANG!"
+        if "welcome_sender_name" not in self.settings[guild_id_str]:
+            self.settings[guild_id_str]["welcome_sender_name"] = "Admin Server"
+        if "channel_rules" not in self.settings[guild_id_str]:
             self.settings[guild_id_str]["channel_rules"] = {}
-            save_data(self.settings_file, self.settings)
-            print(f"[{datetime.now()}] [DEBUG ADMIN] Channel rules added for guild {guild_id}.")
+        
+        save_data(self.settings_file, self.settings) # Simpan perubahan default
+        print(f"[{datetime.now()}] [DEBUG ADMIN] Settings ensured for guild {guild_id}.")
         return self.settings[guild_id_str]
-
+        
     def get_channel_rules(self, guild_id: int, channel_id: int) -> dict:
         guild_settings = self.get_guild_settings(guild_id)
         channel_id_str = str(channel_id)
@@ -323,7 +406,8 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
     def _create_embed(self, title: str = "", description: str = "", color: int = 0, author_name: str = "", author_icon_url: str = ""):
         embed = discord.Embed(title=title, description=description, color=color, timestamp=datetime.now())
         if author_name: embed.set_author(name=author_name, icon_url=author_icon_url)
-        embed.set_footer(text=f"Dijalankan oleh {self.bot.user.name}", icon_url=self.bot.user.display_avatar.url)
+        bot_icon_url = self.bot.user.display_avatar.url if self.bot.user.display_avatar else None
+        embed.set_footer(text=f"Dijalankan oleh {self.bot.user.name}", icon_url=bot_icon_url)
         return embed
 
     async def log_action(self, guild: discord.Guild, title: str, fields: dict, color: int):
@@ -370,21 +454,45 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
     async def on_member_join(self, member: discord.Member):
         print(f"[{datetime.now()}] [DEBUG ADMIN] on_member_join triggered for {member.display_name} in {member.guild.name}.")
         guild_settings = self.get_guild_settings(member.guild.id)
+        
         if (welcome_channel_id := guild_settings.get("welcome_channel_id")) and (channel := member.guild.get_channel(welcome_channel_id)):
-            welcome_message = guild_settings.get("welcome_message", "Selamat datang, {user}!")
-            embed = discord.Embed(description=welcome_message.format(user=member.mention, guild_name=member.guild.name), color=self.color_welcome)
-            embed.set_author(name=f"SELAMAT DATANG DI {member.guild.name.upper()}", icon_url=member.guild.icon.url if member.guild.icon else None)
+            welcome_message_content = guild_settings.get("welcome_message", "Selamat datang di **{guild_name}**, {user}! 🎉")
+            welcome_embed_title = guild_settings.get("welcome_embed_title", "SELAMAT DATANG!")
+            welcome_sender_name = guild_settings.get("welcome_sender_name", "Admin Server")
+
+            embed = discord.Embed(
+                description=welcome_message_content.format(user=member.mention, guild_name=member.guild.name), 
+                color=self.color_welcome,
+                timestamp=datetime.utcnow() # Gunakan UTC untuk konsistensi
+            )
+            
+            # Set author/sender based on custom sender name
+            embed.set_author(name=welcome_sender_name, icon_url=member.guild.icon.url if member.guild.icon else None) # Gunakan icon server
+            
+            # Set title
+            embed.title = welcome_embed_title 
+
+            # Thumbnail adalah avatar user yang bergabung
             embed.set_thumbnail(url=member.display_avatar.url)
+            
+            # Footer tetap sama, menunjukkan jumlah anggota
             embed.set_footer(text=f"Kamu adalah anggota ke-{member.guild.member_count}!")
-            await channel.send(embed=embed)
-            print(f"[{datetime.now()}] [DEBUG ADMIN] Welcome message sent to {channel.name} for {member.display_name}.")
+            
+            try:
+                await channel.send(embed=embed)
+                print(f"[{datetime.now()}] [DEBUG ADMIN] Welcome message sent to {channel.name} for {member.display_name}.")
+            except discord.Forbidden:
+                print(f"[{datetime.now()}] [ERROR ADMIN] Bot lacks permissions to send welcome message in {channel.name} for {member.display_name}.", file=sys.stderr)
+            except Exception as e:
+                print(f"[{datetime.now()}] [ERROR ADMIN] Failed to send welcome message for {member.display_name}: {e}", file=sys.stderr)
+
         if (auto_role_id := guild_settings.get("auto_role_id")) and (role := member.guild.get_role(auto_role_id)):
             try:
                 await member.add_roles(role, reason="Auto Role")
                 print(f"[{datetime.now()}] [DEBUG ADMIN] Auto-role {role.name} given to {member.display_name}.")
             except discord.Forbidden:
                 print(f"[{datetime.now()}] [DEBUG ADMIN] Bot lacks permissions to assign auto-role {role.name} in {member.guild.name}.", file=sys.stderr)
-            
+        
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
         if not message.guild or message.author.id == self.bot.user.id: return
@@ -397,8 +505,7 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
                 await message.delete(delay=delay)
                 print(f"[{datetime.now()}] [DEBUG ADMIN] Message from {message.author.display_name} auto-deleted after {delay} seconds.")
             except discord.NotFound:
-                print(f"[{datetime.now()}] [DEBUG ADMIN] Failed to delete message {message.id}: Already not found.")
-                pass
+                pass # Message might have been deleted by user/Discord already
 
         if rules.get("disallow_bots") and message.author.bot:
             await message.delete()
@@ -541,6 +648,8 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
         print(f"[{datetime.now()}] [DEBUG ADMIN] Command !kick called by {ctx.author.display_name} for {member.display_name}.")
         if member.top_role >= ctx.author.top_role and ctx.author != ctx.guild.owner:
             await ctx.send(embed=self._create_embed(description="❌ You cannot kick a member with an equal or higher role.", color=self.color_error)); return
+        if member.top_role >= ctx.guild.me.top_role: # Tambahan pemeriksaan peran bot
+            await ctx.send(embed=self._create_embed(description="❌ Bot tidak dapat menendang anggota ini karena peran mereka sama atau lebih tinggi dari peran bot.", color=self.color_error)); return
         if member.id == ctx.guild.owner.id:
             await ctx.send(embed=self._create_embed(description="❌ You cannot kick the server owner.", color=self.color_error)); return
         if member.id == self.bot.user.id:
@@ -563,6 +672,8 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
     async def ban(self, ctx, member: discord.Member, *, reason: Optional[str] = "No reason provided."):
         print(f"[{datetime.now()}] [DEBUG ADMIN] Command !ban called by {ctx.author.display_name} for {member.display_name}.")
         if member.top_role >= ctx.author.top_role and ctx.author != ctx.guild.owner: await ctx.send(embed=self._create_embed(description="❌ You cannot ban a member with an equal or higher role.", color=self.color_error)); return
+        if member.top_role >= ctx.guild.me.top_role: # Tambahan pemeriksaan peran bot
+            await ctx.send(embed=self._create_embed(description="❌ Bot tidak dapat memblokir anggota ini karena peran mereka sama atau lebih tinggi dari peran bot.", color=self.color_error)); return
         if member.id == ctx.guild.owner.id: await ctx.send(embed=self._create_embed(description="❌ You cannot ban the server owner.", color=self.color_error)); return
         if member.id == self.bot.user.id: await ctx.send(embed=self._create_embed(description="❌ You cannot ban this bot itself.", color=self.color_error)); return
 
@@ -733,6 +844,9 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
             await ctx.send(embed=self._create_embed(description="❌ You cannot timeout the server owner.", color=self.color_error)); return
         if member.id == self.bot.user.id:
             await ctx.send(embed=self._create_embed(description="❌ You cannot timeout this bot itself.", color=self.color_error)); return
+        if member.top_role >= ctx.guild.me.top_role: # Tambahan pemeriksaan peran bot
+            await ctx.send(embed=self._create_embed(description="❌ Bot tidak dapat memberi timeout anggota ini karena peran mereka sama atau lebih tinggi dari peran bot.", color=self.color_error)); return
+
 
         delta = parse_duration(duration)
         if not delta: await ctx.send(embed=self._create_embed(description="❌ Invalid duration format. Use `s` (seconds), `m` (minutes), `h` (hours), `d` (days). Example: `10m`.", color=self.color_error)); return
@@ -757,6 +871,8 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
         print(f"[{datetime.now()}] [DEBUG ADMIN] Command !removetimeout called by {ctx.author.display_name} for {member.display_name}.")
         if member.id == ctx.guild.owner.id: await ctx.send(embed=self._create_embed(description="❌ You cannot remove timeout for the server owner.", color=self.color_error)); return
         if member.id == self.bot.user.id: await ctx.send(embed=self._create_embed(description="❌ You cannot remove timeout for this bot itself.", color=self.color_error)); return
+        if member.top_role >= ctx.guild.me.top_role: # Tambahan pemeriksaan peran bot
+            await ctx.send(embed=self._create_embed(description="❌ Bot tidak dapat menghapus timeout anggota ini karena peran mereka sama atau lebih tinggi dari peran bot.", color=self.color_error)); return
 
         if not member.is_timed_out():
             await ctx.send(embed=self._create_embed(description=f"❌ {member.display_name} is not currently timed out.", color=self.color_error))
@@ -869,6 +985,8 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
         if member.top_role >= ctx.author.top_role and ctx.author != ctx.guild.owner:
             await ctx.send(embed=self._create_embed(description="❌ You cannot modify roles for a member with a higher or equal position.", color=self.color_error))
             return
+        if member.top_role >= ctx.guild.me.top_role: # Tambahan pemeriksaan peran bot
+            await ctx.send(embed=self._create_embed(description="❌ Bot tidak dapat menambahkan peran anggota ini karena peran mereka sama atau lebih tinggi dari peran bot.", color=self.color_error)); return
         if role in member.roles:
             await ctx.send(embed=self._create_embed(description=f"❌ {member.display_name} already has the role {role.mention}.", color=self.color_error))
             return
@@ -895,6 +1013,8 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
         if member.top_role >= ctx.author.top_role and ctx.author != ctx.guild.owner:
             await ctx.send(embed=self._create_embed(description="❌ You cannot modify roles for a member with a higher or equal position.", color=self.color_error))
             return
+        if member.top_role >= ctx.guild.me.top_role: # Tambahan pemeriksaan peran bot
+            await ctx.send(embed=self._create_embed(description="❌ Bot tidak dapat menghapus peran anggota ini karena peran mereka sama atau lebih tinggi dari peran bot.", color=self.color_error)); return
         if role not in member.roles:
             await ctx.send(embed=self._create_embed(description=f"❌ {member.display_name} does not have the role {role.mention}.", color=self.color_error))
             return
@@ -922,6 +1042,8 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
             await ctx.send(embed=self._create_embed(description="❌ You cannot change the nickname of the server owner.", color=self.color_error)); return
         if member.id == self.bot.user.id:
             await ctx.send(embed=self._create_embed(description="❌ You cannot change the nickname of this bot itself.", color=self.color_error)); return
+        if member.top_role >= ctx.guild.me.top_role: # Tambahan pemeriksaan peran bot
+            await ctx.send(embed=self._create_embed(description="❌ Bot tidak dapat mengubah nickname anggota ini karena peran mereka sama atau lebih tinggi dari peran bot.", color=self.color_error)); return
 
         old_nickname = member.display_name
         try:
@@ -954,7 +1076,7 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
                 super().__init__(timeout=300)
                 self.cog, self.author, self.target_channel = cog_instance, author, target_channel
                 self.guild_id, self.channel_id = target_channel.guild.id, target_channel.id
-                self.message = None
+                self.message = None # This will be set after the initial message is sent
                 self.update_buttons()
                 print(f"[{datetime.now()}] [DEBUG ADMIN] ChannelRuleView initialized for {target_channel.name}.")
 
@@ -1184,11 +1306,13 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
             @discord.ui.button(label="Welcome Msg", style=discord.ButtonStyle.primary, emoji="💬", row=0)
             async def set_welcome_message(self, interaction: discord.Interaction, button: discord.ui.Button):
                 print(f"[{datetime.now()}] [DEBUG ADMIN] SetupView: Welcome Msg button clicked.")
-                async def callback(msg, inter):
-                    self.cog.get_guild_settings(self.guild_id)['welcome_message'] = msg.content; self.cog.save_settings()
-                    await inter.followup.send(embed=self.cog._create_embed(description="✅ Pesan selamat datang berhasil diatur.", color=self.cog.color_success), ephemeral=True)
-                    print(f"[{datetime.now()}] [DEBUG ADMIN] SetupView: Welcome message set.")
-                await self.handle_response(interaction, "Ketik pesan selamat datangmu. Gunakan `{user}` dan `{guild_name}`.", callback)
+                
+                # Mengambil pengaturan saat ini untuk mengisi modal
+                current_settings = self.cog.get_guild_settings(self.guild_id)
+                modal = WelcomeMessageModal(self.cog, self.guild_id, current_settings)
+                
+                await interaction.response.send_modal(modal)
+                print(f"[{datetime.now()}] [DEBUG ADMIN] SetupView: WelcomeMessageModal sent.")
 
             @discord.ui.button(label="Log Channel", style=discord.ButtonStyle.primary, emoji="📝", row=0)
             async def set_log_channel(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -1216,9 +1340,26 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
                 auto_role = self.ctx.guild.get_role(settings.get('auto_role_id')) if settings.get('auto_role_id') else "Tidak diatur"
                 welcome_ch = self.ctx.guild.get_channel(settings.get('welcome_channel_id')) if settings.get('welcome_channel_id') else "Tidak diatur"
                 log_ch = self.ctx.guild.get_channel(settings.get('log_channel_id')) if settings.get('log_channel_id') else "Tidak diatur"
+                
                 embed = self.cog._create_embed(title=f"Konfigurasi untuk {self.ctx.guild.name}", color=self.cog.color_info)
-                embed.add_field(name="Pengaturan Dasar", value=f"**Auto Role**: {auto_role.mention if isinstance(auto_role, discord.Role) else auto_role}\n**Welcome Channel**: {welcome_ch.mention if isinstance(welcome_ch, discord.TextChannel) else welcome_ch}\n**Log Channel**: {log_ch.mention if isinstance(log_ch, discord.TextChannel) else log_ch}", inline=False)
-                embed.add_field(name="Pesan Selamat Datang", value=f"```{settings.get('welcome_message')}```", inline=False)
+                embed.add_field(
+                    name="Pengaturan Dasar", 
+                    value=(
+                        f"**Auto Role**: {auto_role.mention if isinstance(auto_role, discord.Role) else auto_role}\n"
+                        f"**Welcome Channel**: {welcome_ch.mention if isinstance(welcome_ch, discord.TextChannel) else welcome_ch}\n"
+                        f"**Log Channel**: {log_ch.mention if isinstance(log_ch, discord.TextChannel) else log_ch}"
+                    ), 
+                    inline=False
+                )
+                embed.add_field(
+                    name="Pesan Selamat Datang", 
+                    value=(
+                        f"**Judul Embed**: `{settings.get('welcome_embed_title', 'Tidak diatur')}`\n"
+                        f"**Pengirim Kustom**: `{settings.get('welcome_sender_name', 'Tidak diatur')}`\n"
+                        f"**Isi Pesan**: ```{settings.get('welcome_message')}```"
+                    ), 
+                    inline=False
+                ) # BARU: Perbarui tampilan pesan selamat datang
                 embed.add_field(name="Filter Kata Kasar", value=f"Total: {len(filters.get('bad_words',[]))} kata", inline=True)
                 embed.add_field(name="Filter Link", value=f"Total: {len(filters.get('link_patterns',[]))} pola", inline=True)
                 await interaction.response.send_message(embed=embed, ephemeral=True)
