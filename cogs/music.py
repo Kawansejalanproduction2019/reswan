@@ -61,6 +61,7 @@ def load_temp_channels():
     data = load_json_from_root(TEMP_CHANNELS_FILE, default_value={})
     cleaned_data = {}
     for ch_id, info in data.items():
+        # Ensure owner_id and guild_id are string for consistency
         if "owner_id" in info:
             info["owner_id"] = str(info["owner_id"])
         if "guild_id" in info:
@@ -72,6 +73,7 @@ def save_temp_channels(data):
     # Use the centralized save_json_to_root
     save_json_to_root(data, TEMP_CHANNELS_FILE)
 
+# --- Class untuk Tombol Kontrol Musik ---
 class MusicControlView(discord.ui.View):
     def __init__(self, cog_instance, original_message=None):
         super().__init__(timeout=None)
@@ -277,20 +279,23 @@ class MusicControlView(discord.ui.View):
         
         await self._refresh_message(interaction)
 
+# --- YTDL Source untuk musik ---
 class YTDLSource(discord.PCMVolumeTransformer):
     def __init__(self, source, *, data, volume=0.8):
         super().__init__(source, volume)
         self.data = data
         self.title = data.get('title')
-        self.url = data.get('url')
+        self.url = data.get('url') # URL yang sebenarnya untuk diputar
         self.thumbnail = data.get('thumbnail')
-        self.webpage_url = data.get('webpage_url')
+        self.webpage_url = data.get('webpage_url') # URL halaman web (YouTube, dll.)
         self.duration = data.get('duration')
         self.uploader = data.get('uploader')
 
     @classmethod
     async def from_url(cls, url, *, loop=None, stream=True):
         loop = loop or asyncio.get_event_loop()
+        # Menggunakan functools.partial untuk memastikan argumen dilewatkan dengan benar
+        # dan menghindari pemblokiran loop event
         data = await loop.run_in_executor(None, functools.partial(yt_dlp.YoutubeDL({
             'format': 'bestaudio[ext=m4a]/bestaudio/best',
             'cookiefile': 'cookies.txt',
@@ -315,23 +320,24 @@ class YTDLSource(discord.PCMVolumeTransformer):
         }), data=data)
 
 
+# --- MAIN COG GABUNGAN ---
 class VoiceFeatures(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
         # --- KONFIGURASI TEMPVOLICE ---
-        self.TRIGGER_VOICE_CHANNEL_ID = 1382486705113927811
-        self.TARGET_CATEGORY_ID = 1255211613326278716
+        self.TRIGGER_VOICE_CHANNEL_ID = 1382486705113927811 # ID Channel Pemicu TempVoice
+        self.TARGET_CATEGORY_ID = 1255211613326278716     # ID Kategori untuk Channel Baru
         self.DEFAULT_CHANNEL_NAME_PREFIX = "Music"
         self.active_temp_channels = load_temp_channels()
         log.info(f"TempVoice initialized. Active temporary channels: {self.active_temp_channels}")
         self.cleanup_task.start()
 
         # --- KONFIGURASI MUSIC ---
-        self.music_queues = {}
-        self.music_loop_status = {}
-        self.current_music_message = {}
-        self.current_music_channel = {}
+        self.music_queues = {} # {guild_id: [url1, url2, ...]}
+        self.music_loop_status = {} # {guild_id: True/False}
+        self.current_music_message = {} # {guild_id: message_id} untuk pesan "Now Playing"
+        self.current_music_channel = {} # {guild_id: channel_id} untuk channel tempat pesan musik berada
 
         # Genius API
         GENIUS_API_TOKEN = os.getenv("GENIUS_API")
@@ -355,14 +361,18 @@ class VoiceFeatures(commands.Cog):
         else:
             log.warning("SPOTIFY_CLIENT_ID or SPOTIFY_CLIENT_SECRET not set. Spotify features might not work.")
 
+        # Buat folder downloads jika belum ada
         if not os.path.exists('downloads'):
             os.makedirs('downloads')
             log.info("'downloads' folder created.")
 
+        # Tambahkan view ke bot agar tetap berfungsi setelah restart
         self.bot.add_view(MusicControlView(self))
 
         log.info(f"VoiceFeatures cog initialized.")
 
+
+    # --- Helper functions TempVoice ---
     def _save_temp_channels_state(self):
         save_temp_channels(self.active_temp_channels)
         log.debug("Temporary channel state saved.")
@@ -371,7 +381,7 @@ class VoiceFeatures(commands.Cog):
         log.info("VoiceFeatures cog unloaded. Cancelling cleanup task.")
         self.cleanup_task.cancel()
 
-    @tasks.loop(seconds=10)
+    @tasks.loop(seconds=10) # Cek setiap 10 detik
     async def cleanup_task(self):
         log.debug("Running TempVoice cleanup task.")
         channels_to_remove = []
@@ -392,13 +402,15 @@ class VoiceFeatures(commands.Cog):
                 channels_to_remove.append(channel_id_str)
                 continue
 
+            # Perubahan penting: Jangan hapus channel jika bot musik ada di dalamnya
             voice_client = guild.voice_client
-            if voice_client and voice_client.is_connected() and voice_client.channel.id == channel_id and \
-               (voice_client.is_playing() or voice_client.is_paused() or self.get_music_queue(guild_id)):
-                log.info(f"Bot is playing/paused/queued in temporary channel {channel.name}. Skipping deletion for this cycle.")
-                continue
+            if voice_client and voice_client.is_connected() and voice_client.channel.id == channel_id:
+                # Bot sedang di channel ini, dan sedang memutar musik atau ada di antrean
+                if voice_client.is_playing() or voice_client.is_paused() or self.get_music_queue(guild_id):
+                    log.info(f"Bot is playing/paused/queued in temporary channel {channel.name}. Skipping deletion for this cycle.")
+                    continue # Jangan hapus channel jika bot aktif di dalamnya
 
-            if not channel.members:
+            if not channel.members: # Jika channel kosong dari user mana pun (termasuk bot jika tidak aktif)
                 try:
                     await channel.delete(reason="Temporary voice channel is empty.")
                     log.info(f"Deleted empty temporary voice channel: {channel.name} ({channel_id}).")
@@ -423,6 +435,7 @@ class VoiceFeatures(commands.Cog):
         await self.bot.wait_until_ready()
         log.info("Bot ready, TempVoice cleanup task is about to start.")
 
+    # --- Helper functions Music ---
     def get_music_queue(self, guild_id):
         return self.music_queues.setdefault(guild_id, [])
 
@@ -506,6 +519,7 @@ class VoiceFeatures(commands.Cog):
         voice_client = guild.voice_client
         queue = self.get_music_queue(guild_id)
 
+        # Jika loop aktif dan ada lagu saat ini, tambahkan kembali ke antrean
         if self.music_loop_status.get(guild_id, False) and voice_client and voice_client.is_connected() and voice_client.source:
             current_song_query = voice_client.source.title 
             if voice_client.source.uploader and voice_client.source.uploader != "Unknown":
@@ -514,6 +528,8 @@ class VoiceFeatures(commands.Cog):
             queue.insert(0, current_song_query) 
 
         if not queue:
+            # Antrean kosong. Bot tidak akan disconnect sendiri di sini.
+            # Biarkan cleanup_task dari TempVoice yang menghapus channel jika kosong user.
             if guild_id in self.current_music_message:
                 try:
                     message_id = self.current_music_message[guild_id]
@@ -523,29 +539,33 @@ class VoiceFeatures(commands.Cog):
                     
                     embed = msg.embeds[0] if msg.embeds else discord.Embed()
                     embed.title = "Musik Berhenti 🎶"
-                    embed.description = "Antrean kosong."
-                    # FIX: Corrected discord.Embed.Empty
-                    embed.set_thumbnail(url=discord.Embed.Empty) 
+                    embed.description = "Antrean kosong." # Hapus "Bot akan keluar dari voice channel."
                     embed.set_footer(text="Bot akan tetap di channel ini selama user aktif ada.")
+                    embed.set_thumbnail(url=discord.Embed.Empty)
                     await msg.edit(embed=embed, view=view_instance)
                 except discord.NotFound:
                     log.warning(f"Music control message not found in guild {guild_id} when queue is empty. Cannot update.")
                 except Exception as e:
-                    log.error(f"Error updating music message on queue empty for guild {guild_id}: {e}", exc_info=True)
+                    log.error(f"Error updating music message on queue empty for guild {guild_id}: {e}")
             
             await target_channel.send("Antrean kosong. Bot akan menunggu di channel ini.") 
+            # Tidak lagi memanggil disconnect di sini, biarkan TempVoice yang menghapus channel jika kosong
             return
 
+        # Ada lagu di antrean, coba mainkan
         if not voice_client or not voice_client.is_connected():
-            log.warning(f"Voice client not connected in guild {guild_id} when trying to play next song. Aborting music playback and clearing state.")
+            log.warning(f"Voice client not connected in guild {guild_id} when trying to play next song. Aborting music playback.")
+            # Clear music state as bot is not connected
+            if guild_id in self.current_music_channel:
+                del self.current_music_channel[guild_id]
+            if guild_id in self.current_music_message:
+                del self.current_music_message[guild_id]
             
-            self._clear_music_state(guild_id)
-            
+            # Remove the song that failed to play
             if queue:
                 queue.pop(0) 
             await target_channel.send("Bot tidak terhubung ke voice channel. Silakan panggil ulang bot jika ingin memutar musik.")
             return
-
 
         url_or_query = queue.pop(0)
         try:
@@ -589,7 +609,6 @@ class VoiceFeatures(commands.Cog):
                 view_instance._update_button_states()
                 await message_sent.edit(view=view_instance)
 
-
         except Exception as e:
             await target_channel.send(f'Gagal memutar lagu: {e}')
             log.error(f"Error playing next song in guild {guild_id}: {e}", exc_info=True)
@@ -632,11 +651,178 @@ class VoiceFeatures(commands.Cog):
                 if guild_id in self.current_music_channel:
                     del self.current_music_channel[guild_id]
             except Exception as e:
-                log.error(f"Error updating music message in after_play_handler for guild {guild_id}: {e}", exc_info=True)
+                log.error(f"Error updating music message in after_play_handler for guild {guild_id}: {e}")
 
         await asyncio.sleep(1) 
         await self._play_next_music(guild_id) 
 
+    # --- COMMANDS ---
+
+    @commands.Cog.listener()
+    async def on_voice_state_update(self, member, before, after):
+        if member.bot:
+            return
+
+        guild_id = member.guild.id
+        guild = member.guild
+        
+        # --- LOGIC TEMPVOLICE (MEMBUAT/MEMINDAHKAN CHANNEL) ---
+        if after.channel and after.channel.id == self.TRIGGER_VOICE_CHANNEL_ID:
+            log.info(f"User {member.display_name} ({member.id}) joined trigger VC ({self.TRIGGER_VOICE_CHANNEL_ID}).")
+
+            # Cek apakah user sudah punya channel temporer aktif
+            for ch_id_str, ch_info in list(self.active_temp_channels.items()):
+                if ch_info["owner_id"] == str(member.id) and ch_info["guild_id"] == str(member.guild.id):
+                    existing_channel = member.guild.get_channel(int(ch_id_str))
+                    if existing_channel:
+                        log.info(f"User {member.display_name} already has active temporary VC {existing_channel.name}. Moving them there.")
+                        try:
+                            await member.move_to(existing_channel)
+                            return # Penting: Berhenti di sini setelah memindahkan user
+                        except discord.Forbidden:
+                            log.error(f"Bot lacks permissions to move {member.display_name} to their existing VC {existing_channel.name}.")
+                            try: await member.send(f"❌ Gagal memindahkan Anda ke channel pribadi Anda: Bot tidak memiliki izin 'Move Members'. Silakan hubungi admin server.", ephemeral=True)
+                            except discord.Forbidden: pass
+                            return
+                        except Exception as e:
+                            log.error(f"Error moving {member.display_name} to existing VC {existing_channel.name}: {e}", exc_info=True)
+                            try: await member.send(f"❌ Terjadi kesalahan saat memindahkan Anda ke channel pribadi Anda: {e}. Hubungi admin server.", ephemeral=True)
+                            except discord.Forbidden: pass
+                            return
+                    else:
+                        log.warning(f"Temporary channel {ch_id_str} in data not found on Discord. Removing from tracking.")
+                        self.active_temp_channels.pop(ch_id_str)
+                        self._save_temp_channels_state()
+
+            category = guild.get_channel(self.TARGET_CATEGORY_ID)
+            
+            if not category or not isinstance(category, discord.CategoryChannel):
+                log.error(f"Target category {self.TARGET_CATEGORY_ID} not found or is not a category channel in guild {guild.name}. Skipping VC creation.")
+                try: await member.send("❌ Gagal membuat channel suara pribadi: Kategori tujuan tidak ditemukan atau tidak valid. Hubungi admin server.", ephemeral=True)
+                except discord.Forbidden: pass
+                try: await member.move_to(None, reason="Target category invalid.")
+                except: pass
+                return
+
+            current_category_channels = [ch for ch in category.voice_channels if ch.name.startswith(self.DEFAULT_CHANNEL_NAME_PREFIX)]
+            
+            next_channel_number = 1
+            if current_category_channels:
+                max_num = 0
+                for ch_obj in current_category_channels:
+                    try:
+                        parts = ch_obj.name.rsplit(' ', 1)
+                        if len(parts) > 1 and parts[-1].isdigit():
+                            num = int(parts[-1])
+                            if num > max_num:
+                                max_num = num
+                    except Exception as e:
+                        log.debug(f"Could not parse number from channel name {ch_obj.name}: {e}")
+                        continue
+                next_channel_number = max_num + 1
+
+            new_channel_name = f"{self.DEFAULT_CHANNEL_NAME_PREFIX} {next_channel_number}"
+            
+            try:
+                everyone_role = guild.default_role
+                admin_role = discord.utils.get(guild.roles, permissions=discord.Permissions(administrator=True))
+                
+                overwrites = {
+                    everyone_role: discord.PermissionOverwrite(connect=False, speak=False, send_messages=False, view_channel=False),
+                    guild.me: discord.PermissionOverwrite(connect=True, speak=True, send_messages=True, view_channel=True, read_message_history=True)
+                }
+                
+                if admin_role:
+                    overwrites[admin_role] = discord.PermissionOverwrite(connect=True, speak=True, send_messages=True, view_channel=True)
+
+                overwrites[member] = discord.PermissionOverwrite(
+                    connect=True, speak=True, send_messages=True, view_channel=True,
+                    manage_channels=True, manage_roles=True,
+                    mute_members=True, deafen_members=True, move_members=True
+                )
+                
+                max_bitrate = guild.bitrate_limit
+                
+                new_vc = await guild.create_voice_channel(
+                    name=new_channel_name,
+                    category=category,
+                    user_limit=0,
+                    overwrites=overwrites,
+                    bitrate=max_bitrate,
+                    reason=f"{member.display_name} created a temporary voice channel."
+                )
+                log.info(f"Created new temporary VC: {new_vc.name} ({new_vc.id}) by {member.display_name} with bitrate {max_bitrate}.")
+
+                await member.move_to(new_vc)
+                log.info(f"Moved {member.display_name} to new VC {new_vc.name}.")
+
+                self.active_temp_channels[str(new_vc.id)] = {"owner_id": str(member.id), "guild_id": str(guild.id)}
+                self._save_temp_channels_state()
+                log.debug(f"Temporary VC {new_vc.id} added to tracking.")
+
+                await new_vc.send(
+                    f"🎉 Selamat datang di channel pribadimu, {member.mention}! Kamu adalah pemilik channel ini.\n"
+                    f"Channel ini diset dengan kualitas suara **maksimal** yang diizinkan server ini.\n"
+                    f"Gunakan perintah di bawah untuk mengelola channel-mu:\n"
+                    f"`!vcsetlimit <angka>` - Atur batas user (0 untuk tak terbatas)\n"
+                    f"`!vcrename <nama_baru>` - Ubah nama channel\n"
+                    f"`!vclock` - Kunci channel (hanya bisa masuk via invite)\n"
+                    f"`!vcunlock` - Buka kunci channel\n"
+                    f"`!vckick @user` - Tendang user dari channel\n"
+                    f"`!vcgrant @user` - Beri user izin masuk channel yang terkunci\n"
+                    f"`!vcrevoke @user` - Cabut izin masuk channel yang terkunci\n"
+                    f"`!vcowner @user` - Transfer kepemilikan channel ke user lain (hanya bisa 1 pemilik)\n"
+                    f"`!vchelp` - Menampilkan panduan ini lagi."
+                )
+
+            except discord.Forbidden:
+                log.error(f"Bot lacks permissions to create voice channels or move members in guild {guild.name}. Please check 'Manage Channels' and 'Move Members' permissions.", exc_info=True)
+                try: await member.send(f"❌ Gagal membuat channel suara pribadi: Bot tidak memiliki izin yang cukup (Manage Channels atau Move Members). Hubungi admin server.", ephemeral=True)
+                except discord.Forbidden: pass
+                try: await member.move_to(None, reason="Bot lacks permissions.")
+                except: pass
+            except Exception as e:
+                log.error(f"Unexpected error creating or moving to new VC in guild {guild.name}: {e}", exc_info=True)
+                try: await member.send(f"❌ Terjadi kesalahan saat membuat channel suara pribadi: {e}. Hubungi admin server.", ephemeral=True)
+                except discord.Forbidden: pass
+                try: await member.move_to(None, reason="Unexpected error.")
+                except: pass
+            return # Penting: Berhenti di sini setelah membuat channel baru
+
+        # --- LOGIC MUSIC COG (SEBELUMNYA) / AUTO-DISCONNECT ---
+        # Logic auto-disconnect sepenuhnya dihapus dari sini.
+        # TempVoice cleanup_task sekarang bertanggung jawab untuk menghapus channel.
+        # Bot musik akan mengandalkan channel dihapus oleh TempVoice jika channel kosong.
+        
+        # Handle bot's own voice state changes for internal cleanup if necessary
+        # This part ensures that if the bot itself disconnects, its music state is cleared.
+        # This is a fallback in case TempVoice deletes a channel and bot doesn't clean up
+        # or if bot disconnects for other reasons (e.g., connection issues, manual stop).
+        if member.id == self.bot.user.id:
+            if before.channel and not after.channel: # Bot disconnected
+                log.info(f"Bot disconnected from voice channel {before.channel.name} in guild {guild.name}.")
+                self._clear_music_state(guild_id)
+            elif after.channel and not before.channel: # Bot connected
+                log.info(f"Bot connected to voice channel {after.channel.name} in guild {guild.name}.")
+                # Reset music state if connecting to a new channel (optional, based on desired behavior)
+                # self._clear_music_state(guild_id) # uncomment if you want to clear queue on every reconnect
+
+    def _clear_music_state(self, guild_id):
+        """Membersihkan state musik untuk guild tertentu."""
+        if guild_id in self.music_queues:
+            del self.music_queues[guild_id]
+            log.info(f"Music queue cleared for guild {guild_id}.")
+        if guild_id in self.music_loop_status:
+            del self.music_loop_status[guild_id]
+            log.info(f"Music loop status cleared for guild {guild_id}.")
+        if guild_id in self.current_music_message:
+            del self.current_music_message[guild_id]
+            log.info(f"Current music message cleared for guild {guild_id}.")
+        if guild_id in self.current_music_channel:
+            del self.current_music_channel[guild_id]
+            log.info(f"Current music channel cleared for guild {guild_id}.")
+
+    # --- COMMANDS MUSIC ---
     @commands.command(name="resjoin")
     async def join(self, ctx):
         if ctx.voice_client:
@@ -644,6 +830,7 @@ class VoiceFeatures(commands.Cog):
                 return await ctx.send("Bot sudah berada di voice channel lain. Harap keluarkan dulu.")
             return
         if ctx.author.voice:
+            # Tidak ada lagi disconnect_timer logic di sini
             try:
                 await ctx.author.voice.channel.connect()
                 await ctx.send(f"Joined **{ctx.author.voice.channel.name}**")
@@ -725,6 +912,8 @@ class VoiceFeatures(commands.Cog):
 
         queue = self.get_music_queue(ctx.guild.id)
         
+        # Tidak ada lagi disconnect_timer logic di sini
+
         if not ctx.voice_client.is_playing() and not ctx.voice_client.is_paused() and not queue:
             first_url_or_query = urls.pop(0)
             queue.extend(urls) 
@@ -867,7 +1056,7 @@ class VoiceFeatures(commands.Cog):
                         embed.title = "Musik Berhenti 🎶"
                         embed.description = "Bot telah berhenti dan keluar dari voice channel."
                         embed.set_footer(text="")
-                        embed.set_thumbnail(url=discord.Embed.Empty) 
+                        embed.set_thumbnail(url=discord.Embed.Empty)
                         
                         await msg.edit(embed=embed, view=view_instance)
                         del self.current_music_message[ctx.guild.id]
@@ -938,7 +1127,6 @@ class VoiceFeatures(commands.Cog):
                 pass
             except Exception as e:
                 log.error(f"Error updating music message after loop for guild {ctx.guild.id}: {e}")
-
 
     @commands.command(name="reslyrics")
     async def lyrics(self, ctx, *, song_name=None):
@@ -1239,6 +1427,7 @@ class VoiceFeatures(commands.Cog):
 
     @commands.Cog.listener()
     async def on_command_error(self, ctx, error):
+        # Hanya tangani error dari cog ini
         if ctx.cog != self:
             return
 
