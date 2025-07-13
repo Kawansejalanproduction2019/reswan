@@ -1,5 +1,5 @@
 import discord
-from discord.ext import commands, tasks # tasks tetap diimport tapi loop idle akan dihentikan
+from discord.ext import commands, tasks
 import yt_dlp
 import asyncio
 import os
@@ -26,7 +26,7 @@ ytdl_opts = {
     'postprocessors': [{
         'key': 'FFmpegExtractAudio',
         'preferredcodec': 'm4a',
-        'preferredquality': '192', # Tetap 192, tapi pertimbangkan turunkan jika ffmpeg -9 muncul
+        'preferredquality': '192', 
     }],
 }
 
@@ -219,9 +219,11 @@ class MusicControlView(discord.ui.View):
     async def queue_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         queue = self.cog.get_queue(interaction.guild.id)
         if queue:
-            display_queue = queue[:10]
             display_queue_titles = await asyncio.gather(
-                *[self.cog.get_song_title_from_url(q) for q in display_queue]
+                *[
+                    (await self.cog.get_song_info_from_url(q))['title']
+                    for q in display_queue
+                ]
             )
             msg = "\n".join([f"{i+1}. {q}" for i, q in enumerate(display_queue_titles)])
             
@@ -255,6 +257,7 @@ class MusicControlView(discord.ui.View):
         await self._update_music_message(interaction)
 
     @discord.ui.button(emoji="📖", style=discord.ButtonStyle.blurple, custom_id="music:lyrics", row=1)
+    @commands.cooldown(1, 15, commands.BucketType.user) # Cooldown: 1 penggunaan setiap 15 detik per user
     async def lyrics_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not self.cog.genius:
             await interaction.response.send_message("Fitur lirik masih beta dan akan segera dirilis nantinya.", ephemeral=True)
@@ -586,14 +589,12 @@ class Music(commands.Cog):
                 queue.insert(0, current_song_url)
 
         if not queue:
-            # Mengembalikan perilaku "brutal disconnect"
             embed = discord.Embed(
                 title="Musik Berhenti 🎶",
                 description="Antrean kosong. Bot akan keluar dari voice channel.",
                 color=discord.Color.red()
             )
             view_instance = MusicControlView(self)
-            # Menonaktifkan semua tombol saat bot akan keluar
             for item in view_instance.children:
                 item.disabled = True
             
@@ -604,7 +605,7 @@ class Music(commands.Cog):
             }
             self.now_playing_info.pop(guild_id, None)
 
-            await target_channel.send("Antrian kosong. Keluar dari voice channel.", ephemeral=True) # Tambah ephemeral
+            await target_channel.send("Antrian kosong. Keluar dari voice channel.", ephemeral=True)
             if ctx.voice_client:
                 await ctx.voice_client.disconnect()
             return
@@ -661,7 +662,6 @@ class Music(commands.Cog):
         except Exception as e:
             logging.error(f'Failed to play song for guild {guild_id}: {e}')
             await target_channel.send(f'Gagal memutar lagu: {e}')
-            # Jika gagal memutar, tetap coba lagu berikutnya atau putus koneksi
             asyncio.run_coroutine_threadsafe(self.play_next(ctx), self.bot.loop)
 
 
@@ -683,18 +683,15 @@ class Music(commands.Cog):
                 
         await asyncio.sleep(1)
 
-        # Mengembalikan perilaku "brutal disconnect"
         if ctx.voice_client and ctx.voice_client.is_connected():
-            await self.play_next(ctx) # Lanjut ke lagu berikutnya atau disconnect jika antrean kosong
-        else: # Bot sudah tidak di voice channel (mungkin di-kick manual)
+            await self.play_next(ctx)
+        else:
             logging.info(f"Bot disconnected from voice channel in guild {guild_id} (manual disconnect or after play handler). Cleaning up.")
-            # Clear state
             self.queues[guild_id] = []
             self.loop_status[guild_id] = False
             self.is_muted[guild_id] = False
             self.old_volume.pop(guild_id, None)
             self.now_playing_info.pop(guild_id, None)
-            # Hapus pesan kontrol musik terakhir
             if guild_id in self.current_music_message_info:
                 old_message_info = self.current_music_message_info[guild_id]
                 try:
@@ -707,14 +704,6 @@ class Music(commands.Cog):
                 finally:
                     del self.current_music_message_info[guild_id]
 
-
-    # @tasks.loop(minutes=5) # Hentikan task ini
-    # async def check_voice_idle(self):
-    #     pass # Kosongkan atau hapus task ini jika tidak digunakan
-
-    # @check_voice_idle.before_loop
-    # async def before_check_voice_idle(self):
-    #     pass # Kosongkan atau hapus
 
     @commands.command(name="resjoin")
     async def join(self, ctx):
@@ -984,7 +973,12 @@ class Music(commands.Cog):
     async def queue_cmd(self, ctx):
         queue = self.get_queue(ctx.guild.id)
         if queue:
-            display_queue_titles = [await self.get_song_title_from_url(q) for q in queue[:15]]
+            display_queue_titles = await asyncio.gather(
+                *[
+                    (await self.get_song_info_from_url(q))['title']
+                    for q in queue[:15]
+                ]
+            )
             msg = "\n".join([f"{i+1}. {q}" for i, q in enumerate(display_queue_titles)])
             
             embed = discord.Embed(
