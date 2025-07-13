@@ -154,7 +154,7 @@ class AnnouncementModalGlobal(discord.ui.Modal, title="Buat Pengumuman"):
             embed = discord.Embed(
                 description=chunk,
                 color=self.cog.color_announce,
-                timestamp=datetime.utcnow() if i == 0 else discord.Embed.Empty # Only show timestamp on first embed
+                timestamp=discord.utils.utcnow() if i == 0 else discord.Embed.Empty # Only show timestamp on first embed
             )
             
             if i == 0:
@@ -272,6 +272,93 @@ class WelcomeMessageModal(discord.ui.Modal, title="Atur Pesan Selamat Datang"):
         else:
             await interaction.followup.send(embed=self.cog._create_embed(description=f"❌ Terjadi kesalahan tak terduga saat memproses formulir: {error}", color=self.cog.color_error), ephemeral=True)
 
+# =======================================================================================
+# SERVER BOOSTER MESSAGE MODAL CLASS
+# =======================================================================================
+class ServerBoostModal(discord.ui.Modal, title="Atur Pesan Server Booster"):
+    boost_title = discord.ui.TextInput(
+        label="Judul Pesan Booster",
+        placeholder="Contoh: Terima Kasih Server Booster!",
+        max_length=256,
+        required=True,
+        row=0
+    )
+    custom_sender_name = discord.ui.TextInput(
+        label="Pengirim (Contoh: Tim Server)",
+        placeholder="Contoh: Tim Server / Bot Resmi",
+        max_length=256,
+        required=True,
+        row=1
+    )
+    boost_content = discord.ui.TextInput(
+        label="Isi Pesan (Gunakan {user}, {guild_name})",
+        placeholder="Contoh: Terima kasih, {user}, telah boost {guild_name}!",
+        max_length=4000,
+        required=True,
+        style=discord.TextStyle.paragraph,
+        row=2
+    )
+    boost_image_url = discord.ui.TextInput(
+        label="URL Gambar (Opsional, akan muncul besar)",
+        placeholder="Contoh: https://example.com/booster_banner.png",
+        max_length=2000,
+        required=False,
+        row=3
+    )
+
+    def __init__(self, cog_instance, guild_id, current_settings):
+        super().__init__()
+        self.cog = cog_instance
+        self.guild_id = guild_id
+        
+        self.boost_title.default = current_settings.get("boost_embed_title", "")
+        self.custom_sender_name.default = current_settings.get("boost_sender_name", "")
+        self.boost_content.default = current_settings.get("boost_message", "Terima kasih banyak, {user}, telah menjadi **Server Booster** kami di {guild_name}! Kami sangat menghargai dukunganmu! ❤️")
+        self.boost_image_url.default = current_settings.get("boost_image_url", "")
+        print(f"[{datetime.now()}] [DEBUG BOOSTER] ServerBoostModal initialized for guild {guild_id}.")
+
+    async def on_submit(self, interaction: discord.Interaction):
+        print(f"[{datetime.now()}] [DEBUG BOOSTER] ServerBoostModal: on_submit triggered by {interaction.user.display_name}.")
+        await interaction.response.defer(ephemeral=True)
+
+        # Input validation for URL
+        image_url = self.boost_image_url.value.strip()
+        if image_url and not (image_url.startswith("http://") or image_url.startswith("https://")):
+            print(f"[{datetime.now()}] [DEBUG BOOSTER] Invalid image URL: {image_url}.")
+            await interaction.followup.send(embed=self.cog._create_embed(description="❌ URL Gambar tidak valid. Harus dimulai dengan `http://` atau `https://`.", color=self.cog.color_error), ephemeral=True); return
+
+        guild_settings = self.cog.get_guild_settings(self.guild_id)
+        
+        guild_settings["boost_embed_title"] = self.boost_title.value.strip()
+        guild_settings["boost_sender_name"] = self.custom_sender_name.value.strip()
+        guild_settings["boost_message"] = self.boost_content.value.strip()
+        guild_settings["boost_image_url"] = image_url # Simpan URL gambar
+        
+        self.cog.save_settings()
+        
+        await interaction.followup.send(embed=self.cog._create_embed(description="✅ Pengaturan pesan Server Booster berhasil diperbarui!", color=self.cog.color_success), ephemeral=True)
+        
+        await self.cog.log_action(
+            interaction.guild,
+            "✨ Pengaturan Server Booster Diperbarui",
+            {
+                "Moderator": interaction.user.mention,
+                "Judul Embed": guild_settings["boost_embed_title"],
+                "Nama Pengirim": guild_settings["boost_sender_name"],
+                "Isi Pesan": f"```{guild_settings['boost_message']}```",
+                "URL Gambar": guild_settings["boost_image_url"] if guild_settings["boost_image_url"] else "Tidak diatur"
+            },
+            self.cog.color_announce # Anda bisa menggunakan warna yang berbeda jika mau
+        )
+        print(f"[{datetime.now()}] [DEBUG BOOSTER] Server Booster message settings saved and logged for guild {self.guild_id}.")
+
+    async def on_error(self, interaction: discord.Interaction, error: Exception) -> None:
+        print(f"[{datetime.now()}] [ERROR BOOSTER] Error in ServerBoostModal (on_error): {error}", file=sys.stderr)
+        if not interaction.response.is_done():
+            await interaction.response.send_message(embed=self.cog._create_embed(description=f"❌ Terjadi kesalahan tak terduga saat memproses formulir: {error}", color=self.cog.color_error), ephemeral=True)
+        else:
+            await interaction.followup.send(embed=self.cog._create_embed(description=f"❌ Terjadi kesalahan tak terduga saat memproses formulir: {error}", color=self.cog.color_error), ephemeral=True)
+
 
 # =======================================================================================
 # VIEW CLASSES
@@ -343,6 +430,8 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
         self.color_log = 0x95A5A6
         self.color_welcome = 0x9B59B6
         self.color_announce = 0x7289DA
+        # Anda bisa menggunakan warna khusus untuk booster jika mau, contoh:
+        self.color_booster = 0xF47FFF # Pinkish color for Discord Nitro Boost
 
         self.settings = load_data(self.settings_file)
         self.filters = load_data(self.filters_file)
@@ -357,11 +446,18 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
                 "auto_role_id": None, 
                 "welcome_channel_id": None,
                 "welcome_message": "Selamat datang di **{guild_name}**, {user}! 🎉",
-                "welcome_embed_title": "SELAMAT DATANG!", # BARU
-                "welcome_sender_name": "Admin Server", # BARU
+                "welcome_embed_title": "SELAMAT DATANG!",
+                "welcome_sender_name": "Admin Server",
                 "log_channel_id": None, 
                 "reaction_roles": {},
-                "channel_rules": {}
+                "channel_rules": {},
+                # --- PENGATURAN BARU UNTUK BOOSTER ---
+                "boost_channel_id": None,
+                "boost_message": "Terima kasih banyak, {user}, telah menjadi **Server Booster** kami di {guild_name}! Kami sangat menghargai dukunganmu! ❤️",
+                "boost_embed_title": "TERIMA KASIH SERVER BOOSTER!",
+                "boost_sender_name": "Tim Server",
+                "boost_image_url": None # URL gambar utama di embed
+                # --- AKHIR PENGATURAN BOOSTER ---
             }
             save_data(self.settings_file, self.settings)
             print(f"[{datetime.now()}] [DEBUG ADMIN] Default settings created for guild {guild_id}.")
@@ -373,6 +469,18 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
             self.settings[guild_id_str]["welcome_sender_name"] = "Admin Server"
         if "channel_rules" not in self.settings[guild_id_str]:
             self.settings[guild_id_str]["channel_rules"] = {}
+        # --- PASTIKAN FIELD BOOSTER ADA UNTUK BACKWARD COMPATIBILITY ---
+        if "boost_channel_id" not in self.settings[guild_id_str]:
+            self.settings[guild_id_str]["boost_channel_id"] = None
+        if "boost_message" not in self.settings[guild_id_str]:
+            self.settings[guild_id_str]["boost_message"] = "Terima kasih banyak, {user}, telah menjadi **Server Booster** kami di {guild_name}! Kami sangat menghargai dukunganmu! ❤️"
+        if "boost_embed_title" not in self.settings[guild_id_str]:
+            self.settings[guild_id_str]["boost_embed_title"] = "TERIMA KASIH SERVER BOOSTER!"
+        if "boost_sender_name" not in self.settings[guild_id_str]:
+            self.settings[guild_id_str]["boost_sender_name"] = "Tim Server"
+        if "boost_image_url" not in self.settings[guild_id_str]:
+            self.settings[guild_id_str]["boost_image_url"] = None
+        # --- AKHIR PASTIKAN FIELD BOOSTER ADA ---
         
         save_data(self.settings_file, self.settings) # Simpan perubahan default
         print(f"[{datetime.now()}] [DEBUG ADMIN] Settings ensured for guild {guild_id}.")
@@ -404,7 +512,7 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
 
     # --- Helper Methods for UI & Logging ---
     def _create_embed(self, title: str = "", description: str = "", color: int = 0, author_name: str = "", author_icon_url: str = ""):
-        embed = discord.Embed(title=title, description=description, color=color, timestamp=datetime.now())
+        embed = discord.Embed(title=title, description=description, color=color, timestamp=discord.utils.utcnow())
         if author_name: embed.set_author(name=author_name, icon_url=author_icon_url)
         bot_icon_url = self.bot.user.display_avatar.url if self.bot.user.display_avatar else None
         embed.set_footer(text=f"Dijalankan oleh {self.bot.user.name}", icon_url=bot_icon_url)
@@ -463,7 +571,7 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
             embed = discord.Embed(
                 description=welcome_message_content.format(user=member.mention, guild_name=member.guild.name), 
                 color=self.color_welcome,
-                timestamp=datetime.utcnow() # Gunakan UTC untuk konsistensi
+                timestamp=discord.utils.utcnow() # Gunakan UTC untuk konsistensi
             )
             
             # Set author/sender based on custom sender name
@@ -492,6 +600,71 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
                 print(f"[{datetime.now()}] [DEBUG ADMIN] Auto-role {role.name} given to {member.display_name}.")
             except discord.Forbidden:
                 print(f"[{datetime.now()}] [DEBUG ADMIN] Bot lacks permissions to assign auto-role {role.name} in {member.guild.name}.", file=sys.stderr)
+    
+    @commands.Cog.listener()
+    async def on_member_update(self, before: discord.Member, after: discord.Member):
+        if before.guild.id not in self.settings:
+            return # Skip if guild settings not initialized (prevent error on fresh start)
+
+        guild_settings = self.get_guild_settings(before.guild.id)
+        boost_channel_id = guild_settings.get("boost_channel_id")
+        
+        # Periksa apakah boost_channel_id diatur
+        if not boost_channel_id:
+            return
+
+        boost_channel = before.guild.get_channel(boost_channel_id)
+        if not boost_channel or not boost_channel.permissions_for(before.guild.me).send_messages:
+            print(f"[{datetime.now()}] [DEBUG BOOSTER] Boost channel not found or bot lacks send permissions in guild {before.guild.name}.")
+            return # Channel not set or bot can't send messages there
+
+        # Deteksi status booster berubah dari tidak menjadi iya (memberikan boost baru)
+        if not before.premium_since and after.premium_since:
+            print(f"[{datetime.now()}] [DEBUG BOOSTER] Member {after.display_name} started boosting {after.guild.name}.")
+            
+            boost_message_content = guild_settings.get("boost_message", "Terima kasih banyak, {user}, telah menjadi **Server Booster** kami di {guild_name}! Kami sangat menghargai dukunganmu! ❤️")
+            boost_embed_title = guild_settings.get("boost_embed_title", "TERIMA KASIH SERVER BOOSTER!")
+            boost_sender_name = guild_settings.get("boost_sender_name", "Tim Server")
+            boost_image_url = guild_settings.get("boost_image_url")
+
+            embed = discord.Embed(
+                description=boost_message_content.format(user=after.mention, guild_name=after.guild.name),
+                color=self.color_booster, # Menggunakan warna khusus booster
+                timestamp=discord.utils.utcnow()
+            )
+            embed.set_author(name=boost_sender_name, icon_url=after.guild.icon.url if after.guild.icon else None)
+            embed.title = boost_embed_title
+            
+            if boost_image_url:
+                embed.set_image(url=boost_image_url) # Gambar utama di sini
+            else: # Jika tidak ada gambar utama, gunakan thumbnail member
+                embed.set_thumbnail(url=after.display_avatar.url)
+            
+            embed.set_footer(text=f"Jumlah boost server: {after.guild.premium_subscription_count} ✨")
+
+            try:
+                await boost_channel.send(embed=embed)
+                await self.log_action(
+                    after.guild,
+                    "✨ Anggota Baru Jadi Booster!",
+                    {"Anggota": after.mention, "Channel Target": boost_channel.mention},
+                    self.color_booster
+                )
+                print(f"[{datetime.now()}] [DEBUG BOOSTER] Server booster message sent for {after.display_name}.")
+            except discord.Forbidden:
+                print(f"[{datetime.now()}] [ERROR BOOSTER] Bot lacks permissions to send boost message in {boost_channel.name}.", file=sys.stderr)
+            except Exception as e:
+                print(f"[{datetime.now()}] [ERROR BOOSTER] Failed to send boost message: {e}", file=sys.stderr)
+
+        # Deteksi status booster berubah dari iya menjadi tidak (berhenti boost) - Opsional
+        elif before.premium_since and not after.premium_since:
+            print(f"[{datetime.now()}] [DEBUG BOOSTER] Member {after.display_name} stopped boosting {after.guild.name}.")
+            await self.log_action(
+                after.guild,
+                "💔 Anggota Berhenti Jadi Booster",
+                {"Anggota": after.mention, "Channel Target": boost_channel.mention},
+                self.color_warning
+            )
         
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
@@ -1225,6 +1398,21 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
         await ctx.send(embed=embed)
         print(f"[{datetime.now()}] [DEBUG ADMIN] Welcome channel set to {channel.name}.")
 
+    @commands.command(name="setboostchannel") # COMMAND BARU
+    @commands.has_permissions(manage_guild=True)
+    async def set_boost_channel(self, ctx, channel: discord.TextChannel):
+        print(f"[{datetime.now()}] [DEBUG ADMIN] Command !setboostchannel called by {ctx.author.display_name} for channel: {channel.name}.")
+        """Sets the channel for server booster messages."""
+        guild_settings = self.get_guild_settings(ctx.guild.id)
+        guild_settings["boost_channel_id"] = channel.id
+        self.save_settings()
+        embed = self._create_embed(
+            description=f"✅ Server Booster channel berhasil diatur ke {channel.mention}.",
+            color=self.color_success
+        )
+        await ctx.send(embed=embed)
+        print(f"[{datetime.now()}] [DEBUG ADMIN] Server Booster channel set to {channel.name}.")
+
     @commands.command(name="setreactionrole")
     @commands.has_permissions(manage_roles=True)
     async def set_reaction_role(self, ctx, message: discord.Message, emoji: str, role: discord.Role):
@@ -1327,20 +1515,34 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
                         await inter.followup.send(embed=self.cog._create_embed(description="❌ Channel tidak ditemukan atau bukan channel teks.", color=self.cog.color_error), ephemeral=True)
                         print(f"[{datetime.now()}] [DEBUG ADMIN] SetupView: Channel not found for Log Channel.")
                 await self.handle_response(interaction, "Sebutkan (mention) atau masukkan ID channel untuk log aktivitas bot:", callback)
+            
+            # --- TOMBOL BARU UNTUK SERVER BOOSTER ---
+            @discord.ui.button(label="Server Booster", style=discord.ButtonStyle.primary, emoji="✨", row=1) # Row 1, agar tetap rapi
+            async def set_server_booster_message(self, interaction: discord.Interaction, button: discord.ui.Button):
+                print(f"[{datetime.now()}] [DEBUG ADMIN] SetupView: Server Booster button clicked.")
+                current_settings = self.cog.get_guild_settings(self.guild_id)
+                modal = ServerBoostModal(self.cog, self.guild_id, current_settings)
+                await interaction.response.send_modal(modal)
+                print(f"[{datetime.now()}] [DEBUG ADMIN] SetupView: ServerBoostModal sent.")
+            # --- AKHIR TOMBOL BARU ---
 
             @discord.ui.button(label="Kelola Filter", style=discord.ButtonStyle.secondary, emoji="🛡️", row=1)
             async def manage_filters(self, interaction: discord.Interaction, button: discord.ui.Button):
                 print(f"[{datetime.now()}] [DEBUG ADMIN] SetupView: Manage Filters button clicked.")
                 await interaction.response.send_message(view=FilterManageView(self.cog, self.author), ephemeral=True)
 
-            @discord.ui.button(label="Lihat Konfigurasi", style=discord.ButtonStyle.secondary, emoji="📋", row=1)
+            @discord.ui.button(label="Lihat Konfigurasi", style=discord.ButtonStyle.secondary, emoji="📋", row=2) # Pindah ke row 2 agar rapi
             async def view_config(self, interaction: discord.Interaction, button: discord.ui.Button):
                 print(f"[{datetime.now()}] [DEBUG ADMIN] SetupView: View Config button clicked.")
                 settings = self.cog.get_guild_settings(self.guild_id); filters = self.cog.get_guild_filters(self.guild_id)
+                
                 auto_role = self.ctx.guild.get_role(settings.get('auto_role_id')) if settings.get('auto_role_id') else "Tidak diatur"
                 welcome_ch = self.ctx.guild.get_channel(settings.get('welcome_channel_id')) if settings.get('welcome_channel_id') else "Tidak diatur"
                 log_ch = self.ctx.guild.get_channel(settings.get('log_channel_id')) if settings.get('log_channel_id') else "Tidak diatur"
                 
+                boost_ch = self.ctx.guild.get_channel(settings.get('boost_channel_id')) if settings.get('boost_channel_id') else "Tidak diatur"
+                boost_image = f"[URL]({settings.get('boost_image_url')})" if settings.get('boost_image_url') else "Tidak diatur"
+
                 embed = self.cog._create_embed(title=f"Konfigurasi untuk {self.ctx.guild.name}", color=self.cog.color_info)
                 embed.add_field(
                     name="Pengaturan Dasar", 
@@ -1359,7 +1561,20 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
                         f"**Isi Pesan**: ```{settings.get('welcome_message')}```"
                     ), 
                     inline=False
-                ) # BARU: Perbarui tampilan pesan selamat datang
+                )
+                # --- TAMBAHKAN KONFIGURASI BOOSTER DI SINI ---
+                embed.add_field(
+                    name="Pesan Server Booster",
+                    value=(
+                        f"**Channel Booster**: {boost_ch.mention if isinstance(boost_ch, discord.TextChannel) else boost_ch}\n"
+                        f"**Judul Embed**: `{settings.get('boost_embed_title', 'Tidak diatur')}`\n"
+                        f"**Pengirim Kustom**: `{settings.get('boost_sender_name', 'Tidak diatur')}`\n"
+                        f"**URL Gambar**: {boost_image}\n"
+                        f"**Isi Pesan**: ```{settings.get('boost_message')}```"
+                    ),
+                    inline=False
+                )
+                # --- AKHIR KONFIGURASI BOOSTER ---
                 embed.add_field(name="Filter Kata Kasar", value=f"Total: {len(filters.get('bad_words',[]))} kata", inline=True)
                 embed.add_field(name="Filter Link", value=f"Total: {len(filters.get('link_patterns',[]))} pola", inline=True)
                 await interaction.response.send_message(embed=embed, ephemeral=True)
@@ -1436,9 +1651,9 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
         await ctx.send(embed=embed, view=view_instance)
         print(f"[{datetime.now()}] [DEBUG ADMIN] !setup: SetupView message sent.")
 
-    # =======================================================================================
-    # ANNOUNCE COMMAND
-    # =======================================================================================
+# =======================================================================================
+# ANNOUNCE COMMAND
+# =======================================================================================
     @commands.command(name="announce", aliases=["pengumuman", "broadcast"])
     @commands.has_permissions(manage_guild=True)
     async def announce(self, ctx, channel_identifier: str):
