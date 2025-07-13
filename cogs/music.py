@@ -27,7 +27,7 @@ ytdl_opts = {
     'postprocessors': [{
         'key': 'FFmpegExtractAudio',
         'preferredcodec': 'm4a',
-        'preferredquality': '192', 
+        'preferredquality': '128', 
     }],
 }
 
