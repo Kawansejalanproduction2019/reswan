@@ -1,8 +1,8 @@
 {
     "1039509114008649778": {
         "auto_role_id": null,
-        "welcome_channel_id": null,
-        "welcome_message": "Selamat datang di **{guild_name}**, {user}! 🎉",
+        "welcome_channel_id": 1379762287149187162,
+        "welcome_message": "✨━━─◌○°∘✦∘°○◌─━━✨\n🎉 Selamat Datang di [ {guild_name} ]! 🎉\n✨━━─◌○°∘✦∘°○◌─━━✨\n\nHalo {user} Kami sangat antusias kamu bergabung dengan komunitas kami!\nAgar pengalamanmu di sini maksimal dan penuh keseruan, yuk ikuti panduan singkat di bawah ini:\n\n---\n\n## 📚 **Panduan & Hal Penting yang Wajib Kamu Tahu!**\n\n💎 **Peraturan Server:**\nPenting banget untuk membaca dan memahami aturan main kita. Ini demi kenyamanan dan keharmonisan bersama!\n🔗 [Klik di sini untuk membaca peraturan]( https://canary.discord.com/channels/765138959625486357/1255220296508768326 )\n\n✨ **Ambil Role-mu:**\nPilih peran atau role yang sesuai denganmu! Ini akan membuka akses ke berbagai channel dan fitur spesial di server.\n🔗 [Dapatkan role-mu sekarang]( https://discord.com/channels/765138959625486357/1255221263811743836 )\n\n💖 **Khusus Anggota Cewek:**\nUntuk mendapatkan role spesial 'Cewek' dan akses ke channel eksklusif, silakan ajukan permintaan role dan bersedia melakukan verifikasi voice call dengan moderator cewek kami.\n🔗 [Verifikasi untuk role cewek]( https://discord.com/channels/765138959625486357/1255221503344246834 )\n\n---\n\n## 🚀 **Informasi & Ruang Interaksi Seru!**\n\n💡 **Info Penting Discord:**\nJelajahi semua informasi krusial tentang server kita agar kamu tidak ketinggalan berita dan update!\n🔗 [Baca info server di sini]( https://discord.com/channels/765138959625486357/1255221880940531754 )\n🔗 [Info lebih lanjut]( https://discord.com/channels/765138959625486357/1255222258742464642 )\n\n✍️ **Isi Bio Kamu:**\nYuk, perkenalkan dirimu! Sedikit cerita tentangmu akan membantu kami mengenalmu lebih baik.\n🔗 [Isi biodata kamu di sini]( https://discord.com/channels/765138959625486357/1255222918791827527 )\n\n👋 **Sapa dan Bergabunglah!**\nJangan ragu untuk menyapa dan memulai percakapan di channel umum. Kami suka kenalan dengan member baru!\n🔗 [Sapa member lain di sini]( https://discord.com/channels/765138959625486357/851069782803742720 )\n\n---\n\nSelamat bersenang-senang dan mari ciptakan pengalaman Discord yang tak terlupakan bersama! Enjoy the ride! ✌️",
         "log_channel_id": null,
         "reaction_roles": {},
         "channel_rules": {
@@ -19,13 +19,22 @@
                 "disallow_prefix": false,
                 "disallow_url": false,
                 "auto_delete_seconds": 0
+            },
+            "1039509115044626487": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
             }
-        }
+        },
+        "welcome_embed_title": "SELAMAT DATANG!",
+        "welcome_sender_name": "ADMIN"
     },
     "788337048997199882": {
         "auto_role_id": null,
         "welcome_channel_id": 788337048997199885,
-        "welcome_message": "Welcome to RTM {user} di {guild_name} jangan lupa ambil role di https://discord.com/channels/788337048997199882/1384603362787590246",
+        "welcome_message": "halo {user} welcome to {guild_name} jangan lupa ambil role di https://discord.com/channels/788337048997199882/1384603362787590246",
         "log_channel_id": null,
         "reaction_roles": {
             "1384604148053442782": {
@@ -55,12 +64,14 @@
                 "disallow_url": false,
                 "auto_delete_seconds": 0
             }
-        }
+        },
+        "welcome_embed_title": "halo",
+        "welcome_sender_name": "Admin"
     },
     "765138959625486357": {
         "auto_role_id": null,
-        "welcome_channel_id": null,
-        "welcome_message": "Selamat datang di **{guild_name}**, {user}! 🎉",
+        "welcome_channel_id": 1255219778407366688,
+        "welcome_message": "✨━━─◌○°∘✦∘°○◌─━━✨\n🎉 Selamat Datang di [ {guild_name} ]! 🎉\n✨━━─◌○°∘✦∘°○◌─━━✨\n\nHalo {user} Kami sangat antusias kamu bergabung dengan komunitas kami!\nAgar pengalamanmu di sini maksimal dan penuh keseruan, yuk ikuti panduan singkat di bawah ini:\n\n---\n\n## 📚 **Panduan & Hal Penting yang Wajib Kamu Tahu!**\n\n💎 **Peraturan Server:**\nPenting banget untuk membaca dan memahami aturan main kita. Ini demi kenyamanan dan keharmonisan bersama!\n🔗 [Klik di sini untuk membaca peraturan]( https://canary.discord.com/channels/765138959625486357/1255220296508768326 )\n\n✨ **Ambil Role-mu:**\nPilih peran atau role yang sesuai denganmu! Ini akan membuka akses ke berbagai channel dan fitur spesial di server.\n🔗 [Dapatkan role-mu sekarang]( https://discord.com/channels/765138959625486357/1255221263811743836 )\n\n💖 **Khusus Anggota Cewek:**\nUntuk mendapatkan role spesial 'Cewek' dan akses ke channel eksklusif, silakan ajukan permintaan role dan bersedia melakukan verifikasi voice call dengan moderator cewek kami.\n🔗 [Verifikasi untuk role cewek]( https://discord.com/channels/765138959625486357/1255221503344246834 )\n\n---\n\n## 🚀 **Informasi & Ruang Interaksi Seru!**\n\n💡 **Info Penting Discord:**\nJelajahi semua informasi krusial tentang server kita agar kamu tidak ketinggalan berita dan update!\n🔗 [Baca info server di sini]( https://discord.com/channels/765138959625486357/1255221880940531754 )\n🔗 [Info lebih lanjut]( https://discord.com/channels/765138959625486357/1255222258742464642 )\n\n✍️ **Isi Bio Kamu:**\nYuk, perkenalkan dirimu! Sedikit cerita tentangmu akan membantu kami mengenalmu lebih baik.\n🔗 [Isi biodata kamu di sini]( https://discord.com/channels/765138959625486357/1255222918791827527 )\n\n👋 **Sapa dan Bergabunglah!**\nJangan ragu untuk menyapa dan memulai percakapan di channel umum. Kami suka kenalan dengan member baru!\n🔗 [Sapa member lain di sini]( https://discord.com/channels/765138959625486357/851069782803742720 )\n\n---\n\nSelamat bersenang-senang dan mari ciptakan pengalaman Discord yang tak terlupakan bersama! Enjoy the ride! ✌️",
         "log_channel_id": null,
         "reaction_roles": {},
         "channel_rules": {
@@ -112,7 +123,30 @@
                 "disallow_prefix": false,
                 "disallow_url": false,
                 "auto_delete_seconds": 0
+            },
+            "1394076149000175656": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "1394077346515914886": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "1394078313932132514": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
             }
-        }
+        },
+        "welcome_embed_title": "Halo",
+        "welcome_sender_name": "Njan"
     }
 }
