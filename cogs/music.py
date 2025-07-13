@@ -44,7 +44,7 @@ if SPOTIFY_CLIENT_ID and SPOTIPY_CLIENT_SECRET:
         logging.warning(f"Could not initialize Spotify client: {e}")
         logging.warning("Spotify features might not work.")
 else:
-    logging.warning("SPOTIFY_CLIENT_ID or SPOTIPY_CLIENT_SECRET not set.")
+    logging.warning("SPOTIFY_CLIENT_ID or SPOTIFY_CLIENT_SECRET not set.")
     logging.warning("Spotify features might not work without them.")
 
 # YTDL dan FFMPEG opsi
