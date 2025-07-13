@@ -11,43 +11,17 @@ import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials
 import logging
 import json
-import random # Import random untuk shuffle
+import random
 
 # Konfigurasi logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-# Konfigurasi Genius API untuk lirik
-GENIUS_API_TOKEN = os.getenv("GENIUS_API")
-genius = None
-if GENIUS_API_TOKEN:
-    try:
-        genius = Genius(GENIUS_API_TOKEN)
-    except Exception as e:
-        logging.warning(f"Failed to initialize Genius API: {e}")
-        logging.warning("Lyrics feature might not work without GENIUS_API_TOKEN set correctly.")
-else:
-    logging.warning("GENIUS_API_TOKEN is not set in environment variables.")
-    logging.warning("Lyrics feature might not work without it.")
+# --- Inisialisasi API dipindahkan ke dalam __init__ Music Cog ---
+# Hapus bagian inisialisasi Genius dan Spotify dari sini (global scope)
+# GENIUS_API_TOKEN = os.getenv("GENIUS_API")
+# genius = None # Hapus ini
+# ... dan seterusnya untuk Spotify
 
-# Spotify API setup
-SPOTIFY_CLIENT_ID = os.getenv("SPOTIFY_CLIENT_ID")
-SPOTIFY_CLIENT_SECRET = os.getenv("SPOTIFY_CLIENT_SECRET")
-
-spotify = None
-if SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET:
-    try:
-        spotify = spotipy.Spotify(auth_manager=SpotifyClientCredentials(
-            client_id=SPOTIFY_CLIENT_ID,
-            client_secret=SPOTIPY_CLIENT_SECRET
-        ))
-    except Exception as e:
-        logging.warning(f"Could not initialize Spotify client: {e}")
-        logging.warning("Spotify features might not work.")
-else:
-    logging.warning("SPOTIFY_CLIENT_ID or SPOTIPY_CLIENT_SECRET not set.")
-    logging.warning("Spotify features might not work without them.")
-
-# YTDL dan FFMPEG opsi
 ytdl_opts = {
     'format': 'bestaudio[ext=m4a]/bestaudio/best',
     'cookiefile': 'cookies.txt',
@@ -94,10 +68,9 @@ class MusicControlView(discord.ui.View):
     def __init__(self, cog_instance, original_message_info=None):
         super().__init__(timeout=None)
         self.cog = cog_instance
-        self.original_message_info = original_message_info # {'message_id': ..., 'channel_id': ...}
-        self.is_muted = False # State untuk tombol mute/unmute
+        self.original_message_info = original_message_info
+        self.is_muted = False
         
-        # Load donation buttons dynamically
         self.load_donation_buttons()
 
     def load_donation_buttons(self):
@@ -109,7 +82,7 @@ class MusicControlView(discord.ui.View):
                         label=button_data['label'],
                         style=discord.ButtonStyle.url,
                         url=button_data['url'],
-                        row=3 # Baris terpisah untuk donasi
+                        row=3
                     ))
         except FileNotFoundError:
             logging.error("Donation buttons file not found: reswan/data/donation_buttons.json")
@@ -127,11 +100,10 @@ class MusicControlView(discord.ui.View):
             return False
         return True
 
-    # Helper untuk menghapus pesan lama dan mengirim pesan baru
     async def _update_music_message(self, interaction: discord.Interaction):
         guild_id = interaction.guild.id
         if guild_id not in self.cog.current_music_message_info:
-            return # Tidak ada pesan untuk diupdate
+            return
 
         old_message_info = self.cog.current_music_message_info[guild_id]
         old_message_id = old_message_info['message_id']
@@ -145,11 +117,8 @@ class MusicControlView(discord.ui.View):
         except (discord.NotFound, discord.HTTPException) as e:
             logging.warning(f"Could not delete old music message {old_message_id} in channel {old_channel_id}: {e}")
 
-        # Kirim pesan baru dengan embed dan view yang terupdate
-        # Ambil embed dari pesan lama jika ada, atau buat baru
         current_embed = interaction.message.embeds[0] if interaction.message and interaction.message.embeds else discord.Embed(title="Musik Berhenti 🎶")
         
-        # Pastikan tombol play/pause kembali ke play jika sedang playing
         for item in self.children:
             if item.custom_id == "music:play_pause":
                 vc = interaction.guild.voice_client
@@ -159,10 +128,10 @@ class MusicControlView(discord.ui.View):
                 elif vc and vc.is_paused():
                     item.emoji = "⏸️"
                     item.style = discord.ButtonStyle.green
-                else: # Tidak ada lagu
+                else:
                     item.emoji = "▶️"
-                    item.style = discord.ButtonStyle.primary # Default
-            item.disabled = False # Aktifkan kembali semua tombol
+                    item.style = discord.ButtonStyle.primary
+            item.disabled = False
         
         new_message = await old_channel.send(embed=current_embed, view=MusicControlView(self.cog, {'message_id': None, 'channel_id': old_channel_id}))
         self.cog.current_music_message_info[guild_id] = {
@@ -190,7 +159,6 @@ class MusicControlView(discord.ui.View):
         else:
             await interaction.response.send_message("Tidak ada lagu yang sedang diputar/dijeda.", ephemeral=True)
         
-        # Kirim ulang pesan agar selalu di bawah
         await self._update_music_message(interaction)
 
 
@@ -206,8 +174,6 @@ class MusicControlView(discord.ui.View):
         else:
             await interaction.response.send_message("Tidak ada lagu yang sedang diputar.", ephemeral=True)
         
-        # _after_play_handler akan memanggil play_next yang akan mengirim pesan baru
-
 
     @discord.ui.button(emoji="⏹️", style=discord.ButtonStyle.danger, custom_id="music:stop", row=0)
     async def stop_button(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -216,16 +182,14 @@ class MusicControlView(discord.ui.View):
 
         vc = interaction.guild.voice_client
         if vc:
-            # Nonaktifkan semua tombol di pesan lama sebelum dihapus
             for item in self.children:
                 item.disabled = True
-            await interaction.response.edit_message(view=self) # Edit pesan lama untuk nonaktifkan tombol
+            await interaction.response.edit_message(view=self)
 
             await vc.disconnect()
             self.cog.queues[interaction.guild.id] = []
             self.cog.loop_status[interaction.guild.id] = False
             
-            # Hapus pesan lama
             if interaction.guild.id in self.cog.current_music_message_info:
                 old_message_info = self.cog.current_music_message_info[interaction.guild.id]
                 try:
@@ -279,7 +243,7 @@ class MusicControlView(discord.ui.View):
             await interaction.response.send_message("🔁 Mode Loop **OFF**.", ephemeral=True)
             button.style = discord.ButtonStyle.grey
         
-        await self._update_music_message(interaction) # Update pesan utama
+        await self._update_music_message(interaction)
 
     @discord.ui.button(emoji="📖", style=discord.ButtonStyle.blurple, custom_id="music:lyrics", row=1)
     async def lyrics_button(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -312,7 +276,7 @@ class MusicControlView(discord.ui.View):
             await interaction.response.send_message(f"Volume diatur ke: {int(new_volume * 100)}%", ephemeral=True)
         else:
             await interaction.response.send_message("Tidak ada lagu yang sedang diputar.", ephemeral=True)
-        await self._update_music_message(interaction) # Update pesan utama
+        await self._update_music_message(interaction)
 
     @discord.ui.button(emoji="➖", style=discord.ButtonStyle.secondary, custom_id="music:volume_down", row=2)
     async def volume_down_button(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -327,7 +291,7 @@ class MusicControlView(discord.ui.View):
             await interaction.response.send_message(f"Volume diatur ke: {int(new_volume * 100)}%", ephemeral=True)
         else:
             await interaction.response.send_message("Tidak ada lagu yang sedang diputar.", ephemeral=True)
-        await self._update_music_message(interaction) # Update pesan utama
+        await self._update_music_message(interaction)
 
     # --- Tombol Mute/Unmute Baru ---
     @discord.ui.button(emoji="🔊", style=discord.ButtonStyle.secondary, custom_id="music:mute_unmute", row=2)
@@ -338,17 +302,17 @@ class MusicControlView(discord.ui.View):
         vc = interaction.guild.voice_client
         if vc and vc.source:
             if not self.is_muted:
-                vc.source.volume = 0.0 # Mute
+                vc.source.volume = 0.0
                 self.is_muted = True
                 button.emoji = "🔇"
                 await interaction.response.send_message("🔇 Volume dimatikan.", ephemeral=True)
             else:
-                vc.source.volume = 0.8 # Unmute ke volume default
+                vc.source.volume = 0.8
                 self.is_muted = False
                 button.emoji = "🔊"
                 await interaction.response.send_message("🔊 Volume dinyalakan.", ephemeral=True)
             
-            await self._update_music_message(interaction) # Update pesan utama
+            await self._update_music_message(interaction)
         else:
             await interaction.response.send_message("Tidak ada lagu yang sedang diputar.", ephemeral=True)
 
@@ -366,7 +330,7 @@ class MusicControlView(discord.ui.View):
         else:
             await interaction.response.send_message("Antrean terlalu pendek untuk diacak.", ephemeral=True)
         
-        await self._update_music_message(interaction) # Update pesan utama (footer antrean)
+        await self._update_music_message(interaction)
 
     # --- Tombol Clear Queue Baru ---
     @discord.ui.button(emoji="🗑️", style=discord.ButtonStyle.danger, custom_id="music:clear_queue", row=1)
@@ -377,12 +341,12 @@ class MusicControlView(discord.ui.View):
         guild_id = interaction.guild.id
         queue = self.cog.get_queue(guild_id)
         if queue:
-            self.cog.queues[guild_id] = [] # Kosongkan antrean
+            self.cog.queues[guild_id] = []
             await interaction.response.send_message("🗑️ Antrean lagu telah dikosongkan!", ephemeral=True)
         else:
             await interaction.response.send_message("Antrean sudah kosong.", ephemeral=True)
         
-        await self._update_music_message(interaction) # Update pesan utama (footer antrean)
+        await self._update_music_message(interaction)
 
     # --- Tombol Now Playing Info Baru ---
     @discord.ui.button(emoji="ℹ️", style=discord.ButtonStyle.blurple, custom_id="music:np_info", row=0)
@@ -422,8 +386,38 @@ class Music(commands.Cog):
         self.queues = {}
         self.loop_status = {}
         self.current_music_message_info = {} 
-        self.genius = genius
-        self.spotify = spotify
+        
+        # --- INISIALISASI API DIPINDAHKAN KE SINI ---
+        # Genius API
+        GENIUS_API_TOKEN = os.getenv("GENIUS_API")
+        self.genius = None
+        if GENIUS_API_TOKEN:
+            try:
+                self.genius = Genius(GENIUS_API_TOKEN)
+            except Exception as e:
+                logging.warning(f"Failed to initialize Genius API: {e}")
+                logging.warning("Lyrics feature might not work without GENIUS_API_TOKEN set correctly.")
+        else:
+            logging.warning("GENIUS_API_TOKEN is not set in environment variables.")
+            logging.warning("Lyrics feature might not work without it.")
+
+        # Spotify API
+        SPOTIFY_CLIENT_ID = os.getenv("SPOTIFY_CLIENT_ID")
+        SPOTIFY_CLIENT_SECRET = os.getenv("SPOTIFY_CLIENT_SECRET")
+        self.spotify = None
+        if SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET:
+            try:
+                self.spotify = spotipy.Spotify(auth_manager=SpotifyClientCredentials(
+                    client_id=SPOTIFY_CLIENT_ID,
+                    client_secret=SPOTIFY_CLIENT_SECRET
+                ))
+            except Exception as e:
+                logging.warning(f"Could not initialize Spotify client: {e}")
+                logging.warning("Spotify features might not work.")
+        else:
+            logging.warning("SPOTIFY_CLIENT_ID or SPOTIFY_CLIENT_SECRET not set.")
+            logging.warning("Spotify features might not work without them.")
+        # --- AKHIR INISIALISASI API ---
 
         self.bot.add_view(MusicControlView(self))
 
@@ -438,6 +432,17 @@ class Music(commands.Cog):
             return url
 
     async def _send_lyrics(self, interaction_or_ctx, song_name):
+        """Fungsi internal untuk mengirim lirik, bisa dipanggil dari command atau tombol."""
+        if not self.genius: # Cek lagi di dalam fungsi
+            if isinstance(interaction_or_ctx, discord.Interaction):
+                if not interaction_or_ctx.response.is_done():
+                    await interaction_or_ctx.response.send_message("Fitur lirik tidak aktif karena API token Genius belum diatur.", ephemeral=True)
+                else:
+                    await interaction_or_ctx.followup.send("Fitur lirik tidak aktif karena API token Genius belum diatur.", ephemeral=True)
+            else:
+                await interaction_or_ctx.send("Fitur lirik tidak aktif karena API token Genius belum diatur.")
+            return
+
         try:
             search_query = song_name
             current_source = None
@@ -526,7 +531,6 @@ class Music(commands.Cog):
             except (discord.NotFound, discord.HTTPException) as e:
                 logging.warning(f"Could not delete old music message {old_message_info['message_id']} in channel {old_message_info['channel_id']} during play_next: {e}")
             finally:
-                # Hapus info lama agar tidak ada referensi ke pesan yang sudah dihapus
                 del self.current_music_message_info[guild_id]
 
 
@@ -663,21 +667,23 @@ class Music(commands.Cog):
         urls = []
         is_spotify = False
 
-        if spotipy and ("https://open.spotify.com/track/" in query or "https://open.spotify.com/playlist/" in query or "https://open.spotify.com/album/" in query): # Deteksi URL Spotify yang sebenarnya
+        # Perbaikan deteksi Spotify - gunakan domain asli (https://open.spotify.com)
+        # Penting: Pastikan ini sesuai dengan format link yang user berikan!
+        if self.spotify and ("open.spotify.com/track/" in query or "open.spotify.com/playlist/" in query or "open.spotify.com/album/" in query): 
             is_spotify = True
             try:
-                if "track" in query:
+                if "open.spotify.com/track/" in query:
                     track = self.spotify.track(query)
                     search_query = f"{track['name']} {track['artists'][0]['name']}"
                     urls.append(search_query)
-                elif "playlist" in query:
+                elif "open.spotify.com/playlist/" in query:
                     results = self.spotify.playlist_tracks(query)
                     for item in results['items']:
                         track = item['track'] if 'track' in item else item
                         if track: 
                             search_query = f"{track['name']} {track['artists'][0]['name']}"
                             urls.append(search_query)
-                elif "album" in query:
+                elif "open.spotify.com/album/" in query:
                     results = self.spotify.album_tracks(query)
                     for item in results['items']:
                         track = item['track'] if 'track' in item else item
@@ -685,11 +691,12 @@ class Music(commands.Cog):
                             search_query = f"{track['name']} {track['artists'][0]['name']}"
                             urls.append(search_query)
                 else:
-                    return await ctx.send("Link Spotify tidak dikenali (hanya track, playlist, atau album).")
+                    await ctx.send("Link Spotify tidak dikenali (hanya track, playlist, atau album).", ephemeral=True) # Pakai ephemeral
+                    return # Penting: return setelah kirim pesan error
             except Exception as e:
                 logging.error(f"Error processing Spotify link: {e}")
-                await ctx.send(f"Terjadi kesalahan saat memproses link Spotify: {e}")
-                return
+                await ctx.send(f"Terjadi kesalahan saat memproses link Spotify: {e}", ephemeral=True) # Pakai ephemeral
+                return # Penting: return setelah kirim pesan error
         else:
             urls.append(query)
 
@@ -732,7 +739,6 @@ class Music(commands.Cog):
                 embed.add_field(name="Diminta oleh", value=ctx.author.mention, inline=True)
                 embed.set_footer(text=f"Antrean: {len(queue)} lagu tersisa")
 
-                # Kirim pesan baru
                 message_sent = await ctx.send(embed=embed, view=MusicControlView(self, {'message_id': None, 'channel_id': ctx.channel.id}))
                 
                 if message_sent:
@@ -743,14 +749,12 @@ class Music(commands.Cog):
                 
             except Exception as e:
                 logging.error(f'Failed to play song: {e}')
-                await ctx.send(f'Gagal memutar lagu: {e}')
+                await ctx.send(f'Gagal memutar lagu: {e}', ephemeral=True) # ephemeral untuk error play
                 return
         else:
-            await ctx.send(f"Ditambahkan ke antrian: **{len(urls)} lagu**." if is_spotify else f"Ditambahkan ke antrian: **{urls[0]}**.")
-            queue.extend(urls) # Pastikan queue.extend setelah pesan dikirim untuk info akurat di footer
+            await ctx.send(f"Ditambahkan ke antrian: **{len(urls)} lagu**." if is_spotify else f"Ditambahkan ke antrian: **{urls[0]}**.", ephemeral=True) # ephemeral untuk pesan antrian
+            queue.extend(urls)
                 
-            # Update footer antrean di pesan "Now Playing" yang sudah ada
-            # Ini akan memicu _update_music_message_from_ctx untuk menghapus dan mengirim ulang
             if ctx.guild.id in self.current_music_message_info:
                 await self._update_music_message_from_ctx(ctx)
 
@@ -758,29 +762,29 @@ class Music(commands.Cog):
     @commands.command(name="resskip")
     async def skip_cmd(self, ctx):
         if not ctx.voice_client or (not ctx.voice_client.is_playing() and not ctx.voice_client.is_paused()):
-            return await ctx.send("Tidak ada lagu yang sedang diputar.")
+            return await ctx.send("Tidak ada lagu yang sedang diputar.", ephemeral=True)
         ctx.voice_client.stop()
-        await ctx.send("⏭️ Skip lagu.")
+        await ctx.send("⏭️ Skip lagu.", ephemeral=True)
 
     @commands.command(name="respause")
     async def pause_cmd(self, ctx):
         if ctx.voice_client and ctx.voice_client.is_playing():
             ctx.voice_client.pause()
-            await ctx.send("⏸️ Lagu dijeda.")
+            await ctx.send("⏸️ Lagu dijeda.", ephemeral=True)
             if ctx.guild.id in self.current_music_message_info:
                 await self._update_music_message_from_ctx(ctx)
         else:
-            await ctx.send("Tidak ada lagu yang sedang diputar.")
+            await ctx.send("Tidak ada lagu yang sedang diputar.", ephemeral=True)
 
     @commands.command(name="resresume")
     async def resume_cmd(self, ctx):
         if ctx.voice_client and ctx.voice_client.is_paused():
             ctx.voice_client.resume()
-            await ctx.send("▶️ Lanjut lagu.")
+            await ctx.send("▶️ Lanjut lagu.", ephemeral=True)
             if ctx.guild.id in self.current_music_message_info:
                 await self._update_music_message_from_ctx(ctx)
         else:
-            await ctx.send("Tidak ada lagu yang dijeda.")
+            await ctx.send("Tidak ada lagu yang dijeda.", ephemeral=True)
 
     # Helper baru untuk _update_music_message dari commands.Context
     async def _update_music_message_from_ctx(self, ctx):
@@ -802,8 +806,7 @@ class Music(commands.Cog):
         finally:
             del self.current_music_message_info[guild_id]
 
-        # Kirim pesan baru dengan embed dan view yang terupdate
-        current_embed = discord.Embed(title="Musik Berhenti 🎶") # Default embed jika tidak ada lagu
+        current_embed = discord.Embed(title="Musik Berhenti 🎶")
         vc = ctx.voice_client
         if vc and vc.is_playing() and vc.source:
             source = vc.source
@@ -819,13 +822,10 @@ class Music(commands.Cog):
                 minutes, seconds = divmod(source.duration, 60)
                 duration_str = f"{minutes:02}:{seconds:02}"
             current_embed.add_field(name="Durasi", value=duration_str, inline=True)
-            # ctx.author di sini bisa jadi user yang mengklik tombol atau user yang menjalankan perintah
-            # Jadi kita gunakan ctx.author saja sebagai contoh
             current_embed.add_field(name="Diminta oleh", value=ctx.author.mention, inline=True)
             current_embed.set_footer(text=f"Antrean: {len(self.get_queue(guild_id))} lagu tersisa")
         
         view_instance = MusicControlView(self, {'message_id': None, 'channel_id': old_channel_id})
-        # Pastikan tombol play/pause dan mute/unmute benar
         for item in view_instance.children:
             if item.custom_id == "music:play_pause":
                 if vc and vc.is_playing():
@@ -838,7 +838,6 @@ class Music(commands.Cog):
                     item.emoji = "▶️"
                     item.style = discord.ButtonStyle.primary
             elif item.custom_id == "music:mute_unmute":
-                # Asumsi volume bot 0.0 jika muted, atau 0.8 jika tidak
                 if vc and vc.source and vc.source.volume == 0.0:
                     item.emoji = "🔇"
                 else:
@@ -861,7 +860,7 @@ class Music(commands.Cog):
                     target_channel = ctx.guild.get_channel(old_message_info['channel_id']) or await ctx.guild.fetch_channel(old_message_info['channel_id'])
                     if target_channel:
                         old_message = await target_channel.fetch_message(old_message_info['message_id'])
-                        await old_message.delete() # Hapus pesan lama
+                        await old_message.delete()
                 except (discord.NotFound, discord.HTTPException):
                     logging.warning(f"Could not delete old music message on stop command for message {old_message_info['message_id']} in channel {old_message_info['channel_id']}.")
                 finally:
@@ -871,9 +870,9 @@ class Music(commands.Cog):
             self.loop_status[ctx.guild.id] = False
             
             await ctx.voice_client.disconnect()
-            await ctx.send("⏹️ Stop dan keluar dari voice.")
+            await ctx.send("⏹️ Stop dan keluar dari voice.", ephemeral=True)
         else:
-            await ctx.send("Bot tidak ada di voice channel.")
+            await ctx.send("Bot tidak ada di voice channel.", ephemeral=True)
 
     @commands.command(name="resqueue")
     async def queue_cmd(self, ctx):
@@ -889,9 +888,9 @@ class Music(commands.Cog):
             )
             if len(queue) > 15:
                 embed.set_footer(text=f"Dan {len(queue) - 15} lagu lainnya...")
-            await ctx.send(embed=embed)
+            await ctx.send(embed=embed, ephemeral=True) # ephemeral
         else:
-            await ctx.send("Antrian kosong.")
+            await ctx.send("Antrian kosong.", ephemeral=True) # ephemeral
             
     @commands.command(name="resloop")
     async def loop_cmd(self, ctx):
@@ -902,7 +901,7 @@ class Music(commands.Cog):
         self.loop_status[guild_id] = not self.loop_status[guild_id]
 
         status_msg = "ON" if self.loop_status[guild_id] else "OFF"
-        await ctx.send(f"🔁 Mode Loop **{status_msg}** (lagu saat ini akan diulang).")
+        await ctx.send(f"🔁 Mode Loop **{status_msg}** (lagu saat ini akan diulang).", ephemeral=True) # ephemeral
 
         if ctx.guild.id in self.current_music_message_info:
             await self._update_music_message_from_ctx(ctx)
@@ -911,27 +910,27 @@ class Music(commands.Cog):
     @commands.command(name="reslyrics")
     async def lyrics(self, ctx, *, song_name=None):
         if not self.genius:
-            return await ctx.send("Fitur lirik tidak aktif karena API token Genius belum diatur.")
+            return await ctx.send("Fitur lirik tidak aktif karena API token Genius belum diatur.", ephemeral=True) # ephemeral
             
         if song_name is None and ctx.voice_client and ctx.voice_client.is_playing():
             song_name = ctx.voice_client.source.title
         elif song_name is None:
-            return await ctx.send("Tentukan nama lagu atau putar lagu terlebih dahulu untuk mencari liriknya.")
+            return await ctx.send("Tentukan nama lagu atau putar lagu terlebih dahulu untuk mencari liriknya.", ephemeral=True) # ephemeral
             
-        await ctx.defer()
+        await ctx.defer(ephemeral=True) # ephemeral defer
         await self._send_lyrics(ctx, song_name)
 
     # --- Command untuk Volume (Opsional, karena sudah ada tombol) ---
     @commands.command(name="resvolume")
     async def volume_cmd(self, ctx, volume: int):
         if not ctx.voice_client or not ctx.voice_client.source:
-            return await ctx.send("Tidak ada lagu yang sedang diputar.")
+            return await ctx.send("Tidak ada lagu yang sedang diputar.", ephemeral=True) # ephemeral
         
         if not 0 <= volume <= 100:
-            return await ctx.send("Volume harus antara 0 dan 100.")
+            return await ctx.send("Volume harus antara 0 dan 100.", ephemeral=True) # ephemeral
             
         ctx.voice_client.source.volume = volume / 100
-        await ctx.send(f"Volume diatur ke: {volume}%")
+        await ctx.send(f"Volume diatur ke: {volume}%", ephemeral=True) # ephemeral
         if ctx.guild.id in self.current_music_message_info:
             await self._update_music_message_from_ctx(ctx)
 
@@ -941,11 +940,11 @@ class Music(commands.Cog):
         queue = self.get_queue(ctx.guild.id)
         if len(queue) > 1:
             random.shuffle(queue)
-            await ctx.send("🔀 Antrean lagu diacak!")
+            await ctx.send("🔀 Antrean lagu diacak!", ephemeral=True) # ephemeral
             if ctx.guild.id in self.current_music_message_info:
                 await self._update_music_message_from_ctx(ctx)
         else:
-            await ctx.send("Antrean terlalu pendek untuk diacak.")
+            await ctx.send("Antrean terlalu pendek untuk diacak.", ephemeral=True) # ephemeral
 
     # --- Command untuk Clear Queue (Opsional, karena sudah ada tombol) ---
     @commands.command(name="resclear")
@@ -953,11 +952,11 @@ class Music(commands.Cog):
         queue = self.get_queue(ctx.guild.id)
         if queue:
             self.queues[ctx.guild.id] = []
-            await ctx.send("🗑️ Antrean lagu telah dikosongkan!")
+            await ctx.send("🗑️ Antrean lagu telah dikosongkan!", ephemeral=True) # ephemeral
             if ctx.guild.id in self.current_music_message_info:
                 await self._update_music_message_from_ctx(ctx)
         else:
-            await ctx.send("Antrean sudah kosong.")
+            await ctx.send("Antrean sudah kosong.", ephemeral=True) # ephemeral
 
 
 async def setup(bot):
