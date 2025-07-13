@@ -23,7 +23,7 @@ SPOTIFY_CLIENT_ID = os.getenv("SPOTIFY_CLIENT_ID")
 SPOTIFY_CLIENT_SECRET = os.getenv("SPOTIFY_CLIENT_SECRET")
 
 spotify = None
-if SPOTIFY_CLIENT_ID and SPOTIPY_CLIENT_SECRET:
+if SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET:
     try:
         spotify = spotipy.Spotify(auth_manager=SpotifyClientCredentials(
             client_id=SPOTIFY_CLIENT_ID,
