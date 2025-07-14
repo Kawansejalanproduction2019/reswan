@@ -656,8 +656,8 @@ class VoiceFeatures(commands.Cog):
         self.bot = bot
 
         # --- KONFIGURASI TEMPVOLICE ---
-        self.TRIGGER_VOICE_CHANNEL_ID = 1039509115044626487 # ID Channel Pemicu TempVoice
-        self.TARGET_CATEGORY_ID = 1381321212638003434        # ID Kategori untuk Channel Baru
+        self.TRIGGER_VOICE_CHANNEL_ID = 1382486705113927811 # ID Channel Pemicu TempVoice
+        self.TARGET_CATEGORY_ID = 1255211613326278716        # ID Kategori untuk Channel Baru
         self.DEFAULT_CHANNEL_NAME_PREFIX = "Music" # Default prefix untuk channel TempVoice
         self.active_temp_channels = load_temp_channels() # Muat state channel temporer
         log.info(f"TempVoice initialized. Active temporary channels: {self.active_temp_channels}")
