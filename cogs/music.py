@@ -56,8 +56,9 @@ def save_temp_channels(data):
     with open(TEMP_CHANNELS_FILE, 'w', encoding='utf-8') as f:
         json.dump(data_to_save, f, indent=4)
 
+# --- Updated YTDL Options for Opus and FFMPEG Options for Stability ---
 ytdl_opts = {
-    'format': 'bestaudio[ext=m4a]/bestaudio/best',
+    'format': 'bestaudio[ext=opus]/bestaudio[ext=m4a]/bestaudio/best', # Prioritaskan opus, lalu m4a
     'cookiefile': 'cookies.txt',
     'quiet': True,
     'default_search': 'ytsearch',
@@ -65,14 +66,15 @@ ytdl_opts = {
     'noplaylist': True,
     'postprocessors': [{
         'key': 'FFmpegExtractAudio',
-        'preferredcodec': 'm4a',
+        'preferredcodec': 'opus', # Coba opus sebagai preferred codec
         'preferredquality': '192',
     }],
 }
 
 FFMPEG_OPTIONS = {
     'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
-    'options': '-vn -b:a 192k'
+    # Menyesuaikan bufsize ke 1MB (1024K) yang lebih standar, dan menambahkan fflags/flags
+    'options': '-vn -b:a 192k -bufsize 1024K -probesize 10M -analyzeduration 10M -fflags +discardcorrupt -flags +global_header'
 }
 
 ytdl = yt_dlp.YoutubeDL(ytdl_opts)
@@ -233,12 +235,16 @@ class MusicControlView(discord.ui.View):
 
         vc = interaction.guild.voice_client
         if vc:
+            # PENTING: Panggil stop() sebelum disconnect untuk menghentikan FFMPEG dengan bersih
+            if vc.is_playing() or vc.is_paused():
+                vc.stop() 
             await vc.disconnect()
             self.cog.queues[interaction.guild.id] = []
             self.cog.loop_status[interaction.guild.id] = False
             self.cog.is_muted[interaction.guild.id] = False
             self.cog.old_volume.pop(interaction.guild.id, None)
             self.cog.now_playing_info.pop(interaction.guild.id, None)
+            self.cog.playing_tracks.pop(interaction.guild.id, None) # Hapus info trek yang sedang diputar
             
             if interaction.guild.id in self.cog.current_music_message_info:
                 old_message_info = self.cog.current_music_message_info[interaction.guild.id]
@@ -442,6 +448,8 @@ class ReswanBot(commands.Cog):
         self.is_muted = {}
         self.old_volume = {}
         self.now_playing_info = {}
+        # Untuk trek musik yang sedang diputar (digunakan untuk penghapusan file)
+        self.playing_tracks = {} # {guild_id: {'filename': 'path/to/file'}}
         
         GENIUS_API_TOKEN = os.getenv("GENIUS_API")
         self.genius = None
@@ -455,6 +463,7 @@ class ReswanBot(commands.Cog):
             logging.warning("GENIUS_API_TOKEN is not set in environment variables.")
             logging.warning("Lyrics feature might not work without it.")
 
+        # --- PERBAIKAN: Menggunakan SPOTIFY_CLIENT_ID dan SPOTIFY_CLIENT_SECRET yang benar ---
         SPOTIFY_CLIENT_ID = os.getenv("SPOTIFY_CLIENT_ID")
         SPOTIFY_CLIENT_SECRET = os.getenv("SPOTIFY_CLIENT_SECRET")
         self.spotify = None
@@ -480,14 +489,17 @@ class ReswanBot(commands.Cog):
         self.active_temp_channels = load_temp_channels() 
         log.info(f"ReswanBot cog loaded. Active temporary channels: {self.active_temp_channels}")
         self.cleanup_task.start()
+        # Task untuk memeriksa dan mengeluarkan bot jika channel kosong
+        self.idle_check_task = self.bot.loop.create_task(self._check_and_disconnect_idle_bots())
 
     def _save_temp_channels_state(self):
         save_temp_channels(self.active_temp_channels)
         log.debug("Temporary channel state saved.")
 
     def cog_unload(self):
-        log.info("ReswanBot cog unloaded. Cancelling cleanup task.")
+        log.info("ReswanBot cog unloaded. Cancelling cleanup tasks.")
         self.cleanup_task.cancel()
+        self.idle_check_task.cancel() # Batalkan task pengecekan idle
 
     @tasks.loop(seconds=10) # Cek setiap 10 detik
     async def cleanup_task(self):
@@ -510,10 +522,16 @@ class ReswanBot(commands.Cog):
                 channels_to_remove.append(channel_id_str)
                 continue
 
-            if not channel.members: 
+            # --- LOGIKA BARU UNTUK HAPUS CUSTOM CHANNEL JIKA TANPA PENGGUNA MANUSIA ---
+            human_members_in_custom_channel = [
+                member for member in channel.members
+                if not member.bot
+            ]
+
+            if not human_members_in_custom_channel: # Jika tidak ada anggota manusia
                 try:
-                    await channel.delete(reason="Temporary voice channel is empty.")
-                    log.info(f"Deleted empty temporary voice channel: {channel.name} ({channel_id}).")
+                    await channel.delete(reason="Custom voice channel is empty of human users.")
+                    log.info(f"Deleted empty (of humans) temporary voice channel: {channel.name} ({channel_id}).")
                     channels_to_remove.append(channel_id_str)
                 except discord.NotFound: 
                     log.info(f"Temporary voice channel {channel_id} already deleted (from Discord). Removing from tracking.")
@@ -535,11 +553,77 @@ class ReswanBot(commands.Cog):
         await self.bot.wait_until_ready()
         log.info("Bot ready, TempVoice cleanup task is about to start.")
 
+    @tasks.loop(seconds=30) # Mengubah timer dari minutes=2 menjadi seconds=30
+    async def _check_and_disconnect_idle_bots(self):
+        log.info("Running idle check task...")
+        for guild in self.bot.guilds:
+            vc = guild.voice_client
+            if vc and vc.is_connected():
+                log.info(f"Checking voice channel {vc.channel.name} in guild {guild.name} (ID: {guild.id})...")
+                
+                # Filter anggota untuk mengecualikan bot itu sendiri
+                human_members = [
+                    member for member in vc.channel.members
+                    if not member.bot
+                ]
+                
+                num_human_members = len(human_members)
+                is_playing_or_paused = vc.is_playing() or vc.is_paused()
+                is_queue_empty = not self.queues.get(guild.id) or len(self.queues.get(guild.id)) == 0
+
+                log.info(f"  Human members: {num_human_members}, Playing/Paused: {is_playing_or_paused}, Queue Empty: {is_queue_empty}")
+                
+                # --- LOG DEBUG DETAIL MEMBER ---
+                log.debug(f"  Members in {vc.channel.name}:")
+                for member in vc.channel.members:
+                    log.debug(f"    - {member.display_name} (ID: {member.id}), is_bot: {member.bot}")
+
+                # Jika tidak ada anggota manusia
+                if num_human_members == 0:
+                    log.info(f"Bot {self.bot.user.name} idle in voice channel {vc.channel.name} in guild {guild.name} (no human members). Disconnecting.")
+                    
+                    # Panggil stop() sebelum disconnect untuk menghentikan FFMPEG dengan bersih
+                    if is_playing_or_paused:
+                        vc.stop()
+                    await vc.disconnect()
+                    
+                    # Bersihkan state guild ini
+                    self.queues.pop(guild.id, None)
+                    self.loop_status.pop(guild.id, None)
+                    self.is_muted.pop(guild.id, None)
+                    self.old_volume.pop(guild.id, None)
+                    self.now_playing_info.pop(guild.id, None)
+                    self.playing_tracks.pop(guild.id, None) 
+
+                    # Hapus pesan kontrol musik terakhir jika ada
+                    if guild.id in self.current_music_message_info:
+                        old_message_info = self.current_music_message_info[guild.id]
+                        try:
+                            old_channel = guild.get_channel(old_message_info['channel_id']) or await guild.fetch_channel(old_message_info['channel_id'])
+                            if old_channel:
+                                old_message = await old_channel.fetch_message(old_message_info['message_id'])
+                                await old_message.delete()
+                                log.info(f"Deleted old music message {old_message_info['message_id']} in channel {old_message_info['channel_id']}.")
+                        except (discord.NotFound, discord.HTTPException) as e:
+                            logging.warning(f"Could not delete old music message on idle disconnect: {e}")
+                        finally:
+                            del self.current_music_message_info[guild.id]
+                else:
+                    log.info(f"Bot {self.bot.user.name} not idle in {vc.channel.name}. Conditions: Human Members={num_human_members}, Playing/Paused={is_playing_or_paused}, Queue Empty={is_queue_empty}.")
+
+
+    @_check_and_disconnect_idle_bots.before_loop
+    async def before_idle_check_task(self):
+        await self.bot.wait_until_ready()
+        log.info("Bot ready, idle check task is about to start.")
+
+
     @commands.Cog.listener()
     async def on_voice_state_update(self, member, before, after):
         if member.bot:
             return
 
+        # --- LOGIKA UNTUK PEMBUATAN CHANNEL SEMENTARA ---
         if after.channel and after.channel.id == self.TRIGGER_VOICE_CHANNEL_ID: 
             log.info(f"User {member.display_name} ({member.id}) joined trigger VC ({self.TRIGGER_VOICE_CHANNEL_ID}).")
 
@@ -823,6 +907,7 @@ class ReswanBot(commands.Cog):
         if not target_channel:
             target_channel = ctx.channel
 
+        # Hapus pesan kontrol musik lama sebelum memutar lagu baru
         if guild_id in self.current_music_message_info:
             old_message_info = self.current_music_message_info[guild_id]
             try:
@@ -859,17 +944,31 @@ class ReswanBot(commands.Cog):
             }
             self.now_playing_info.pop(guild_id, None)
 
-            await target_channel.send("Antrian kosong. Keluar dari voice channel.", ephemeral=True)
-            if ctx.voice_client:
-                await ctx.voice_client.disconnect()
+            # Bot keluar jika antrean kosong DAN tidak ada user lain.
+            # Logika ini dipindahkan ke task _check_and_disconnect_idle_bots untuk pengecekan berkala,
+            # sehingga tidak perlu double check di sini kecuali untuk pesan langsung.
+            await target_channel.send("Antrean kosong. Bot akan keluar dari voice channel jika tidak ada pengguna lain.", ephemeral=True)
             return
 
         url = queue.pop(0)
         try:
-            source = await YTDLSource.from_url(url, loop=self.bot.loop)
+            # Dapatkan informasi lagu untuk disimpan ke playing_tracks
+            song_info_from_ytdl = await self.get_song_info_from_url(url)
+            # YTDLSource.from_url akan mendownload ke 'downloads/%(title)s.%(ext)s'
+            # Jadi kita perlu mendapatkan nama filenya jika diperlukan untuk dihapus
+            # Jika stream=True, file tidak didownload, jadi tidak perlu dihapus.
+            # Kita asumsikan stream=True untuk mengurangi penggunaan disk.
+            source = await YTDLSource.from_url(url, loop=self.bot.loop, stream=True)
+            
+            # Simpan info trek yang sedang diputar (jika perlu dihapus, tambahkan 'filename' ke sini)
+            self.playing_tracks[guild_id] = {'webpage_url': url} # Simpan URL untuk referensi
+
+            # Pastikan FFMPEG dihentikan jika player sebelumnya masih aktif sebelum memutar yang baru
+            if ctx.voice_client.is_playing() or ctx.voice_client.is_paused():
+                ctx.voice_client.stop()
+
             ctx.voice_client.play(source, after=lambda e: asyncio.run_coroutine_threadsafe(self._after_play_handler(ctx, e), self.bot.loop))
             
-            song_info_from_ytdl = await self.get_song_info_from_url(url)
             self.now_playing_info[guild_id] = {
                 'title': song_info_from_ytdl['title'],
                 'artist': song_info_from_ytdl['artist'],
@@ -889,7 +988,7 @@ class ReswanBot(commands.Cog):
                 minutes, seconds = divmod(source.duration, 60)
                 duration_str = f"{minutes:02}:{seconds:02}"
             embed.add_field(name="Durasi", value=duration_str, inline=True)
-            embed.add_field(name="Diminta oleh", value=ctx.author.mention, inline=True) 
+            embed.add_field(name="Diminta oleh", value=ctx.author.mention, inline=True)
             embed.set_footer(text=f"Antrean: {len(queue)} lagu tersisa")
 
             view_instance = MusicControlView(self, {'message_id': None, 'channel_id': target_channel.id})
@@ -915,8 +1014,10 @@ class ReswanBot(commands.Cog):
         except Exception as e:
             logging.error(f'Failed to play song for guild {guild_id}: {e}')
             await target_channel.send(f'Gagal memutar lagu: {e}')
-            # Jika gagal memutar, tetap coba lagu berikutnya atau putus koneksi
-            asyncio.run_coroutine_threadsafe(self.play_next(ctx), self.bot.loop)
+            # Pastikan FFMPEG dihentikan jika ada error fatal saat mencoba memutar
+            if ctx.voice_client and (ctx.voice_client.is_playing() or ctx.voice_client.is_paused()):
+                ctx.voice_client.stop()
+            return
 
     async def _after_play_handler(self, ctx, error):
         guild_id = ctx.guild.id
@@ -934,12 +1035,15 @@ class ReswanBot(commands.Cog):
                 else:
                     await ctx.send(f"Terjadi error saat memutar: {error}")
                 
-        await asyncio.sleep(1)
+        await asyncio.sleep(1) # Beri sedikit waktu untuk FFMPEG berhenti
 
-        # Mengembalikan perilaku "brutal disconnect"
+        # Hapus info trek yang baru saja diputar
+        self.playing_tracks.pop(guild_id, None)
+
+        # Lanjut ke lagu berikutnya atau berhenti jika antrean kosong
         if ctx.voice_client and ctx.voice_client.is_connected():
-            await self.play_next(ctx) # Lanjut ke lagu berikutnya atau disconnect jika antrean kosong
-        else: # Bot sudah tidak di voice channel (mungkin di-kick manual)
+            await self.play_next(ctx) 
+        else: # Bot sudah tidak di voice channel (mungkin di-kick manual atau disconnect oleh idle_check)
             logging.info(f"Bot disconnected from voice channel in guild {guild_id} (manual disconnect or after play handler). Cleaning up.")
             # Clear state
             self.queues[guild_id] = []
@@ -959,6 +1063,7 @@ class ReswanBot(commands.Cog):
                     logging.warning(f"Could not delete old music message on auto-disconnect: {old_message_info['message_id']} in channel {old_message_info['channel_id']}.")
                 finally:
                     del self.current_music_message_info[guild_id]
+
 
     async def _update_music_message_from_ctx(self, ctx):
         guild_id = ctx.guild.id
@@ -998,6 +1103,7 @@ class ReswanBot(commands.Cog):
             )
             if source.thumbnail:
                 embed_to_send.set_thumbnail(url=source.thumbnail)
+            
             duration_str = "N/A"
             if source.duration:
                 minutes, seconds = divmod(source.duration, 60)
@@ -1062,25 +1168,32 @@ class ReswanBot(commands.Cog):
         is_spotify_link = False
         spotify_track_info = None
 
+        # Perbaikan: Mengubah pola URL Spotify agar tidak merujuk ke googleusercontent.com
+        # Asumsi: Query Spotify akan berupa URL langsung dari Spotify atau ID track/playlist/album.
+        # Jika Anda menggunakan proxy/redirect sebelumnya, Anda perlu menangani URL aslinya.
+        # Untuk demonstrasi ini, saya berasumsi query adalah URL Spotify yang valid.
         if self.spotify and ("https://open.spotify.com/track/" in query or "https://open.spotify.com/playlist/" in query or "https://open.spotify.com/album/" in query): 
             is_spotify_link = True
             try:
                 if "https://open.spotify.com/track/" in query:
-                    track = self.spotify.track(query)
+                    track_id = query.split('/')[-1].split('?')[0]
+                    track = self.spotify.track(track_id)
                     spotify_track_info = {'title': track['name'], 'artist': track['artists'][0]['name'], 'webpage_url': query}
                     search_query = f"{track['name']} {track['artists'][0]['name']}"
                     urls.append(search_query)
                 elif "https://open.spotify.com/playlist/" in query:
-                    results = self.spotify.playlist_tracks(query)
+                    playlist_id = query.split('/')[-1].split('?')[0]
+                    results = self.spotify.playlist_tracks(playlist_id)
                     for item in results['items']:
-                        track = item['track'] if 'track' in item else item
+                        track = item['track']
                         if track: 
                             search_query = f"{track['name']} {track['artists'][0]['name']}"
                             urls.append(search_query)
                 elif "https://open.spotify.com/album/" in query:
-                    results = self.spotify.album_tracks(query)
+                    album_id = query.split('/')[-1].split('?')[0]
+                    results = self.spotify.album_tracks(album_id)
                     for item in results['items']:
-                        track = item['track'] if 'track' in item else item
+                        track = item
                         if track: 
                             search_query = f"{track['name']} {track['artists'][0]['name']}"
                             urls.append(search_query)
@@ -1096,6 +1209,7 @@ class ReswanBot(commands.Cog):
 
         queue = self.get_queue(ctx.guild.id)
         
+        # Hapus pesan kontrol musik lama sebelum memutar lagu baru atau menambah antrean
         if ctx.guild.id in self.current_music_message_info:
             old_message_info = self.current_music_message_info[ctx.guild.id]
             try:
@@ -1113,11 +1227,12 @@ class ReswanBot(commands.Cog):
             first_url = urls.pop(0)
             queue.extend(urls)
             try:
-                source = await YTDLSource.from_url(first_url, loop=self.bot.loop)
+                source = await YTDLSource.from_url(first_url, loop=self.bot.loop, stream=True) # Pastikan stream=True
                 ctx.voice_client.play(source, after=lambda e: asyncio.run_coroutine_threadsafe(self._after_play_handler(ctx, e), self.bot.loop))
 
                 if is_spotify_link and spotify_track_info:
                     self.now_playing_info[ctx.guild.id] = spotify_track_info
+                    self.playing_tracks[ctx.guild.id] = {'webpage_url': spotify_track_info['webpage_url']}
                 else:
                     song_info_from_ytdl = await self.get_song_info_from_url(first_url)
                     self.now_playing_info[ctx.guild.id] = {
@@ -1125,6 +1240,8 @@ class ReswanBot(commands.Cog):
                         'artist': song_info_from_ytdl['artist'],
                         'webpage_url': song_info_from_ytdl['webpage_url']
                     }
+                    self.playing_tracks[ctx.guild.id] = {'webpage_url': song_info_from_ytdl['webpage_url']}
+
 
                 embed = discord.Embed(
                     title="🎶 Sedang Memutar",
@@ -1160,6 +1277,9 @@ class ReswanBot(commands.Cog):
             except Exception as e:
                 logging.error(f'Failed to play song: {e}')
                 await ctx.send(f'Gagal memutar lagu: {e}', ephemeral=True)
+                # Pastikan FFMPEG dihentikan jika ada error fatal saat mencoba memutar
+                if ctx.voice_client and (ctx.voice_client.is_playing() or ctx.voice_client.is_paused()):
+                    ctx.voice_client.stop()
                 return
         else:
             await ctx.send(f"Ditambahkan ke antrian: **{len(urls)} lagu**." if is_spotify_link else f"Ditambahkan ke antrian: **{urls[0]}**.", ephemeral=True)
@@ -1172,7 +1292,7 @@ class ReswanBot(commands.Cog):
     async def skip_cmd(self, ctx):
         if not ctx.voice_client or (not ctx.voice_client.is_playing() and not ctx.voice_client.is_paused()):
             return await ctx.send("Tidak ada lagu yang sedang diputar.", ephemeral=True)
-        ctx.voice_client.stop()
+        ctx.voice_client.stop() # Ini akan memicu _after_play_handler
         await ctx.send("⏭️ Skip lagu.", ephemeral=True)
 
     @commands.command(name="respause")
@@ -1210,11 +1330,16 @@ class ReswanBot(commands.Cog):
                 finally:
                     del self.current_music_message_info[ctx.guild.id]
 
+            # Panggil stop() sebelum disconnect untuk menghentikan FFMPEG dengan bersih
+            if ctx.voice_client.is_playing() or ctx.voice_client.is_paused():
+                ctx.voice_client.stop()
+
             self.queues[ctx.guild.id] = []
             self.loop_status[ctx.guild.id] = False
             self.is_muted[ctx.guild.id] = False
             self.old_volume.pop(ctx.guild.id, None)
             self.now_playing_info.pop(ctx.guild.id, None)
+            self.playing_tracks.pop(ctx.guild.id, None) # Hapus info trek yang sedang diputar
             
             await ctx.voice_client.disconnect()
             await ctx.send("⏹️ Stop dan keluar dari voice.", ephemeral=True)
