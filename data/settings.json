@@ -26,10 +26,22 @@
                 "disallow_prefix": false,
                 "disallow_url": false,
                 "auto_delete_seconds": 0
+            },
+            "1394125599752060991": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
             }
         },
-        "welcome_embed_title": "SELAMAT DATANG!",
-        "welcome_sender_name": "ADMIN"
+        "welcome_embed_title": "halo",
+        "welcome_sender_name": "ADMIN",
+        "boost_channel_id": null,
+        "boost_message": "Terima kasih banyak, {user}, telah menjadi **Server Booster** kami di {guild_name}! Kami sangat menghargai dukunganmu! ❤️",
+        "boost_embed_title": "TERIMA KASIH SERVER BOOSTER!",
+        "boost_sender_name": "Tim Server",
+        "boost_image_url": null
     },
     "788337048997199882": {
         "auto_role_id": null,
@@ -66,7 +78,12 @@
             }
         },
         "welcome_embed_title": "halo",
-        "welcome_sender_name": "Admin"
+        "welcome_sender_name": "Admin",
+        "boost_channel_id": 1394097105492119612,
+        "boost_message": "Terima kasih banyak, {user}, telah menjadi **Server Booster** kami di {guild_name}! Kami sangat menghargai dukunganmu! ❤️",
+        "boost_embed_title": "TERIMA KASIH SERVER BOOSTER!",
+        "boost_sender_name": "Tim Server",
+        "boost_image_url": null
     },
     "765138959625486357": {
         "auto_role_id": null,
@@ -144,9 +161,35 @@
                 "disallow_prefix": false,
                 "disallow_url": false,
                 "auto_delete_seconds": 0
+            },
+            "1394120623617343675": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "1255216677717545021": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "1394128285990129775": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
             }
         },
-        "welcome_embed_title": "Halo",
-        "welcome_sender_name": "Njan"
+        "welcome_embed_title": "Halo {user}",
+        "welcome_sender_name": "Njan",
+        "boost_channel_id": 1256133228117491762,
+        "boost_message": "Terima kasih banyak, {user}, telah menjadi **Server Booster** kami di {guild_name}! Kami sangat menghargai dukunganmu! ❤️",
+        "boost_embed_title": "halo",
+        "boost_sender_name": "Tim server",
+        "boost_image_url": ""
     }
 }
