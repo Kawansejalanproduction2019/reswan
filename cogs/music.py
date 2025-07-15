@@ -67,14 +67,13 @@ ytdl_opts = {
     'postprocessors': [{
         'key': 'FFmpegExtractAudio',
         'preferredcodec': 'opus', # Coba opus sebagai preferred codec
-        'preferredquality': '192',
+        'preferredquality': '128',
     }],
 }
 
 FFMPEG_OPTIONS = {
     'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
-    # Menyesuaikan bufsize ke 1MB (1024K) yang lebih standar, dan menambahkan fflags/flags
-    'options': '-vn -b:a 192k -bufsize 1024K -probesize 10M -analyzeduration 10M -fflags +discardcorrupt -flags +global_header'
+    'options': '-vn -b:a 128k -bufsize 1024K -probesize 10M -analyzeduration 10M -fflags +discardcorrupt -flags +global_header -af "equalizer=f=80:width=80:g=4,equalizer=f=10000:width=2000:g=3"'
 }
 
 ytdl = yt_dlp.YoutubeDL(ytdl_opts)
