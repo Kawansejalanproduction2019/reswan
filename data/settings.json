@@ -52,6 +52,16 @@
             "1384604148053442782": {
                 "👨‍🦱": 1266493929792995438,
                 "👩": 1270461543234146396
+            },
+            "1394667082951561256": {
+                "😭": 1394664997740875899,
+                "😂": 1394664997740875899,
+                "😁": 1395237508710797393,
+                "😄": 1395237612633198663,
+                "😀": 1395237991575846962,
+                "😆": 1395237668643934268,
+                "😜": 1395237730362855595,
+                "😝": 1395237896549826571
             }
         },
         "channel_rules": {
@@ -70,6 +80,27 @@
                 "auto_delete_seconds": 0
             },
             "788337048997199885": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "1278788130425540689": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "1272937917886500987": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "1284831265614331904": {
                 "disallow_bots": false,
                 "disallow_media": false,
                 "disallow_prefix": false,
@@ -182,9 +213,86 @@
                 "disallow_prefix": false,
                 "disallow_url": false,
                 "auto_delete_seconds": 0
+            },
+            "1394557376354451510": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "1394678556138803282": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "1394724071886815273": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "1378059241654587502": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "1255220715410554982": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "771629447253590036": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "865037072019488808": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "1255232545927331900": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "1395414634898395269": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "1255221880940531754": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "1395512360210403378": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
             }
         },
-        "welcome_embed_title": "Halo {user}",
+        "welcome_embed_title": "Halo",
         "welcome_sender_name": "Njan",
         "boost_channel_id": 1256133228117491762,
         "boost_message": "Terima kasih banyak, {user}, telah menjadi **Server Booster** kami di {guild_name}! Kami sangat menghargai dukunganmu! ❤️",
