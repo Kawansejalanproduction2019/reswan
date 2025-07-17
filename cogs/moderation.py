@@ -55,32 +55,32 @@ def parse_duration(duration_str: str) -> Optional[timedelta]:
     return None
 
 # =======================================================================================
-# GLOBAL MODAL CLASS FOR ANNOUNCEMENT (FIXED LABELS)
+# GLOBAL MODAL CLASS FOR ANNOUNCEMENT (UPDATED FOR WEBHOOKS)
 # =======================================================================================
 class AnnouncementModalGlobal(discord.ui.Modal, title="Buat Pengumuman"):
     announcement_title = discord.ui.TextInput(
-        label="Judul Pengumuman", # OK: < 45 chars
+        label="Judul Pengumuman",
         placeholder="Contoh: Pembaruan Server Penting!",
         max_length=256,
         required=True,
         row=0
     )
     custom_username = discord.ui.TextInput(
-        label="Pengirim (Contoh: Tim Admin)", # OK: < 45 chars
+        label="Pengirim (Contoh: Tim Admin)",
         placeholder="Contoh: Tim Admin / Pengumuman Resmi",
         max_length=256,
         required=True,
         row=1
     )
     custom_profile_url = discord.ui.TextInput(
-        label="URL Avatar (Opsional)", # FIXED: <= 45 chars
+        label="URL Avatar (Opsional)",
         placeholder="Contoh: https://example.com/avatar.png",
         max_length=2000,
         required=False,
         row=2
     )
     announcement_image_url = discord.ui.TextInput(
-        label="URL Gambar (Opsional)", # FIXED: <= 45 chars
+        label="URL Gambar (Opsional)",
         placeholder="Contoh: https://example.com/banner.png",
         max_length=2000,
         required=False,
@@ -93,12 +93,12 @@ class AnnouncementModalGlobal(discord.ui.Modal, title="Buat Pengumuman"):
         self.original_ctx = original_ctx
         self.target_channel_obj = target_channel_obj
         self.github_raw_url = github_raw_url
-        self.title = f"Buat Pengumuman untuk #{target_channel_obj.name}" # Dynamic title
+        self.title = f"Buat Pengumuman untuk #{target_channel_obj.name}"
         print(f"[{datetime.now()}] [DEBUG ANNOUNCE] AnnouncementModalGlobal initialized for {target_channel_obj.name}.")
 
     async def on_submit(self, interaction: discord.Interaction):
         print(f"[{datetime.now()}] [DEBUG ANNOUNCE] AnnouncementModalGlobal: on_submit triggered by {interaction.user.display_name}.")
-        await interaction.response.defer(ephemeral=True) # Defer immediately to avoid timeout
+        await interaction.response.defer(ephemeral=True)
 
         title = self.announcement_title.value.strip()
         username = self.custom_username.value.strip()
@@ -144,48 +144,57 @@ class AnnouncementModalGlobal(discord.ui.Modal, title="Buat Pengumuman"):
             await interaction.followup.send(embed=self.cog._create_embed(description="❌ Deskripsi pengumuman dari URL GitHub Raw kosong atau hanya berisi spasi. Pastikan file teks memiliki konten.", color=self.cog.color_error), ephemeral=True); return
         
         description_chunks = [full_description[i:i+4096] for i in range(0, len(full_description), 4096)]
-        print(f"[{datetime.now()}] [DEBUG ANNOUNCE] Description split into {len(description_chunks)} chunks.")
+        print(f"[{datetime.now()}] [DEBUG ANNOUNCE] Description split into 1 chunks.")
 
-        # --- Create and Send Embeds ---
+        # --- Get or Create Webhook ---
+        try:
+            webhook = await self.cog.get_or_create_announcement_webhook(self.target_channel_obj, username)
+            print(f"[{datetime.now()}] [DEBUG ANNOUNCE] Webhook ready: {webhook.name}.")
+        except discord.Forbidden:
+            print(f"[{datetime.now()}] [ERROR ANNOUNCE] Bot lacks permission to manage webhooks.", file=sys.stderr)
+            await interaction.followup.send(embed=self.cog._create_embed(description="❌ Bot tidak memiliki izin `Manage Webhooks` untuk mengirim pengumuman via webhook.", color=self.cog.color_error), ephemeral=True)
+            return
+
+        # --- MODIFIKASI: Dapatkan URL avatar server untuk default ---
+        server_icon_url = self.original_ctx.guild.icon.url if self.original_ctx.guild.icon else None
+        
+        # --- Create and Send Embeds via Webhook ---
         sent_any_embed = False
-        for i, chunk in enumerate(description_chunks):
-            if not chunk.strip(): continue # Skip truly empty chunks
+        try:
+            for i, chunk in enumerate(description_chunks):
+                if not chunk.strip(): continue
 
-            embed = discord.Embed(
-                description=chunk,
-                color=self.cog.color_announce,
-                timestamp=discord.utils.utcnow() if i == 0 else discord.Embed.Empty # Only show timestamp on first embed
-            )
-            
-            if i == 0:
-                embed.title = title
-                embed.set_author(name=username, icon_url=profile_url if profile_url else discord.Embed.Empty)
-                if image_url: embed.set_image(url=image_url)
-                embed.set_footer(text=f"Pengumuman dari {self.original_ctx.guild.name}", icon_url=self.original_ctx.guild.icon.url if self.original_ctx.guild.icon else None)
-            else:
-                embed.set_footer(text=f"Lanjutan Pengumuman ({i+1}/{len(description_chunks)})")
-
-            try:
-                # Check bot permissions for target channel before sending
-                perms = self.target_channel_obj.permissions_for(self.target_channel_obj.guild.me)
-                if not perms.send_messages or not perms.embed_links:
-                    if not sent_any_embed: # Only send error once if permissions are missing
-                        print(f"[{datetime.now()}] [DEBUG ANNOUNCE] Bot lacks send/embed permissions in {self.target_channel_obj.name}.")
-                        await interaction.followup.send(embed=self.cog._create_embed(description=f"❌ Bot tidak memiliki izin untuk mengirim pesan atau menyematkan tautan di {self.target_channel_obj.mention}. Pastikan bot memiliki izin 'Kirim Pesan' dan 'Sematkan Tautan'.", color=self.cog.color_error), ephemeral=True)
-                    return # Stop sending further chunks if permissions are an issue
+                embed = discord.Embed(
+                    description=chunk,
+                    color=self.cog.color_announce,
+                    timestamp=discord.utils.utcnow() if i == 0 else discord.Embed.Empty
+                )
                 
-                await self.target_channel_obj.send(embed=embed)
+                if i == 0:
+                    embed.title = title
+                    # --- MODIFIKASI: Gunakan URL dari modal, jika kosong pakai avatar server ---
+                    final_avatar_url = profile_url if profile_url else server_icon_url
+                    embed.set_author(name=username, icon_url=final_avatar_url)
+                    # --- AKHIR MODIFIKASI ---
+                    
+                    if image_url: embed.set_image(url=image_url)
+                    embed.set_footer(text=f"Pengumuman dari {self.original_ctx.guild.name}", icon_url=self.original_ctx.guild.icon.url if self.original_ctx.guild.icon else None)
+                else:
+                    embed.set_footer(text=f"Lanjutan Pengumuman ({i+1}/{len(description_chunks)})")
+
+                # --- MODIFIKASI: Tambahkan tag @everyone di luar embed, hanya pada chunk pertama ---
+                content_message = "@everyone" if i == 0 else ""
+                await webhook.send(content=content_message, embed=embed, username=username, avatar_url=final_avatar_url, wait=True)
+                # --- AKHIR MODIFIKASI ---
+
                 sent_any_embed = True
-                print(f"[{datetime.now()}] [DEBUG ANNOUNCE] Embed #{i+1} sent to {self.target_channel_obj.name}.")
-            except discord.Forbidden:
-                print(f"[{datetime.now()}] [ERROR ANNOUNCE] Bot Forbidden from sending message to {self.target_channel_obj.name}.", file=sys.stderr)
-                if not sent_any_embed: # Only send forbidden error once
-                    await interaction.followup.send(embed=self.cog._create_embed(description=f"❌ Bot tidak memiliki izin untuk mengirim pesan di {self.target_channel_obj.mention}. Pastikan bot memiliki izin 'Send Messages' dan 'Embed Links'.", color=self.cog.color_error), ephemeral=True); return
-            except Exception as e:
-                print(f"[{datetime.now()}] [ERROR ANNOUNCE] Error sending embed to {self.target_channel_obj.name}: {e}.", file=sys.stderr)
-                if not sent_any_embed: # Only send generic error once
-                    await interaction.followup.send(embed=self.cog._create_embed(description=f"❌ Terjadi kesalahan saat mengirim pengumuman: {e}", color=self.cog.color_error), ephemeral=True); return
-            
+                print(f"[{datetime.now()}] [DEBUG ANNOUNCE] Embed #{i+1} sent via webhook to {self.target_channel_obj.name}.")
+        except Exception as e:
+            print(f"[{datetime.now()}] [ERROR ANNOUNCE] Error sending embed via webhook to {self.target_channel_obj.name}: {e}.", file=sys.stderr)
+            if not sent_any_embed:
+                await interaction.followup.send(embed=self.cog._create_embed(description=f"❌ Terjadi kesalahan saat mengirim pengumuman: {e}", color=self.cog.color_error), ephemeral=True)
+            return
+
         if sent_any_embed:
             await interaction.followup.send(embed=self.cog._create_embed(description=f"✅ Pengumuman berhasil dikirim ke <#{self.target_channel_obj.id}>!", color=self.cog.color_success), ephemeral=True)
             await self.cog.log_action(self.original_ctx.guild, "📢 Pengumuman Baru Dibuat", {"Pengirim (Eksekutor)": self.original_ctx.author.mention, "Pengirim (Tampilan)": f"{username} ({profile_url if profile_url else 'Default'})", "Channel Target": f"<#{self.target_channel_obj.id}>", "Judul": title, "Deskripsi Sumber": self.github_raw_url, "Panjang Deskripsi": f"{len(full_description)} karakter"}, self.cog.color_announce)
@@ -393,8 +402,8 @@ class AnnounceButtonView(discord.ui.View):
             print(f"[{datetime.now()}] [ERROR ADMIN] AnnounceButtonView: Bot Forbidden from sending modal. Check DM permissions or server permissions.", file=sys.stderr)
             await interaction.followup.send(embed=self.cog._create_embed(description=f"❌ Bot tidak memiliki izin untuk mengirim modal (pop-up form). Ini mungkin karena bot tidak bisa mengirim DM ke Anda atau ada masalah izin di server.", color=self.cog.color_error), ephemeral=True)
         except Exception as e:
-            print(f"[{datetime.now()}] [ERROR ADMIN] AnnounceButtonView: Error displaying announcement modal: {e}.", file=sys.stderr)
             await interaction.followup.send(embed=self.cog._create_embed(description=f"❌ Terjadi kesalahan saat menampilkan formulir: {e}", color=self.cog.color_error), ephemeral=True)
+            print(f"[{datetime.now()}] [ERROR ADMIN] AnnounceButtonView: Error displaying announcement modal: {e}.", file=sys.stderr)
 
     async def on_timeout(self) -> None:
         print(f"[{datetime.now()}] [DEBUG ADMIN] AnnounceButtonView: View timeout.")
@@ -435,6 +444,12 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
         self.settings = load_data(self.settings_file)
         self.filters = load_data(self.filters_file)
         self.warnings = load_data(self.warnings_file)
+        # --- MULAI DARI SINI: Perubahan untuk mendukung Webhooks ---
+        for guild_id_str in self.settings.keys():
+            if "announcement_webhooks" not in self.settings[guild_id_str]:
+                self.settings[guild_id_str]["announcement_webhooks"] = {}
+        save_data(self.settings_file, self.settings)
+        # --- AKHIR PERUBAHAN ---
         print(f"[{datetime.now()}] [DEBUG ADMIN] ServerAdminCog initialized. Settings: {len(self.settings)} guild, Filters: {len(self.filters)} guild, Warnings: {len(self.warnings)} guild.")
 
     # --- Helper Methods for Data Management ---
@@ -454,7 +469,9 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
                 "boost_message": "Terima kasih banyak, {user}, telah menjadi **Server Booster** kami di {guild_name}! Kami sangat menghargai dukunganmu! ❤️",
                 "boost_embed_title": "TERIMA KASIH SERVER BOOSTER!",
                 "boost_sender_name": "Tim Server",
-                "boost_image_url": None # URL gambar utama di embed
+                "boost_image_url": None,
+                # --- BARU: TAMBAHKAN KEY UNTUK WEBHOOK ANNOUNCEMENT ---
+                "announcement_webhooks": {}
             }
             save_data(self.settings_file, self.settings)
             print(f"[{datetime.now()}] [DEBUG ADMIN] Default settings created for guild {guild_id}.")
@@ -466,7 +483,6 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
             self.settings[guild_id_str]["welcome_sender_name"] = "Admin Server"
         if "channel_rules" not in self.settings[guild_id_str]:
             self.settings[guild_id_str]["channel_rules"] = {}
-        # --- PASTIKAN FIELD BOOSTER ADA UNTUK BACKWARD COMPATIBILITY ---
         if "boost_channel_id" not in self.settings[guild_id_str]:
             self.settings[guild_id_str]["boost_channel_id"] = None
         if "boost_message" not in self.settings[guild_id_str]:
@@ -477,6 +493,9 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
             self.settings[guild_id_str]["boost_sender_name"] = "Tim Server"
         if "boost_image_url" not in self.settings[guild_id_str]:
             self.settings[guild_id_str]["boost_image_url"] = None
+        # --- BARU: PASTIKAN KEY UNTUK WEBHOOK ANNOUNCEMENT ADA ---
+        if "announcement_webhooks" not in self.settings[guild_id_str]:
+            self.settings[guild_id_str]["announcement_webhooks"] = {}
         # --- AKHIR PASTIKAN FIELD BOOSTER ADA ---
         
         save_data(self.settings_file, self.settings) # Simpan perubahan default
@@ -528,6 +547,45 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
             print(f"[{datetime.now()}] [DEBUG ADMIN] Action '{title}' successfully logged to {log_channel.name}.")
         else:
             print(f"[{datetime.now()}] [DEBUG ADMIN] Failed to log action '{title}': Channel not found or bot lacks send permissions.")
+
+    # --- BARU: HELPER UNTUK MENGELOLA WEBHOOK ANNOUNCEMENT ---
+    async def get_or_create_announcement_webhook(self, channel: discord.TextChannel, custom_name: str):
+        guild_settings = self.get_guild_settings(channel.guild.id)
+        webhook_url = guild_settings.get("announcement_webhooks", {}).get(str(channel.id))
+        
+        # Periksa apakah URL webhook valid dan masih berfungsi
+        if webhook_url:
+            try:
+                # --- PERBAIKAN DI SINI: client=self.bot, bukan client=self.bot.session ---
+                webhook = discord.Webhook.from_url(webhook_url, client=self.bot)
+                await webhook.fetch() # Memastikan webhook masih ada
+                print(f"[{datetime.now()}] [DEBUG ANNOUNCE] Using existing webhook for channel {channel.name}.")
+                return webhook
+            except (discord.NotFound, aiohttp.ClientError):
+                print(f"[{datetime.now()}] [DEBUG ANNOUNCE] Existing webhook for {channel.name} not found or invalid. Creating a new one.")
+                pass
+        
+        # Jika tidak ada atau tidak valid, buat yang baru
+        try:
+            webhook_name = f"{custom_name}" if custom_name else f"Pengumuman Server"
+            avatar_url = channel.guild.icon.url if channel.guild.icon else None
+            
+            # Coba cari webhook yang sudah dibuat oleh bot, jika ada, gunakan itu saja
+            existing_webhooks = await channel.webhooks()
+            for wh in existing_webhooks:
+                if wh.user.id == self.bot.user.id:
+                    webhook = wh
+                    break
+            else: # Jika tidak ada, baru buat
+                webhook = await channel.create_webhook(name=webhook_name, avatar=await channel.guild.icon.read() if channel.guild.icon else None, reason="For automatic announcements.")
+            
+            guild_settings["announcement_webhooks"][str(channel.id)] = webhook.url
+            self.save_settings()
+            print(f"[{datetime.now()}] [DEBUG ANNOUNCE] New webhook created and saved for {channel.name}.")
+            return webhook
+        except discord.Forbidden:
+            print(f"[{datetime.now()}] [ERROR ANNOUNCE] Bot does not have 'Manage Webhooks' permission in {channel.name}.", file=sys.stderr)
+            raise
 
     # =======================================================================================
     # EVENT LISTENERS
@@ -716,8 +774,8 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
             try:
                 dm_embed = self._create_embed(title="Warning: Rule Violation", color=self.color_warning)
                 dm_embed.add_field(name="Server", value=message.guild.name, inline=False)
-                dm_embed.add_field(name="Violation", value="Your message was deleted because it contained **media/files** in a channel where they are not allowed.", inline=False)
-                dm_embed.add_field(name="Suggestion", value="Please send media in designated channels. Review server rules.", inline=False)
+                dm_embed.add_field(name="Violation", value="Your message was deleted because it contained a **URL/link** in a channel where they are not allowed.", inline=False)
+                dm_embed.add_field(name="Suggestion", value="Please send links in designated channels. Review server rules.", inline=False)
                 await message.author.send(embed=dm_embed)
             except discord.Forbidden: print(f"[{datetime.now()}] [DEBUG ADMIN] Failed to send DM warning to {message.author.display_name} (Forbidden).")
             return
@@ -1385,8 +1443,8 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
                             print(f"[{datetime.now()}] [DEBUG ADMIN] AutoDeleteModal: Duration input is not a number.")
                             await modal_interaction.followup.send(embed=self.cog._create_embed(description="❌ Duration must be a number.", color=self.cog.color_error), ephemeral=True)
                         except Exception as e:
-                            print(f"[{datetime.now()}] [ERROR ADMIN] AutoDeleteModal: ERROR in on_submit: {e}.", file=sys.stderr)
                             await modal_interaction.followup.send(embed=self.cog._create_embed(description=f"❌ An error occurred: {e}", color=self.cog.color_error), ephemeral=True)
+                            print(f"[{datetime.now()}] [ERROR ADMIN] AutoDeleteModal: ERROR in on_submit: {e}.", file=sys.stderr)
                 
                 rules = self.cog.get_channel_rules(self.guild_id, self.channel_id)
                 current_delay = rules.get("auto_delete_seconds", 0)
@@ -1613,7 +1671,7 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
                     print(f"[{datetime.now()}] [DEBUG ADMIN] AddFilterModal: Item already exists.")
                 else:
                     filters[self.filter_type].append(item); self.cog.save_filters()
-                    await interaction.response.send_message(embed=self.cog._create_create_embed(description=f"✅ `{item}` berhasil ditambahkan ke filter.", color=self.cog.color_success), ephemeral=True)
+                    await interaction.response.send_message(embed=self.cog._create_embed(description=f"✅ `{item}` berhasil ditambahkan ke filter.", color=self.cog.color_success), ephemeral=True)
                     print(f"[{datetime.now()}] [DEBUG ADMIN] AddFilterModal: Item '{item}' added.")
 
         class RemoveFilterModal(discord.ui.Modal, title="Hapus Filter"):
@@ -1671,7 +1729,7 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
         print(f"[{datetime.now()}] [DEBUG ADMIN] !setup: SetupView message sent.")
 
 # =======================================================================================
-# ANNOUNCE COMMAND
+# ANNOUNCE COMMAND (MODIFIED FOR WEBHOOKS)
 # =======================================================================================
     @commands.command(name="announce", aliases=["pengumuman", "broadcast"])
     @commands.has_permissions(manage_guild=True)
@@ -1699,7 +1757,7 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
             try:
                 channel_id = int(channel_identifier[2:-1])
                 target_channel = ctx.guild.get_channel(channel_id)
-                if not target_channel: # Fallback to bot.get_channel if not found in guild cache
+                if not target_channel:
                     target_channel = self.bot.get_channel(channel_id)
                 print(f"[{datetime.now()}] [DEBUG ANNOUNCE] Channel identified via mention as ID: {channel_id}, Result: {target_channel.name if target_channel else 'None'}.")
             except ValueError:
@@ -1710,7 +1768,7 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
             try:
                 channel_id = int(channel_identifier)
                 target_channel = ctx.guild.get_channel(channel_id)
-                if not target_channel: # Fallback to bot.get_channel if not found in guild cache
+                if not target_channel:
                     target_channel = self.bot.get_channel(channel_id)
                 print(f"[{datetime.now()}] [DEBUG ANNOUNCE] Channel identified via ID: {channel_id}, Result: {target_channel.name if target_channel else 'None'}.")
             except ValueError:
@@ -1730,11 +1788,11 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
         view_instance = AnnounceButtonView(self.bot, self, ctx, target_channel, GITHUB_RAW_DESCRIPTION_URL)
         initial_msg = await ctx.send(embed=self._create_embed(
             title="🔔 Siap Membuat Pengumuman?",
-            description=f"Anda akan membuat pengumuman di channel {target_channel.mention}. Tekan tombol di bawah untuk mengisi detail lainnya. Deskripsi pengumuman akan diambil otomatis dari file teks di GitHub (`{GITHUB_RAW_DESCRIPTION_URL}`). Anda memiliki **60 detik** untuk mengisi formulir.",
+            description=f"Anda akan membuat pengumuman di channel {target_channel.mention}. **Pengumuman akan dikirim menggunakan webhook**. Tekan tombol di bawah untuk mengisi detail lainnya. Deskripsi pengumuman akan diambil otomatis dari file teks di GitHub (`{GITHUB_RAW_DESCRIPTION_URL}`). Anda memiliki **60 detik** untuk mengisi formulir.",
             color=self.color_info),
             view=view_instance
         )
-        view_instance.message = initial_msg # Link the view to its message
+        view_instance.message = initial_msg
         print(f"[{datetime.now()}] [DEBUG ANNOUNCE] !announce: Modal trigger message sent.")
 
 
