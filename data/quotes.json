@@ -54,5 +54,29 @@
         "user_id": "1000737066822410311",
         "timestamp": "2025-06-28 12:37:10.789355",
         "is_random": false
+    },
+    {
+        "id": 8,
+        "user": "Brlnaayaptri",
+        "text": "“Aku diam bukan berarti aku salah, hanya saja aku lelah menjelaskan pada kalian yang lebih melihat dari sisi orang lain daripada kalian yang mengenal ku jauh dari pada mereka.”",
+        "user_id": "1307175243630248011",
+        "timestamp": "2025-07-16 05:56:06.062275",
+        "is_random": false
+    },
+    {
+        "id": 9,
+        "user": "アルディアン",
+        "text": "“faktanya, yang bukan untukmu adalah yang paling membuatmu jatuh cinya”",
+        "user_id": "453215843258597389",
+        "timestamp": "2025-07-16 19:30:16.315672",
+        "is_random": false
+    },
+    {
+        "id": 10,
+        "user": "アルディアン",
+        "text": "“Faktanya, yang bukan untukmu adalah yang paling membuat mu jatuh cinta”",
+        "user_id": "453215843258597389",
+        "timestamp": "2025-07-16 19:31:25.806290",
+        "is_random": false
     }
 ]
