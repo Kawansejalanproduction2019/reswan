@@ -626,23 +626,22 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
             embed = discord.Embed(
                 description=welcome_message_content.format(user=member.mention, guild_name=member.guild.name), 
                 color=self.color_welcome,
-                timestamp=discord.utils.utcnow() # Gunakan UTC untuk konsistensi
+                timestamp=discord.utils.utcnow()
             )
             
-            # Set author/sender based on custom sender name
-            embed.set_author(name=welcome_sender_name, icon_url=member.guild.icon.url if member.guild.icon else None) # Gunakan icon server
-            
-            # Set title
+            embed.set_author(name=welcome_sender_name, icon_url=member.guild.icon.url if member.guild.icon else None)
             embed.title = welcome_embed_title 
 
-            # Thumbnail adalah avatar user yang bergabung
+            # Tambahkan field tambahan yang secara eksplisit me-mention pengguna
+            embed.add_field(name="Anggota Baru", value=f"Selamat datang di server kami, {member.mention}!", inline=False)
+            
             embed.set_thumbnail(url=member.display_avatar.url)
             
-            # Footer tetap sama, menunjukkan jumlah anggota
             embed.set_footer(text=f"Kamu adalah anggota ke-{member.guild.member_count}!")
             
             try:
-                await channel.send(embed=embed)
+                # Kirim pesan dengan mention di luar embed untuk memastikan notifikasi
+                await channel.send(f"Halo, {member.mention}! Selamat datang!", embed=embed)
                 print(f"[{datetime.now()}] [DEBUG ADMIN] Welcome message sent to {channel.name} for {member.display_name}.")
             except discord.Forbidden:
                 print(f"[{datetime.now()}] [ERROR ADMIN] Bot lacks permissions to send welcome message in {channel.name} for {member.display_name}.", file=sys.stderr)
