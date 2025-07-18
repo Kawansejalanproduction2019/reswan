@@ -356,7 +356,8 @@ async def load_cogs():
         "cogs.dunia",
         "cogs.koruptor",
         "cogs.endgame",
-        "cogs.psikotes", 
+        "cogs.psikotes",
+        "cogs.webhook",
         "cogs.reaction"
     ]
     for extension in initial_extensions:
