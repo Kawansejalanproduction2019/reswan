@@ -362,9 +362,9 @@ class WebhookCog(commands.Cog):
                 interaction.guild.default_role: discord.PermissionOverwrite(view_channel=False),
                 interaction.user: discord.PermissionOverwrite(view_channel=True, send_messages=True)
             }
-            for role in interaction.guild.roles:
-                if role.permissions.manage_channels:
-                    overwrites[role] = discord.PermissionOverwrite(view_channel=True, send_messages=True)
+            admin_roles = [role for role in interaction.guild.roles if role.permissions.manage_channels]
+            for role in admin_roles:
+                overwrites[role] = discord.PermissionOverwrite(view_channel=True, send_messages=True)
 
             channel_name = f"ticket-{interaction.user.name.lower()}"
             ticket_channel = await interaction.guild.create_text_channel(
@@ -373,18 +373,37 @@ class WebhookCog(commands.Cog):
                 category=category
             )
 
+            admin_mentions = " ".join([f"{role.mention}" for role in admin_roles])
+
             embed = discord.Embed(
                 title=f"Tiket dari {interaction.user.name}",
                 description="Seorang admin akan segera membantu Anda. Mohon jelaskan masalah Anda.",
                 color=discord.Color.green()
             )
-            await ticket_channel.send(f"{interaction.user.mention}", embed=embed)
+            
+            close_ticket_id = str(uuid.uuid4())
+            self.button_actions[close_ticket_id] = {'action': 'close_ticket', 'value': str(interaction.user.id)}
+            
+            close_ticket_button = discord.ui.Button(label="Tutup Tiket", style=discord.ButtonStyle.red, custom_id=close_ticket_id)
+            view = discord.ui.View(timeout=None)
+            view.add_item(close_ticket_button)
+
+            await ticket_channel.send(f"**Tiket Baru!** {admin_mentions} {interaction.user.mention}", embed=embed, view=view)
             
             await interaction.followup.send(f"Tiket Anda telah dibuat di {ticket_channel.mention}", ephemeral=True)
             
             self.active_tickets[interaction.user.id] = ticket_channel.id
             self.bot.loop.create_task(self.delete_ticket_after_delay(ticket_channel, interaction.user.id))
 
+        elif action == 'close_ticket':
+            await interaction.response.defer()
+            user_id_to_remove = int(value)
+            
+            if user_id_to_remove in self.active_tickets:
+                del self.active_tickets[user_id_to_remove]
+            
+            await interaction.channel.delete(reason="Tiket ditutup oleh pengguna atau admin.")
+            
         elif action == 'channel':
             try:
                 channel_id = int(value)
