@@ -255,8 +255,7 @@ class WebhookConfigView(discord.ui.View):
 
         if sent_message:
             try:
-                config_name = str(sent_message.id)
-                self.bot.get_cog('WebhookCog').save_config_to_file(interaction.guild.id, config_name, self.config)
+                self.bot.get_cog('WebhookCog').save_config_to_file(interaction.guild.id, interaction.channel.id, str(sent_message.id), self.config)
             except Exception as e:
                 await interaction.followup.send(f"Pesan webhook berhasil dikirim, tetapi gagal menyimpan konfigurasi otomatis: {e}", ephemeral=True)
         else:
@@ -264,7 +263,7 @@ class WebhookConfigView(discord.ui.View):
 
         try:
             if sent_message:
-                await interaction.followup.send(f"Pesan webhook berhasil dikirim ke {self.channel.mention}! Konfigurasi tersimpan otomatis dengan nama `{sent_message.id}`.", ephemeral=True)
+                await interaction.followup.send(f"Pesan webhook berhasil dikirim ke {self.channel.mention}! Konfigurasi tersimpan otomatis.", ephemeral=True)
             await interaction.message.delete()
         except Exception as e:
             await interaction.followup.send(f"Gagal menyelesaikan proses. Mohon hapus menu konfigurasi secara manual: {e}", ephemeral=True)
@@ -307,7 +306,8 @@ class WebhookCog(commands.Cog):
         self.button_actions = {}
         self.active_tickets = {}
         self.data_dir = 'data'
-        
+        self.config_file = os.path.join(self.data_dir, 'webhook.json')
+
     @commands.Cog.listener()
     async def on_ready(self):
         print("Bot siap. Memuat semua aksi tombol dari file JSON...")
@@ -315,18 +315,17 @@ class WebhookCog(commands.Cog):
         print("Aksi tombol berhasil dimuat.")
 
     def _load_all_button_actions(self):
-        """Helper function to load all button actions from JSON files."""
-        if not os.path.exists(self.data_dir):
+        """Helper function to load all button actions from the single JSON file."""
+        if not os.path.exists(self.config_file):
             return
 
-        for filename in os.listdir(self.data_dir):
-            if filename.endswith('.json'):
-                file_path = os.path.join(self.data_dir, filename)
-                try:
-                    with open(file_path, 'r', encoding='utf-8') as f:
-                        all_configs = json.load(f)
-                    
-                    for config_name, config_data in all_configs.items():
+        try:
+            with open(self.config_file, 'r', encoding='utf-8') as f:
+                all_configs = json.load(f)
+            
+            for guild_id, guild_configs in all_configs.items():
+                for channel_id, channel_configs in guild_configs.items():
+                    for config_name, config_data in channel_configs.items():
                         buttons_data = config_data.get('buttons', [])
                         if buttons_data:
                             for btn_data in buttons_data:
@@ -336,27 +335,34 @@ class WebhookCog(commands.Cog):
                                         'action': btn_data.get('action'),
                                         'value': btn_data.get('value')
                                     }
-                except (json.JSONDecodeError, FileNotFoundError) as e:
-                    print(f"ERROR: Gagal memuat file konfigurasi {filename}: {e}")
+        except (json.JSONDecodeError, FileNotFoundError) as e:
+            print(f"ERROR: Gagal memuat file konfigurasi {self.config_file}: {e}")
 
-    def save_config_to_file(self, guild_id, config_name, config_data):
-        """Helper function untuk menyimpan konfigurasi per-guild."""
+    def save_config_to_file(self, guild_id, channel_id, config_name, config_data):
+        """Helper function untuk menyimpan konfigurasi ke file dengan struktur hierarkis."""
         if not os.path.exists(self.data_dir):
             os.makedirs(self.data_dir)
         
-        config_file = os.path.join(self.data_dir, f'{guild_id}.json')
         all_configs = {}
-        if os.path.exists(config_file):
+        if os.path.exists(self.config_file):
             try:
-                with open(config_file, 'r', encoding='utf-8') as f:
+                with open(self.config_file, 'r', encoding='utf-8') as f:
                     all_configs = json.load(f)
             except (json.JSONDecodeError, FileNotFoundError):
                 pass
         
-        all_configs[config_name] = config_data
+        guild_id_str = str(guild_id)
+        channel_id_str = str(channel_id)
+
+        if guild_id_str not in all_configs:
+            all_configs[guild_id_str] = {}
+        if channel_id_str not in all_configs[guild_id_str]:
+            all_configs[guild_id_str][channel_id_str] = {}
+        
+        all_configs[guild_id_str][channel_id_str][config_name] = config_data
         
         try:
-            with open(config_file, 'w', encoding='utf-8') as f:
+            with open(self.config_file, 'w', encoding='utf-8') as f:
                 json.dump(all_configs, f, indent=4)
         except Exception as e:
             print(f"ERROR: Gagal menyimpan konfigurasi ke file: {e}")
@@ -386,7 +392,7 @@ class WebhookCog(commands.Cog):
             await ctx.send("Tidak ada konfigurasi aktif untuk disimpan. Mohon gunakan perintah `!swh` terlebih dahulu.", ephemeral=True)
             return
 
-        self.save_config_to_file(ctx.guild.id, config_name, view.config)
+        self.save_config_to_file(ctx.guild.id, ctx.channel.id, config_name, view.config)
         await ctx.send(f"Konfigurasi '{config_name}' berhasil disimpan untuk server ini.", ephemeral=True)
 
     @commands.command(name='load_config')
@@ -397,20 +403,19 @@ class WebhookCog(commands.Cog):
             await ctx.send("Perintah ini hanya bisa digunakan di dalam server.")
             return
             
-        config_file = os.path.join(self.data_dir, f'{ctx.guild.id}.json')
         all_configs = {}
         try:
-            with open(config_file, 'r', encoding='utf-8') as f:
+            with open(self.config_file, 'r', encoding='utf-8') as f:
                 all_configs = json.load(f)
         except (FileNotFoundError, json.JSONDecodeError):
-            await ctx.send(f"File konfigurasi server tidak ditemukan atau tidak valid. Tidak ada konfigurasi yang bisa dimuat.")
+            await ctx.send(f"File konfigurasi tidak ditemukan atau tidak valid. Tidak ada konfigurasi yang bisa dimuat.")
             return
-
-        if config_name not in all_configs:
-            await ctx.send(f"Konfigurasi dengan nama `{config_name}` tidak ditemukan di server ini.")
+        
+        try:
+            config_data = all_configs[str(ctx.guild.id)][str(ctx.channel.id)][config_name]
+        except KeyError:
+            await ctx.send(f"Konfigurasi dengan nama `{config_name}` tidak ditemukan di kanal ini.")
             return
-
-        config_data = all_configs[config_name]
         
         view = WebhookConfigView(self.bot, channel, initial_config=config_data)
         await ctx.send(embed=view.build_embed(), view=view)
