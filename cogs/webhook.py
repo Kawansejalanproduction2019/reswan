@@ -622,7 +622,7 @@ class WebhookCog(commands.Cog):
                 
                 if target_channel:
                     await target_channel.set_permissions(interaction.user, view_channel=True)
-                    await interaction.response.send_message(f"Anda sekarang bisa mengakses kanal {target_channel.mention}!", ephemeral=True)
+                    await interaction.response.send_message(f"buka channel ini dan ketik @female untuk request role dan nanti admin cewe akan melakukan verifikasi di voice room https://discord.com/channels/765138959625486357/1255524937503084615 silahkan berbicara 1-2 kata sampai di verifikasi kalau anda female {target_channel.mention}!", ephemeral=True)
                 else:
                     await interaction.response.send_message("Kanal tidak ditemukan. Mohon hubungi admin.", ephemeral=True)
             except (ValueError, TypeError):
