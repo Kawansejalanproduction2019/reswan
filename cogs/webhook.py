@@ -192,7 +192,6 @@ class WebhookConfigView(discord.ui.View):
 
     @discord.ui.button(label="Warna", style=discord.ButtonStyle.blurple)
     async def color_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        # Mengubah pesan yang ada untuk menampilkan menu warna
         await interaction.response.edit_message(view=ColorView(self.config, self))
 
     @discord.ui.button(label="Pengirim", style=discord.ButtonStyle.blurple)
@@ -569,14 +568,18 @@ class WebhookCog(commands.Cog):
             if not isinstance(category, discord.CategoryChannel):
                 category = None
 
+            # --- Bagian izin diubah untuk hanya menyertakan role spesifik ---
+            specific_mention_role_id = 1264935423184998422
+            specific_role = interaction.guild.get_role(specific_mention_role_id)
+
             overwrites = {
                 interaction.guild.default_role: discord.PermissionOverwrite(view_channel=False),
                 interaction.user: discord.PermissionOverwrite(view_channel=True, send_messages=True)
             }
-            admin_roles = [role for role in interaction.guild.roles if role.permissions.manage_channels]
-            for role in admin_roles:
-                overwrites[role] = discord.PermissionOverwrite(view_channel=True, send_messages=True)
 
+            if specific_role:
+                overwrites[specific_role] = discord.PermissionOverwrite(view_channel=True, send_messages=True)
+                
             channel_name = f"ticket-{interaction.user.name.lower()}"
             ticket_channel = await interaction.guild.create_text_channel(
                 channel_name,
@@ -584,7 +587,10 @@ class WebhookCog(commands.Cog):
                 category=category
             )
 
-            admin_mentions = " ".join([f"{role.mention}" for role in admin_roles])
+            # --- Bagian mention diubah untuk hanya me-mention role yang spesifik ---
+            mention_string = ""
+            if specific_role:
+                mention_string = specific_role.mention
 
             embed = discord.Embed(
                 title=f"Tiket dari {interaction.user.name}",
@@ -599,7 +605,7 @@ class WebhookCog(commands.Cog):
             view = discord.ui.View(timeout=None)
             view.add_item(close_ticket_button)
 
-            await ticket_channel.send(f"**Tiket Baru!** {admin_mentions} {interaction.user.mention}", embed=embed, view=view)
+            await ticket_channel.send(f"**Tiket Baru!** {mention_string} {interaction.user.mention}", embed=embed, view=view)
             
             await interaction.followup.send(f"Tiket Anda telah dibuat di {ticket_channel.mention}", ephemeral=True)
             
@@ -622,7 +628,7 @@ class WebhookCog(commands.Cog):
                 
                 if target_channel:
                     await target_channel.set_permissions(interaction.user, view_channel=True)
-                    await interaction.response.send_message(f"buka channel ini dan ketik @female untuk request role dan nanti admin cewe akan melakukan verifikasi di voice room https://discord.com/channels/765138959625486357/1255524937503084615 silahkan berbicara 1-2 kata sampai di verifikasi kalau anda female {target_channel.mention}!", ephemeral=True)
+                    await interaction.response.send_message(f"Anda sekarang bisa mengakses kanal {target_channel.mention}!", ephemeral=True)
                 else:
                     await interaction.response.send_message("Kanal tidak ditemukan. Mohon hubungi admin.", ephemeral=True)
             except (ValueError, TypeError):
