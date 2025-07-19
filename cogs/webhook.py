@@ -122,6 +122,23 @@ class ColorView(discord.ui.View):
         if self.message:
             await self.message.delete()
 
+class SaveConfigModal(discord.ui.Modal, title='Simpan Konfigurasi'):
+    def __init__(self, config, cog):
+        super().__init__()
+        self.config = config
+        self.cog = cog
+        self.name_input = discord.ui.TextInput(
+            label='Nama Konfigurasi',
+            placeholder='e.g., "Pesan Selamat Datang"',
+            required=True
+        )
+        self.add_item(self.name_input)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        config_name = self.name_input.value
+        self.cog.save_config_to_file(interaction.guild.id, config_name, self.config)
+        await interaction.response.send_message(f"Konfigurasi '{config_name}' berhasil disimpan!", ephemeral=True)
+
 class WebhookConfigView(discord.ui.View):
     def __init__(self, bot, channel: discord.TextChannel, initial_config=None):
         super().__init__(timeout=300)
@@ -184,6 +201,10 @@ class WebhookConfigView(discord.ui.View):
     @discord.ui.button(label="Pesan Teks Biasa", style=discord.ButtonStyle.blurple)
     async def content_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.send_modal(TextModal('content', self.config, self))
+        
+    @discord.ui.button(label="Simpan Konfigurasi", style=discord.ButtonStyle.grey, row=1)
+    async def save_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.send_modal(SaveConfigModal(self.config, self.bot.get_cog('WebhookCog')))
 
     @discord.ui.button(label="Kirim Webhook", style=discord.ButtonStyle.green, row=1)
     async def send_button(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -219,20 +240,34 @@ class WebhookConfigView(discord.ui.View):
             
             view = ButtonView(buttons_data)
 
+        sent_message = None
         try:
-            await webhook.send(
+            sent_message = await webhook.send(
                 content=self.config.get('content'),
                 username=self.config.get('author') or interaction.guild.name,
                 avatar_url=self.config.get('avatar') or interaction.guild.icon.url,
                 embeds=[embed] if embed else [],
                 view=view
             )
-            self.bot.get_cog('WebhookCog').save_config_to_file(self.config)
-            
-            await interaction.followup.send(f"Pesan webhook berhasil dikirim ke {self.channel.mention}!", ephemeral=True)
-            await interaction.message.delete()
         except Exception as e:
             await interaction.followup.send(f"Gagal mengirim pesan webhook: {e}", ephemeral=True)
+            return
+
+        if sent_message:
+            try:
+                config_name = str(sent_message.id)
+                self.bot.get_cog('WebhookCog').save_config_to_file(interaction.guild.id, config_name, self.config)
+            except Exception as e:
+                await interaction.followup.send(f"Pesan webhook berhasil dikirim, tetapi gagal menyimpan konfigurasi otomatis: {e}", ephemeral=True)
+        else:
+            await interaction.followup.send("Pesan gagal terkirim, konfigurasi tidak disimpan.", ephemeral=True)
+
+        try:
+            if sent_message:
+                await interaction.followup.send(f"Pesan webhook berhasil dikirim ke {self.channel.mention}! Konfigurasi tersimpan otomatis dengan nama `{sent_message.id}`.", ephemeral=True)
+            await interaction.message.delete()
+        except Exception as e:
+            await interaction.followup.send(f"Gagal menyelesaikan proses. Mohon hapus menu konfigurasi secara manual: {e}", ephemeral=True)
             
     @discord.ui.button(label="Batalkan", style=discord.ButtonStyle.red, row=1)
     async def cancel_button(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -271,15 +306,58 @@ class WebhookCog(commands.Cog):
         self.bot = bot
         self.button_actions = {}
         self.active_tickets = {}
-        self.config_file = 'data/webhook.json'
+        self.data_dir = 'data'
+        
+    @commands.Cog.listener()
+    async def on_ready(self):
+        print("Bot siap. Memuat semua aksi tombol dari file JSON...")
+        self._load_all_button_actions()
+        print("Aksi tombol berhasil dimuat.")
 
-    def save_config_to_file(self, config_data):
-        """Helper function untuk menyimpan konfigurasi ke file."""
-        if not os.path.exists('data'):
-            os.makedirs('data')
+    def _load_all_button_actions(self):
+        """Helper function to load all button actions from JSON files."""
+        if not os.path.exists(self.data_dir):
+            return
+
+        for filename in os.listdir(self.data_dir):
+            if filename.endswith('.json'):
+                file_path = os.path.join(self.data_dir, filename)
+                try:
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        all_configs = json.load(f)
+                    
+                    for config_name, config_data in all_configs.items():
+                        buttons_data = config_data.get('buttons', [])
+                        if buttons_data:
+                            for btn_data in buttons_data:
+                                btn_id = btn_data.get('id')
+                                if btn_id:
+                                    self.button_actions[btn_id] = {
+                                        'action': btn_data.get('action'),
+                                        'value': btn_data.get('value')
+                                    }
+                except (json.JSONDecodeError, FileNotFoundError) as e:
+                    print(f"ERROR: Gagal memuat file konfigurasi {filename}: {e}")
+
+    def save_config_to_file(self, guild_id, config_name, config_data):
+        """Helper function untuk menyimpan konfigurasi per-guild."""
+        if not os.path.exists(self.data_dir):
+            os.makedirs(self.data_dir)
+        
+        config_file = os.path.join(self.data_dir, f'{guild_id}.json')
+        all_configs = {}
+        if os.path.exists(config_file):
+            try:
+                with open(config_file, 'r', encoding='utf-8') as f:
+                    all_configs = json.load(f)
+            except (json.JSONDecodeError, FileNotFoundError):
+                pass
+        
+        all_configs[config_name] = config_data
+        
         try:
-            with open(self.config_file, 'w', encoding='utf-8') as f:
-                json.dump(config_data, f, indent=4)
+            with open(config_file, 'w', encoding='utf-8') as f:
+                json.dump(all_configs, f, indent=4)
         except Exception as e:
             print(f"ERROR: Gagal menyimpan konfigurasi ke file: {e}")
 
@@ -295,22 +373,47 @@ class WebhookCog(commands.Cog):
         view = WebhookConfigView(self.bot, channel)
         await ctx.send(embed=view.build_embed(), view=view)
 
+    @commands.command(name='save_config')
+    @commands.has_permissions(manage_webhooks=True)
+    async def save_config(self, ctx, config_name: str):
+        """Menyimpan konfigurasi webhook saat ini ke file."""
+        if not ctx.guild:
+            await ctx.send("Perintah ini hanya bisa digunakan di dalam server.")
+            return
+
+        view = discord.utils.get(self.bot.get_all_views(), __class__=WebhookConfigView)
+        if not view:
+            await ctx.send("Tidak ada konfigurasi aktif untuk disimpan. Mohon gunakan perintah `!swh` terlebih dahulu.", ephemeral=True)
+            return
+
+        self.save_config_to_file(ctx.guild.id, config_name, view.config)
+        await ctx.send(f"Konfigurasi '{config_name}' berhasil disimpan untuk server ini.", ephemeral=True)
+
     @commands.command(name='load_config')
     @commands.has_permissions(manage_webhooks=True)
-    async def load_config(self, ctx, channel: discord.TextChannel):
+    async def load_config(self, ctx, config_name: str, channel: discord.TextChannel):
         """Memuat konfigurasi webhook dari file dan memulainya."""
-        try:
-            with open(self.config_file, 'r', encoding='utf-8') as f:
-                config_data = json.load(f)
+        if not ctx.guild:
+            await ctx.send("Perintah ini hanya bisa digunakan di dalam server.")
+            return
             
-            view = WebhookConfigView(self.bot, channel, initial_config=config_data)
-            await ctx.send(embed=view.build_embed(), view=view)
-        except FileNotFoundError:
-            await ctx.send(f"File `{self.config_file}` tidak ditemukan. Tidak ada konfigurasi yang bisa dimuat.")
-        except json.JSONDecodeError:
-            await ctx.send(f"File `{self.config_file}` berisi format JSON yang tidak valid.")
-        except Exception as e:
-            await ctx.send(f"Terjadi kesalahan saat memuat konfigurasi: {e}")
+        config_file = os.path.join(self.data_dir, f'{ctx.guild.id}.json')
+        all_configs = {}
+        try:
+            with open(config_file, 'r', encoding='utf-8') as f:
+                all_configs = json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError):
+            await ctx.send(f"File konfigurasi server tidak ditemukan atau tidak valid. Tidak ada konfigurasi yang bisa dimuat.")
+            return
+
+        if config_name not in all_configs:
+            await ctx.send(f"Konfigurasi dengan nama `{config_name}` tidak ditemukan di server ini.")
+            return
+
+        config_data = all_configs[config_name]
+        
+        view = WebhookConfigView(self.bot, channel, initial_config=config_data)
+        await ctx.send(embed=view.build_embed(), view=view)
 
     @commands.Cog.listener()
     async def on_interaction(self, interaction: discord.Interaction):
