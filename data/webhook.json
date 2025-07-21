@@ -92,7 +92,14 @@
                         "label": "Female",
                         "style": "red",
                         "action": "ticket",
-                        "value": "1379918569554313390",
+                        "value": {
+                            "category_id": "1379918569554313390",
+                            "allowed_roles": [],
+                            "blocked_roles": [
+                                "1379918569554313390",
+                                "1255277534908645416"
+                            ]
+                        },
                         "id": "e01db096-9aba-40e2-904b-3f38a80a2e24"
                     }
                 ],
