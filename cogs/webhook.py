@@ -561,13 +561,17 @@ class WebhookCog(commands.Cog):
             if isinstance(value, dict):
                 ticket_config = value
                 category_id_str = ticket_config.get('category_id')
-                allowed_roles = ticket_config.get('allowed_roles', [])
-                blocked_roles = ticket_config.get('blocked_roles', [])
+                allowed_roles_str = ticket_config.get('allowed_roles', [])
+                blocked_roles_str = ticket_config.get('blocked_roles', [])
             else: # Format lama (value adalah string)
                 category_id_str = value
-                allowed_roles = []
-                blocked_roles = []
+                allowed_roles_str = []
+                blocked_roles_str = []
                 
+            # Mengubah ID role dari string menjadi integer untuk perbandingan
+            allowed_roles = [int(role_id) for role_id in allowed_roles_str]
+            blocked_roles = [int(role_id) for role_id in blocked_roles_str]
+
             # Mengambil ID role pengguna
             user_role_ids = [role.id for role in interaction.user.roles]
             
@@ -635,11 +639,9 @@ class WebhookCog(commands.Cog):
             await interaction.followup.send(f"Tiket Anda telah dibuat di {ticket_channel.mention}", ephemeral=True)
             
             self.active_tickets[interaction.user.id] = ticket_channel.id
-            # del self.button_actions[close_ticket_id] # Hapus aksi tombol setelah digunakan
             self.bot.loop.create_task(self.delete_ticket_after_delay(ticket_channel, interaction.user.id))
 
         elif action == 'close_ticket':
-            # === KODE ASLI YANG ANDA BERIKAN ===
             await interaction.response.defer()
             user_id_to_remove = int(value)
             
