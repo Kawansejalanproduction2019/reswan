@@ -635,10 +635,11 @@ class WebhookCog(commands.Cog):
             await interaction.followup.send(f"Tiket Anda telah dibuat di {ticket_channel.mention}", ephemeral=True)
             
             self.active_tickets[interaction.user.id] = ticket_channel.id
-            del self.button_actions[close_ticket_id] # Hapus aksi tombol setelah digunakan
+            # del self.button_actions[close_ticket_id] # Hapus aksi tombol setelah digunakan
             self.bot.loop.create_task(self.delete_ticket_after_delay(ticket_channel, interaction.user.id))
 
         elif action == 'close_ticket':
+            # === KODE ASLI YANG ANDA BERIKAN ===
             await interaction.response.defer()
             user_id_to_remove = int(value)
             
