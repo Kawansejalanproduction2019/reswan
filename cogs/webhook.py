@@ -445,7 +445,7 @@ class WebhookCog(commands.Cog):
         try:
             with open(self.config_file, 'r', encoding='utf-8') as f:
                 all_configs = json.load(f)
-        except (FileNotFoundError, json.JSONDecodeError):
+        except (FileNotFound-Error, json.JSONDecodeError):
             await ctx.send("File konfigurasi utama tidak ditemukan atau tidak valid.", ephemeral=True)
             return
 
@@ -557,13 +557,40 @@ class WebhookCog(commands.Cog):
                 await interaction.response.send_message(f"Terjadi kesalahan saat memberikan/menghapus role: {e}", ephemeral=True)
         
         elif action == 'ticket':
+            # --- START: Penambahan Kode untuk Filter Role ---
+            try:
+                ticket_config = json.loads(value)
+                category_id = ticket_config.get('category_id')
+                allowed_roles = ticket_config.get('allowed_roles', [])
+                blocked_roles = ticket_config.get('blocked_roles', [])
+            except (json.JSONDecodeError, TypeError):
+                # Jika format JSON tidak valid, asumsikan tidak ada filter
+                category_id = value
+                allowed_roles = []
+                blocked_roles = []
+
+            # Mengambil ID role pengguna
+            user_role_ids = [role.id for role in interaction.user.roles]
+            
+            # Logika Filter
+            # 1. Cek apakah pengguna memiliki role yang diblokir
+            if any(role_id in blocked_roles for role_id in user_role_ids):
+                await interaction.response.send_message("Anda tidak diizinkan untuk membuka tiket ini.", ephemeral=True)
+                return
+            
+            # 2. Cek apakah ada role yang diizinkan, dan apakah pengguna memilikinya
+            if allowed_roles and not any(role_id in allowed_roles for role_id in user_role_ids):
+                await interaction.response.send_message("Anda harus memiliki role tertentu untuk membuka tiket ini.", ephemeral=True)
+                return
+            # --- END: Penambahan Kode untuk Filter Role ---
+
             if interaction.user.id in self.active_tickets:
                 await interaction.response.send_message("Anda sudah memiliki tiket aktif.", ephemeral=True)
                 return
 
             await interaction.response.defer(ephemeral=True)
 
-            category_id = int(value) if value else None
+            category_id = int(category_id) if category_id else None
             category = interaction.guild.get_channel(category_id)
             if not isinstance(category, discord.CategoryChannel):
                 category = None
