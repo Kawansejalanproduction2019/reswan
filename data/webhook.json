@@ -75,6 +75,36 @@
         }
     },
     "765138959625486357": {
-        "1382486705113927811": {}
+        "1382486705113927811": {
+            "1396676428828905551": {
+                "title": "Ambil role gender disinii",
+                "desc": "Selamat datang! Silakan pilih gender Anda untuk mendapatkan role yang sesuai dan membuka akses ke kanal-kanal tertentu.\n> • Klik tombol Male untuk mendapatkan role Male.\n> • Klik tombol Female untuk open ticket dan minta verifikasi oleh staf agar akses ke channel khusus perempuan dan akses lainnya terbuka.\nPilihan Anda akan membantu kami menyediakan pengalaman yang lebih personal dan relevan di server.",
+                "author": "reSwan",
+                "buttons": [
+                    {
+                        "label": "👨‍🦱Male",
+                        "style": "blurple",
+                        "action": "role",
+                        "value": "1255277534908645416",
+                        "id": "282eb86f-0ca2-4f8a-a973-2113503bf281"
+                    },
+                    {
+                        "label": "👩Female",
+                        "style": "red",
+                        "action": "ticket",
+                        "value": {
+                            "category_id": "1379918569554313390",
+                            "allowed_roles": [],
+                            "blocked_roles": [
+                                "1255278470251151420",
+                                "1255277534908645416"
+                            ]
+                        },
+                        "id": "76a7040e-c9d3-4e68-938a-7f81ccd1e6c1"
+                    }
+                ],
+                "color": "#2ECC71"
+            }
+        }
     }
 }
