@@ -445,7 +445,7 @@ class WebhookCog(commands.Cog):
         try:
             with open(self.config_file, 'r', encoding='utf-8') as f:
                 all_configs = json.load(f)
-        except (FileNotFound-Error, json.JSONDecodeError):
+        except (FileNotFoundError, json.JSONDecodeError):
             await ctx.send("File konfigurasi utama tidak ditemukan atau tidak valid.", ephemeral=True)
             return
 
@@ -557,32 +557,29 @@ class WebhookCog(commands.Cog):
                 await interaction.response.send_message(f"Terjadi kesalahan saat memberikan/menghapus role: {e}", ephemeral=True)
         
         elif action == 'ticket':
-            # --- START: Penambahan Kode untuk Filter Role ---
-            try:
-                ticket_config = json.loads(value)
-                category_id = ticket_config.get('category_id')
+            # --- Perbaikan untuk menangani format JSON baru dan lama ---
+            if isinstance(value, dict):
+                ticket_config = value
+                category_id_str = ticket_config.get('category_id')
                 allowed_roles = ticket_config.get('allowed_roles', [])
                 blocked_roles = ticket_config.get('blocked_roles', [])
-            except (json.JSONDecodeError, TypeError):
-                # Jika format JSON tidak valid, asumsikan tidak ada filter
-                category_id = value
+            else: # Format lama (value adalah string)
+                category_id_str = value
                 allowed_roles = []
                 blocked_roles = []
-
+                
             # Mengambil ID role pengguna
             user_role_ids = [role.id for role in interaction.user.roles]
             
             # Logika Filter
-            # 1. Cek apakah pengguna memiliki role yang diblokir
             if any(role_id in blocked_roles for role_id in user_role_ids):
                 await interaction.response.send_message("Anda tidak diizinkan untuk membuka tiket ini.", ephemeral=True)
                 return
             
-            # 2. Cek apakah ada role yang diizinkan, dan apakah pengguna memilikinya
             if allowed_roles and not any(role_id in allowed_roles for role_id in user_role_ids):
                 await interaction.response.send_message("Anda harus memiliki role tertentu untuk membuka tiket ini.", ephemeral=True)
                 return
-            # --- END: Penambahan Kode untuk Filter Role ---
+            # --- Akhir Logika Filter ---
 
             if interaction.user.id in self.active_tickets:
                 await interaction.response.send_message("Anda sudah memiliki tiket aktif.", ephemeral=True)
@@ -590,12 +587,14 @@ class WebhookCog(commands.Cog):
 
             await interaction.response.defer(ephemeral=True)
 
-            category_id = int(category_id) if category_id else None
-            category = interaction.guild.get_channel(category_id)
-            if not isinstance(category, discord.CategoryChannel):
-                category = None
+            try:
+                category_id = int(category_id_str)
+                category = interaction.guild.get_channel(category_id)
+                if not isinstance(category, discord.CategoryChannel):
+                    category = None
+            except (ValueError, TypeError):
+                category = None # Jika ID kategori tidak valid, set ke None
 
-            # --- Bagian izin diubah untuk hanya menyertakan role spesifik ---
             specific_mention_role_id = 1264935423184998422
             specific_role = interaction.guild.get_role(specific_mention_role_id)
 
@@ -614,7 +613,6 @@ class WebhookCog(commands.Cog):
                 category=category
             )
 
-            # --- Bagian mention diubah untuk hanya me-mention role yang spesifik ---
             mention_string = ""
             if specific_role:
                 mention_string = specific_role.mention
@@ -637,6 +635,7 @@ class WebhookCog(commands.Cog):
             await interaction.followup.send(f"Tiket Anda telah dibuat di {ticket_channel.mention}", ephemeral=True)
             
             self.active_tickets[interaction.user.id] = ticket_channel.id
+            del self.button_actions[close_ticket_id] # Hapus aksi tombol setelah digunakan
             self.bot.loop.create_task(self.delete_ticket_after_delay(ticket_channel, interaction.user.id))
 
         elif action == 'close_ticket':
