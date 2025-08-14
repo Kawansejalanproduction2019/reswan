@@ -353,8 +353,6 @@ async def load_cogs():
         "cogs.quotes",
         "cogs.newgame",
         "cogs.multigame",
-        "cogs.dunia",
-        "cogs.koruptor",
         "cogs.endgame",
         "cogs.psikotes",
         "cogs.webhook",
