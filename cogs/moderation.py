@@ -479,7 +479,9 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
         self.color_announce = 0x7289DA
         self.color_booster = 0xF47FFF
         
-        self.spam_cooldown = commands.CooldownMapping.from_cooldown(2, 10.0, commands.BucketType.user)
+        # Mengubah cooldown untuk mendeteksi spam media/link
+        self.media_spam_cooldown = commands.CooldownMapping.from_cooldown(2, 60.0, commands.BucketType.user)
+        self.link_spam_cooldown = commands.CooldownMapping.from_cooldown(2, 60.0, commands.BucketType.user)
         self.spam_messages = {}
 
         self.settings = load_data(self.settings_file)
@@ -718,38 +720,53 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
     async def on_message(self, message: discord.Message):
         if not message.guild or message.author.id == self.bot.user.id or message.author.bot: 
             return
+
+        # Ambil daftar ID peran yang diizinkan (whitelist) dari file settings.json
+        # Contoh: `!addwhitelistrole [id_role]`, `!removewhitelistrole [id_role]`
+        guild_settings = self.get_guild_settings(message.guild.id)
+        WHITELISTED_ROLES = [role_id for role_id in guild_settings.get("spam_whitelist_roles", [])]
         
-        # LOGIKA DETEKSI SPAM
-        # Memperbarui rate limit untuk user ini. Jika cooldown terpicu, artinya ini adalah spam
-        bucket = self.spam_cooldown.get_bucket(message)
+        # Cek apakah pengguna memiliki salah satu peran yang di-whitelist
+        # Konversi ID peran yang tersimpan (string) menjadi integer untuk perbandingan
+        author_role_ids = [role.id for role in message.author.roles]
+        if any(role_id in author_role_ids for role_id in WHITELISTED_ROLES):
+            return # Lewati deteksi spam jika pengguna diizinkan
+            
+        is_media_spam = bool(message.attachments)
+        is_link_spam = bool(self.url_regex.search(message.content))
+
+        if is_media_spam:
+            bucket = self.media_spam_cooldown.get_bucket(message)
+        elif is_link_spam:
+            bucket = self.link_spam_cooldown.get_bucket(message)
+        else:
+            return # Abaikan pesan yang bukan media atau link
+
         retry_after = bucket.update_rate_limit()
-        
+
         if retry_after:
             # Pengguna ini terdeteksi spam
-            
-            # Tambahkan pesan saat ini ke daftar spam
-            if message.author.id not in self.spam_messages:
-                self.spam_messages[message.author.id] = []
-            
-            # Kumpulkan semua pesan spam untuk dihapus
-            messages_to_delete = self.spam_messages.get(message.author.id, []) + [message]
-            self.spam_messages[message.author.id] = [] # Reset daftar spam untuk user ini
+            content_info = ""
+            if is_media_spam:
+                content_info = f"Media/file: {message.attachments[0].url if message.attachments else 'N/A'}"
+                reason = "Spam media/file"
+                spam_type = "Media"
+            else:
+                content_info = f"Link: {self.url_regex.search(message.content).group(0)}"
+                reason = "Spam link"
+                spam_type = "Link"
 
-            # Hapus semua pesan yang terdeteksi spam
-            deleted_messages_content = []
-            for spam_message in messages_to_delete:
-                try:
-                    deleted_messages_content.append(f"Channel: <#{spam_message.channel.id}> - `'{spam_message.content[:50]}...'`")
-                    await spam_message.delete()
-                except (discord.Forbidden, discord.NotFound):
-                    pass
+            # Hapus pesan yang terdeteksi spam
+            try:
+                await message.delete()
+            except (discord.Forbidden, discord.NotFound):
+                pass
 
             # Berikan peringatan otomatis
-            reason = f"Spamming di 2+ channel dalam waktu kurang dari 10 detik. Pesan-pesan yang dikirim telah dihapus."
             warning_data = {
                 "moderator_id": self.bot.user.id,
                 "timestamp": int(time.time()),
-                "reason": reason
+                "reason": f"Spam otomatis: {reason}. Pesan yang dikirim telah dihapus."
             }
             guild_id_str = str(message.guild.id)
             member_id_str = str(message.author.id)
@@ -758,7 +775,7 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
 
             # Berikan timeout 2 menit
             timeout_duration = timedelta(minutes=2)
-            timeout_reason = "Timeout otomatis karena terdeteksi spam."
+            timeout_reason = f"Timeout otomatis karena terdeteksi spam {spam_type}."
             try:
                 await message.author.timeout(timeout_duration, reason=timeout_reason)
             except discord.Forbidden:
@@ -766,30 +783,30 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
             
             # Kirim pemberitahuan di channel tempat spam terdeteksi
             spam_embed = self._create_embed(
-                title="🚨 Pelanggaran Terdeteksi: Spam",
-                description=f"Anggota {message.author.mention} terdeteksi melakukan spam. Pesan-pesan yang dikirim telah dihapus dan anggota diberi peringatan serta **timeout selama 2 menit**.",
+                title=f"🚨 Pelanggaran Terdeteksi: Spam {spam_type}",
+                description=f"Anggota {message.author.mention} terdeteksi melakukan spam. Pesan yang dikirim telah dihapus dan anggota diberi peringatan serta **timeout selama 2 menit**.",
                 color=self.color_warning
             )
-            if deleted_messages_content:
-                spam_embed.add_field(name="Pesan yang Dihapus", value="\n".join(deleted_messages_content), inline=False)
+            spam_embed.add_field(name="Detail Pelanggaran", value=content_info, inline=False)
             
             await message.channel.send(embed=spam_embed)
             
             # Log di channel log
             await self.log_action(
                 message.guild,
-                "🚨 Spam Terdeteksi",
-                {"Pelaku": message.author.mention, "Alasan": reason, "Pesan Dihapus": "\n".join(deleted_messages_content) or "Tidak ada"},
+                f"🚨 Spam {spam_type} Terdeteksi",
+                {"Pelaku": message.author.mention, "Alasan": reason, "Isi Pesan": content_info},
                 self.color_warning
             )
             return
 
-        # Lacak pesan dari user untuk deteksi spam
+        # Batasi jumlah pesan yang disimpan untuk menghindari penggunaan memori yang berlebihan
+        # Logika ini tidak terlalu diperlukan lagi karena spam sekarang hanya mengecek rate limit
+        # tetapi biarkan saja untuk berjaga-jaga jika ada perubahan logika di masa depan.
         user_id = message.author.id
         if user_id not in self.spam_messages:
             self.spam_messages[user_id] = []
         self.spam_messages[user_id].append(message)
-        # Batasi jumlah pesan yang disimpan untuk menghindari penggunaan memori yang berlebihan
         if len(self.spam_messages[user_id]) > 5:
             self.spam_messages[user_id].pop(0)
 
@@ -1460,6 +1477,39 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
             color=self.color_success
         )
         await ctx.send(embed=embed)
+        
+    @commands.command(name="addwhitelistrole")
+    @commands.has_permissions(manage_roles=True)
+    async def add_whitelist_role(self, ctx, role_id: int):
+        guild_settings = self.get_guild_settings(ctx.guild.id)
+        if "spam_whitelist_roles" not in guild_settings:
+            guild_settings["spam_whitelist_roles"] = []
+        if role_id in guild_settings["spam_whitelist_roles"]:
+            await ctx.send(embed=self._create_embed(description="❌ Peran ini sudah ada di daftar whitelist.", color=self.color_error))
+            return
+        
+        role = ctx.guild.get_role(role_id)
+        if not role:
+            await ctx.send(embed=self._create_embed(description="❌ ID peran tidak valid.", color=self.color_error))
+            return
+            
+        guild_settings["spam_whitelist_roles"].append(role_id)
+        self.save_settings()
+        await ctx.send(embed=self._create_embed(description=f"✅ Peran {role.mention} telah ditambahkan ke whitelist spam.", color=self.color_success))
+
+    @commands.command(name="removewhitelistrole")
+    @commands.has_permissions(manage_roles=True)
+    async def remove_whitelist_role(self, ctx, role_id: int):
+        guild_settings = self.get_guild_settings(ctx.guild.id)
+        if "spam_whitelist_roles" not in guild_settings or role_id not in guild_settings["spam_whitelist_roles"]:
+            await ctx.send(embed=self._create_embed(description="❌ Peran ini tidak ada di daftar whitelist.", color=self.color_error))
+            return
+            
+        guild_settings["spam_whitelist_roles"].remove(role_id)
+        self.save_settings()
+        role = ctx.guild.get_role(role_id)
+        role_mention = role.mention if role else str(role_id)
+        await ctx.send(embed=self._create_embed(description=f"✅ Peran {role_mention} telah dihapus dari whitelist spam.", color=self.color_success))
 
     @commands.command(name="setreactionrole")
     @commands.has_permissions(manage_roles=True)
