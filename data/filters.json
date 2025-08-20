@@ -6,7 +6,7 @@
         ],
         "link_patterns": [
             "discord.gg/",
-            "http://bit.ly",
+            "bit.ly",
             "steamcommunity.com"
         ]
     },
@@ -20,7 +20,8 @@
         "bad_words": [],
         "link_patterns": [
             "steamcommunity.com",
-            "discord.gg/"
+            "discord.gg/",
+            "bit.ly"
         ]
     },
     "788337048997199882": {
