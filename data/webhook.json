@@ -105,6 +105,52 @@
                 ],
                 "color": "#2ECC71"
             }
+        },
+        "1395541707449303233": {
+            "1407357872391589952": {
+                "title": "Pilih Jenis Kelamin Anda",
+                "desc": "Untuk mengakses seluruh kanal di server ini dan mendapatkan role Anda, silakan pilih jenis kelamin Anda di bawah ini dengan mengklik tombol yang sesuai.",
+                "buttons": [
+                    {
+                        "label": "Male",
+                        "style": "blurple",
+                        "action": "role",
+                        "value": "1255277534908645416",
+                        "id": "cea2189f-d429-4007-b879-6a16f7e1af8a"
+                    },
+                    {
+                        "label": "Female",
+                        "style": "red",
+                        "action": "role",
+                        "value": "1255278470251151420",
+                        "id": "bffe9514-cf2e-4e75-ac39-48c4cc34397b"
+                    }
+                ],
+                "color": "#F1C40F",
+                "author": "reSwan"
+            },
+            "1407357881887490200": {
+                "title": "Pilih Jenis Kelamin Anda",
+                "desc": "Untuk mengakses seluruh kanal di server ini dan mendapatkan role Anda, silakan pilih jenis kelamin Anda di bawah ini dengan mengklik tombol yang sesuai.",
+                "buttons": [
+                    {
+                        "label": "Male",
+                        "style": "blurple",
+                        "action": "role",
+                        "value": "1255277534908645416",
+                        "id": "cea2189f-d429-4007-b879-6a16f7e1af8a"
+                    },
+                    {
+                        "label": "Female",
+                        "style": "red",
+                        "action": "role",
+                        "value": "1255278470251151420",
+                        "id": "bffe9514-cf2e-4e75-ac39-48c4cc34397b"
+                    }
+                ],
+                "color": "#F1C40F",
+                "author": "reSwan"
+            }
         }
     }
 }
