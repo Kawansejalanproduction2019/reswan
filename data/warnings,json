@@ -1,1 +1,47 @@
-{}
+{
+    "765138959625486357": {
+        "1042100948861993081": [
+            {
+                "moderator_id": 1382001133970653246,
+                "timestamp": 1755186807,
+                "reason": "Spamming di 2+ channel dalam waktu kurang dari 10 detik. Pesan-pesan yang dikirim telah dihapus."
+            },
+            {
+                "moderator_id": 1382001133970653246,
+                "timestamp": 1755186808,
+                "reason": "Spamming di 2+ channel dalam waktu kurang dari 10 detik. Pesan-pesan yang dikirim telah dihapus."
+            },
+            {
+                "moderator_id": 1382001133970653246,
+                "timestamp": 1755186893,
+                "reason": "Spamming di 2+ channel dalam waktu kurang dari 10 detik. Pesan-pesan yang dikirim telah dihapus."
+            },
+            {
+                "moderator_id": 1382001133970653246,
+                "timestamp": 1755186932,
+                "reason": "Spamming di 2+ channel dalam waktu kurang dari 10 detik. Pesan-pesan yang dikirim telah dihapus."
+            }
+        ],
+        "313995564029050881": [
+            {
+                "moderator_id": 1382001133970653246,
+                "timestamp": 1755318312,
+                "reason": "Spamming di 2+ channel dalam waktu kurang dari 10 detik. Pesan-pesan yang dikirim telah dihapus."
+            }
+        ],
+        "711060362690166865": [
+            {
+                "moderator_id": 1382001133970653246,
+                "timestamp": 1755633509,
+                "reason": "Spamming di 2+ channel dalam waktu kurang dari 10 detik. Pesan-pesan yang dikirim telah dihapus."
+            }
+        ],
+        "1223367573324697613": [
+            {
+                "moderator_id": 1382001133970653246,
+                "timestamp": 1755694062,
+                "reason": "Spamming di 2+ channel dalam waktu kurang dari 10 detik. Pesan-pesan yang dikirim telah dihapus."
+            }
+        ]
+    }
+}
