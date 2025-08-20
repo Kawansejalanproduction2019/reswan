@@ -41,7 +41,8 @@
         "boost_message": "Terima kasih banyak, {user}, telah menjadi **Server Booster** kami di {guild_name}! Kami sangat menghargai dukunganmu! ❤️",
         "boost_embed_title": "TERIMA KASIH SERVER BOOSTER!",
         "boost_sender_name": "Tim Server",
-        "boost_image_url": null
+        "boost_image_url": null,
+        "announcement_webhooks": {}
     },
     "788337048997199882": {
         "auto_role_id": null,
@@ -114,12 +115,13 @@
         "boost_message": "Terima kasih banyak, {user}, telah menjadi **Server Booster** kami di {guild_name}! Kami sangat menghargai dukunganmu! ❤️",
         "boost_embed_title": "TERIMA KASIH SERVER BOOSTER!",
         "boost_sender_name": "Tim Server",
-        "boost_image_url": null
+        "boost_image_url": null,
+        "announcement_webhooks": {}
     },
     "765138959625486357": {
         "auto_role_id": null,
         "welcome_channel_id": 1255219778407366688,
-        "welcome_message": "✨━━─◌○°∘✦∘°○◌─━━✨\n🎉 Selamat Datang di [ {guild_name} ]! 🎉\n✨━━─◌○°∘✦∘°○◌─━━✨\n\nHalo {user} Kami sangat antusias kamu bergabung dengan komunitas kami!\nAgar pengalamanmu di sini maksimal dan penuh keseruan, yuk ikuti panduan singkat di bawah ini:\n\n---\n\n## 📚 **Panduan & Hal Penting yang Wajib Kamu Tahu!**\n\n💎 **Peraturan Server:**\nPenting banget untuk membaca dan memahami aturan main kita. Ini demi kenyamanan dan keharmonisan bersama!\n🔗 [Klik di sini untuk membaca peraturan]( https://canary.discord.com/channels/765138959625486357/1255220296508768326 )\n\n✨ **Ambil Role-mu:**\nPilih peran atau role yang sesuai denganmu! Ini akan membuka akses ke berbagai channel dan fitur spesial di server.\n🔗 [Dapatkan role-mu sekarang]( https://discord.com/channels/765138959625486357/1255221263811743836 )\n\n💖 **Khusus Anggota Cewek:**\nUntuk mendapatkan role spesial 'Cewek' dan akses ke channel eksklusif, silakan ajukan permintaan role dan bersedia melakukan verifikasi voice call dengan moderator cewek kami.\n🔗 [Verifikasi untuk role cewek]( https://discord.com/channels/765138959625486357/1255221503344246834 )\n\n---\n\n## 🚀 **Informasi & Ruang Interaksi Seru!**\n\n💡 **Info Penting Discord:**\nJelajahi semua informasi krusial tentang server kita agar kamu tidak ketinggalan berita dan update!\n🔗 [Baca info server di sini]( https://discord.com/channels/765138959625486357/1255221880940531754 )\n🔗 [Info lebih lanjut]( https://discord.com/channels/765138959625486357/1255222258742464642 )\n\n✍️ **Isi Bio Kamu:**\nYuk, perkenalkan dirimu! Sedikit cerita tentangmu akan membantu kami mengenalmu lebih baik.\n🔗 [Isi biodata kamu di sini]( https://discord.com/channels/765138959625486357/1255222918791827527 )\n\n👋 **Sapa dan Bergabunglah!**\nJangan ragu untuk menyapa dan memulai percakapan di channel umum. Kami suka kenalan dengan member baru!\n🔗 [Sapa member lain di sini]( https://discord.com/channels/765138959625486357/851069782803742720 )\n\n---\n\nSelamat bersenang-senang dan mari ciptakan pengalaman Discord yang tak terlupakan bersama! Enjoy the ride! ✌️",
+        "welcome_message": "🎉 Selamat Datang di [ {guild_name} ]! 🎉\n\n\nHalo {user} Kami sangat antusias kamu bergabung dengan komunitas kami!\nAgar pengalamanmu di sini maksimal dan penuh keseruan, yuk ikuti panduan singkat di bawah ini:\n\n---\n\n## 📚 **Panduan & Hal Penting yang Wajib Kamu Tahu!**\n\n💎 **Peraturan Server:**\nPenting banget untuk membaca dan memahami aturan main kita. Ini demi kenyamanan dan keharmonisan bersama!\n🔗 [Klik di sini untuk membaca peraturan]( https://canary.discord.com/channels/765138959625486357/1255220296508768326 )\n\n✨ **Ambil Role-mu:**\nPilih peran atau role yang sesuai denganmu! Ini akan membuka akses ke berbagai channel dan fitur spesial di server.\n🔗 [Dapatkan role-mu sekarang]( https://discord.com/channels/765138959625486357/1255221263811743836 )\n🔑 [Cara mendapatkan role membership]( https://discord.com/channels/765138959625486357/1255893881053118484 )\n🕹 [Cara mengatasi gagal menautkan ke youtube]( https://youtu.be/p6XtY6qXDpk )\n\n\n💖 **Khusus Anggota Cewek:**\nUntuk mendapatkan role spesial 'Cewek' dan akses ke channel eksklusif, silakan ajukan permintaan role dan bersedia melakukan verifikasi voice call dengan moderator cewek kami.\n🔗 [Verifikasi untuk role cewek]( https://discord.com/channels/765138959625486357/1255221503344246834 )\n\n---\n\n## 🚀 **Informasi & Ruang Interaksi Seru!**\n\n💡 **Info Penting Discord:**\nJelajahi semua informasi krusial tentang server kita agar kamu tidak ketinggalan berita dan update!\n🔗 [Baca info server di sini]( https://discord.com/channels/765138959625486357/1255221880940531754 )\n🔗 [Info lebih lanjut]( https://discord.com/channels/765138959625486357/1255222258742464642 )\n\n✍️ **Isi Bio Kamu:**\nYuk, perkenalkan dirimu! Sedikit cerita tentangmu akan membantu kami mengenalmu lebih baik.\n🔗 [Isi biodata kamu di sini]( https://discord.com/channels/765138959625486357/1255222918791827527 )\n\n👋 **Sapa dan Bergabunglah!**\nJangan ragu untuk menyapa dan memulai percakapan di channel umum. Kami suka kenalan dengan member baru!\n🔗 [Sapa member lain di sini]( https://discord.com/channels/765138959625486357/851069782803742720 )\n\n---\n\nSelamat bersenang-senang dan mari ciptakan pengalaman Discord yang tak terlupakan bersama! Enjoy the ride! ✌️",
         "log_channel_id": null,
         "reaction_roles": {},
         "channel_rules": {
@@ -141,7 +143,7 @@
                 "disallow_bots": false,
                 "disallow_media": false,
                 "disallow_prefix": false,
-                "disallow_url": true,
+                "disallow_url": false,
                 "auto_delete_seconds": 0
             },
             "1255226119221940265": {
@@ -290,6 +292,48 @@
                 "disallow_prefix": false,
                 "disallow_url": false,
                 "auto_delete_seconds": 0
+            },
+            "1382486705113927811": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "1405767077351919626": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "1406237360194195508": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "1255222918791827527": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "1255221503344246834": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "1395541707449303233": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
             }
         },
         "welcome_embed_title": "Halo",
@@ -298,6 +342,7 @@
         "boost_message": "Terima kasih banyak, {user}, telah menjadi **Server Booster** kami di {guild_name}! Kami sangat menghargai dukunganmu! ❤️",
         "boost_embed_title": "halo",
         "boost_sender_name": "Tim server",
-        "boost_image_url": ""
+        "boost_image_url": "",
+        "announcement_webhooks": {}
     }
 }
