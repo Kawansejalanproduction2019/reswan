@@ -68,15 +68,19 @@ class BotFeatures(commands.Cog):
 
     # Command: !user
     @commands.command(name='user', help='Menampilkan info profil user.')
-    async def user_info(self, ctx, member: discord.Member = None):
-        target = member or ctx.author
-        embed = self.get_user_info_embed(target, target)
+    async def user_info(self, ctx, user: commands.UserConverter = None):
+        if not user:
+            user = ctx.author
+
+        member = ctx.guild.get_member(user.id)
+        
+        embed = self.get_user_info_embed(user, member)
         await ctx.send(embed=embed)
 
     # Command: !avatar
     @commands.command(name='avatar', help='Menampilkan avatar user.')
-    async def avatar(self, ctx, member: discord.Member = None):
-        target = member or ctx.author
+    async def avatar(self, ctx, user: commands.UserConverter = None):
+        target = user or ctx.author
         embed = discord.Embed(
             title=f"Avatar dari {target.display_name}",
             color=discord.Color.random()
