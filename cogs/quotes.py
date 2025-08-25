@@ -14,7 +14,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 def load_json_data(file_path, default_value=None):
     """Membantu memuat data JSON dengan penanganan error."""
     if default_value is None:
-        default_value = {}
+        default_value = []
     try:
         os.makedirs(os.path.dirname(file_path), exist_ok=True)
         with open(file_path, 'r', encoding='utf-8') as f:
@@ -188,11 +188,16 @@ class Quotes(commands.Cog):
         save_json_data(self.quotes_file_path, quotes)
         
     async def approve_quote_action(self, interaction: discord.Interaction, user_id: str, quote_text: str, is_anonymous: bool):
-        user_name = "Anonymous" if is_anonymous else interaction.user.display_name
+        # Perbaikan di sini: Gunakan logika is_anonymous untuk menentukan nama.
+        user_name = "Anonymous" if is_anonymous else interaction.guild.get_member(int(user_id)).display_name
+        
+        # Simpan kutipan dengan nama yang benar (anonim atau nama asli)
         self.save_quote_to_json(user_id, user_name, quote_text, is_approved=True)
 
+        # Berikan hadiah
         await self.give_reward(interaction.guild.id, user_id, 100, 100)
         
+        # Kirim DM kepada pengguna
         user = self.bot.get_user(int(user_id))
         if user:
             try:
@@ -201,7 +206,9 @@ class Quotes(commands.Cog):
                 logging.warning(f"Tidak dapat mengirim DM ke pengguna {user.display_name} ({user_id}).")
 
     async def give_reward(self, server_id, user_id, exp, rswn):
+        """Memperbarui data level dan bank pengguna."""
         try:
+            # Memperbarui level_data.json
             level_data = load_json_data(self.level_file_path, default_value={})
             server_data = level_data.setdefault(str(server_id), {})
             user_levels = server_data.setdefault(user_id, {'level': 1, 'exp': 0})
@@ -214,6 +221,7 @@ class Quotes(commands.Cog):
 
             save_json_data(self.level_file_path, level_data)
 
+            # Memperbarui bank_data.json
             bank_data = load_json_data(self.bank_file_path, default_value={})
             user_bank = bank_data.setdefault(user_id, {'balance': 0, 'debt': 0})
             user_bank['balance'] += rswn
