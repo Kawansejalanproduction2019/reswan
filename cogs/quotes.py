@@ -33,11 +33,12 @@ def save_json_data(file_path, data):
 
 # --- Kelas View untuk Interaksi Tombol ---
 class QuoteApprovalView(discord.ui.View):
-    def __init__(self, cog, user_id, quote_text):
+    def __init__(self, cog, user_id, quote_text, is_anonymous):
         super().__init__(timeout=43200) # Timeout 12 jam
         self.cog = cog
         self.user_id = user_id
         self.quote_text = quote_text
+        self.is_anonymous = is_anonymous
     
     @discord.ui.button(label="Approve", style=discord.ButtonStyle.green, custom_id="approve_quote_button")
     async def approve_button(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -45,7 +46,7 @@ class QuoteApprovalView(discord.ui.View):
             return await interaction.response.send_message("Anda tidak memiliki izin untuk menyetujui kutipan ini.", ephemeral=True)
         
         await interaction.response.send_message("✅ Kutipan telah disetujui! Hadiah sedang diproses...", ephemeral=True)
-        await self.cog.approve_quote_action(interaction, self.user_id, self.quote_text)
+        await self.cog.approve_quote_action(interaction, self.user_id, self.quote_text, self.is_anonymous)
         self.stop() # Hentikan interaksi setelah selesai
     
     @discord.ui.button(label="Deny", style=discord.ButtonStyle.red, custom_id="deny_quote_button")
@@ -92,17 +93,17 @@ class Quotes(commands.Cog):
         await ctx.message.delete()
         await ctx.send("✅ Kutipan telah berhasil dikirim ke channel Quotes.", ephemeral=True)
 
-    @commands.command(name="resq", help="Mengirim kutipan untuk persetujuan admin.")
-    async def resq(self, ctx, show_name: str = "yes", *, quote_text: str):
+    @commands.command(name="resq", help="Mengirim kutipan untuk persetujuan admin. Gunakan '!resq <yes/no> <quotes>'")
+    async def resq(self, ctx, show_name: str, *, quote_text: str):
         """Mengirim kutipan untuk persetujuan admin sebelum dipublikasikan."""
         if ctx.guild.get_member(ctx.author.id).guild_permissions.administrator:
-            # Jika admin, langsung panggil sendquote
-            return await self.sendquote(ctx, quote_text=quote_text)
+            return await self.sendquote(ctx, quote_text=f"{show_name} {quote_text}")
 
         user_id = str(ctx.author.id)
         user_name = ctx.author.display_name
         
-        display_name = user_name if show_name.lower() in ["yes", "y", "true"] else "Anonymous"
+        is_anonymous = show_name.lower() in ["no", "n", "false"]
+        display_name = "Anonymous" if is_anonymous else user_name
         
         quotes_channel = self.bot.get_channel(self.quotes_channel_id)
         if not quotes_channel:
@@ -115,7 +116,7 @@ class Quotes(commands.Cog):
         )
         embed.set_footer(text=f"Quotes by {display_name} | Menunggu persetujuan admin...")
         
-        view = QuoteApprovalView(self, user_id, quote_text)
+        view = QuoteApprovalView(self, user_id, quote_text, is_anonymous)
         await quotes_channel.send(embed=embed, view=view)
         
         await ctx.send("✅ Kutipanmu telah dikirim untuk persetujuan admin.", ephemeral=True)
@@ -146,7 +147,6 @@ class Quotes(commands.Cog):
         
         embed = discord.Embed(title="Daftar Kutipan yang Disetujui", color=discord.Color.blue())
         
-        # Tampilkan 10 kutipan terakhir
         for quote in approved_quotes[-10:]:
             embed.add_field(name=f"ID: {quote.get('id', 'N/A')}", 
                             value=f"**{quote.get('text', 'N/A')}** - oleh **{quote.get('user', 'N/A')}**", 
@@ -175,7 +175,6 @@ class Quotes(commands.Cog):
     def save_quote_to_json(self, user_id, user_name, quote_text, is_approved):
         quotes = load_json_data(self.quotes_file_path, default_value=[])
         
-        # Buat ID unik berdasarkan timestamp
         quote_id = int(datetime.now().timestamp() * 1000)
         
         quotes.append({
@@ -188,16 +187,12 @@ class Quotes(commands.Cog):
         })
         save_json_data(self.quotes_file_path, quotes)
         
-    async def approve_quote_action(self, interaction: discord.Interaction, user_id: str, quote_text: str):
-        """Fungsi yang dipanggil saat kutipan disetujui."""
-        
-        # Simpan kutipan sebagai disetujui
-        self.save_quote_to_json(user_id, interaction.user.display_name, quote_text, is_approved=True)
+    async def approve_quote_action(self, interaction: discord.Interaction, user_id: str, quote_text: str, is_anonymous: bool):
+        user_name = "Anonymous" if is_anonymous else interaction.user.display_name
+        self.save_quote_to_json(user_id, user_name, quote_text, is_approved=True)
 
-        # Berikan hadiah
         await self.give_reward(interaction.guild.id, user_id, 100, 100)
         
-        # Kirim DM kepada pengguna
         user = self.bot.get_user(int(user_id))
         if user:
             try:
@@ -206,22 +201,19 @@ class Quotes(commands.Cog):
                 logging.warning(f"Tidak dapat mengirim DM ke pengguna {user.display_name} ({user_id}).")
 
     async def give_reward(self, server_id, user_id, exp, rswn):
-        """Memperbarui data level dan bank pengguna."""
         try:
-            # Memperbarui level_data.json
             level_data = load_json_data(self.level_file_path, default_value={})
             server_data = level_data.setdefault(str(server_id), {})
             user_levels = server_data.setdefault(user_id, {'level': 1, 'exp': 0})
             
             user_levels['exp'] += exp
-            while user_levels['exp'] >= 1000: # Threshold EXP per level yang lebih realistis
+            while user_levels['exp'] >= 1000:
                 user_levels['level'] += 1
                 user_levels['exp'] -= 1000
                 logging.info(f"User {user_id} di server {server_id} naik ke level {user_levels['level']}!")
 
             save_json_data(self.level_file_path, level_data)
 
-            # Memperbarui bank_data.json
             bank_data = load_json_data(self.bank_file_path, default_value={})
             user_bank = bank_data.setdefault(user_id, {'balance': 0, 'debt': 0})
             user_bank['balance'] += rswn
