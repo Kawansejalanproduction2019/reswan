@@ -118,7 +118,16 @@ class YTDLSource(discord.PCMVolumeTransformer):
         if 'entries' in data:
             data = data['entries'][0]
         filename = data['url'] if stream else ytdl.prepare_filename(data)
-        return cls(discord.FFmpegPCMAudio(filename, **FFMPEG_OPTIONS), data=data)
+        
+        # Ambil path FFmpeg dari variabel lingkungan yang diatur di main.py
+        ffmpeg_executable = os.getenv("FFMPEG_PATH")
+        
+        # Lemparkan error jika path tidak ditemukan
+        if not ffmpeg_executable:
+            raise FileNotFoundError("FFmpeg executable not found in FFMPEG_PATH environment variable.")
+
+        # Perbaikan utama: Tambahkan argumen 'executable'
+        return cls(discord.FFmpegPCMAudio(filename, executable=ffmpeg_executable, **FFMPEG_OPTIONS), data=data)
 
 class MusicControlView(discord.ui.View):
     def __init__(self, cog_instance):
