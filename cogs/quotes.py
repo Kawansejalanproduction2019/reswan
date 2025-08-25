@@ -4,200 +4,233 @@ import json
 import os
 from datetime import datetime
 import logging
+import asyncio
+import functools
 
 # Setup logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
+# --- Helper Functions (Memuat dan menyimpan data) ---
+def load_json_data(file_path, default_value=None):
+    """Membantu memuat data JSON dengan penanganan error."""
+    if default_value is None:
+        default_value = {}
+    try:
+        os.makedirs(os.path.dirname(file_path), exist_ok=True)
+        with open(file_path, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        logging.warning(f"File {file_path} tidak ditemukan atau rusak. Membuat file baru.")
+        with open(file_path, 'w', encoding='utf-8') as f:
+            json.dump(default_value, f, indent=4)
+        return default_value
+
+def save_json_data(file_path, data):
+    """Membantu menyimpan data ke file JSON."""
+    os.makedirs(os.path.dirname(file_path), exist_ok=True)
+    with open(file_path, 'w', encoding='utf-8') as f:
+        json.dump(data, f, indent=4)
+
+# --- Kelas View untuk Interaksi Tombol ---
+class QuoteApprovalView(discord.ui.View):
+    def __init__(self, cog, user_id, quote_text):
+        super().__init__(timeout=43200) # Timeout 12 jam
+        self.cog = cog
+        self.user_id = user_id
+        self.quote_text = quote_text
+    
+    @discord.ui.button(label="Approve", style=discord.ButtonStyle.green, custom_id="approve_quote_button")
+    async def approve_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if not interaction.user.guild_permissions.administrator:
+            return await interaction.response.send_message("Anda tidak memiliki izin untuk menyetujui kutipan ini.", ephemeral=True)
+        
+        await interaction.response.send_message("✅ Kutipan telah disetujui! Hadiah sedang diproses...", ephemeral=True)
+        await self.cog.approve_quote_action(interaction, self.user_id, self.quote_text)
+        self.stop() # Hentikan interaksi setelah selesai
+    
+    @discord.ui.button(label="Deny", style=discord.ButtonStyle.red, custom_id="deny_quote_button")
+    async def deny_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if not interaction.user.guild_permissions.administrator:
+            return await interaction.response.send_message("Anda tidak memiliki izin untuk menolak kutipan ini.", ephemeral=True)
+        
+        await interaction.message.delete()
+        await interaction.response.send_message("❌ Kutipan telah ditolak dan dihapus.", ephemeral=True)
+        self.stop() # Hentikan interaksi setelah selesai
+
 class Quotes(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.channel_id = 1255226119221940265  # Ganti dengan ID channel yang sesuai
+        self.quotes_channel_id = 1255226119221940265
         self.quotes_file_path = os.path.join('data', 'quotes.json')
         self.bank_file_path = os.path.join('data', 'bank_data.json')
         self.level_file_path = os.path.join('data', 'level_data.json')
+        
+        # Panggil helper function saat inisialisasi untuk memastikan file ada
+        load_json_data(self.quotes_file_path, default_value=[])
+        load_json_data(self.bank_file_path, default_value={})
+        load_json_data(self.level_file_path, default_value={})
 
-    @commands.command(name="sendquote", help="Admin hanya untuk mengirim kutipan.")
+    @commands.command(name="sendquote", help="[Admin] Mengirim kutipan tanpa persetujuan.")
     @commands.has_permissions(administrator=True)
     async def sendquote(self, ctx, *, quote_text: str):
-        user_id = str(ctx.author.id)
+        """Mengirim kutipan yang sudah disetujui admin langsung ke channel quotes."""
         user_name = ctx.author.display_name
-
-        # Simpan kutipan ke JSON
-        self.save_quote_to_json(user_id, user_name, quote_text)
-        logging.info(f"Admin {user_name} ({user_id}) telah mengirim kutipan: {quote_text}")
-
-        # Kirim kutipan ke channel yang ditentukan
-        channel = self.bot.get_channel(self.channel_id)
+        
+        self.save_quote_to_json(str(ctx.author.id), user_name, quote_text, is_approved=True)
+        logging.info(f"Admin {user_name} ({ctx.author.id}) telah mengirim kutipan: {quote_text}")
+        
+        channel = self.bot.get_channel(self.quotes_channel_id)
         if channel:
-            embed = discord.Embed(title="Quotes", description=quote_text, color=0x00ff00)
+            embed = discord.Embed(
+                title="Quotes", 
+                description=quote_text, 
+                color=discord.Color.green()
+            )
             embed.set_footer(text=f"Quotes by {user_name}")
-            msg = await channel.send(embed=embed)  # Kirim ke channel yang ditentukan
+            await channel.send(embed=embed)
+        
+        await ctx.message.delete()
+        await ctx.send("✅ Kutipan telah berhasil dikirim ke channel Quotes.", ephemeral=True)
 
-            # Tambahkan buttons untuk review oleh admin
-            view = discord.ui.View(timeout=43200)  # Timeout 12 jam (43200 detik)
-            approve_button = discord.ui.Button(label="Approve", style=discord.ButtonStyle.green)
-            deny_button = discord.ui.Button(label="Deny", style=discord.ButtonStyle.red)
-
-            approve_button.callback = lambda inter: self.approve_quote(inter, user_id, quote_text, msg.id)
-            deny_button.callback = lambda inter: self.deny_quote(inter, msg)
-
-            view.add_item(approve_button)
-            view.add_item(deny_button)
-
-            await msg.edit(view=view)  # Edit pesan untuk menambahkan tombol
-
-        await ctx.message.delete()  # Hapus pesan admin setelah mengirim kutipan
-
-    @commands.command(name="resq", help="Kirim quotes.")
+    @commands.command(name="resq", help="Mengirim kutipan untuk persetujuan admin.")
     async def resq(self, ctx, show_name: str = "yes", *, quote_text: str):
+        """Mengirim kutipan untuk persetujuan admin sebelum dipublikasikan."""
+        if ctx.guild.get_member(ctx.author.id).guild_permissions.administrator:
+            # Jika admin, langsung panggil sendquote
+            return await self.sendquote(ctx, quote_text=quote_text)
+
         user_id = str(ctx.author.id)
         user_name = ctx.author.display_name
+        
         display_name = user_name if show_name.lower() in ["yes", "y", "true"] else "Anonymous"
+        
+        quotes_channel = self.bot.get_channel(self.quotes_channel_id)
+        if not quotes_channel:
+            return await ctx.send("❌ Channel quotes tidak ditemukan.", ephemeral=True)
 
-        # Simpan quotes ke JSON
-        self.save_quote_to_json(user_id, display_name, quote_text)
-        logging.info(f"User {user_name} ({user_id}) telah mengirim kutipan: {quote_text}")
+        embed = discord.Embed(
+            title="Quotes - Menunggu Persetujuan",
+            description=quote_text,
+            color=discord.Color.orange()
+        )
+        embed.set_footer(text=f"Quotes by {display_name} | Menunggu persetujuan admin...")
+        
+        view = QuoteApprovalView(self, user_id, quote_text)
+        await quotes_channel.send(embed=embed, view=view)
+        
+        await ctx.send("✅ Kutipanmu telah dikirim untuk persetujuan admin.", ephemeral=True)
+        await ctx.message.delete()
 
-        # Kirim ke channel yang ditentukan
-        channel = self.bot.get_channel(self.channel_id)
-        if channel:
-            embed = discord.Embed(title="Quotes", description=quote_text, color=0x00ff00)
-            embed.set_footer(text=f"Quotes by {display_name}")
-            msg = await channel.send(embed=embed)  # Kirim ke channel yang ditentukan
-
-            # Tambahkan buttons untuk review oleh admin
-            view = discord.ui.View(timeout=43200)  # Timeout 12 jam (43200 detik)
-            approve_button = discord.ui.Button(label="Approve", style=discord.ButtonStyle.green)
-            deny_button = discord.ui.Button(label="Deny", style=discord.ButtonStyle.red)
-
-            approve_button.callback = lambda inter: self.approve_quote(inter, user_id, quote_text, msg.id)
-            deny_button.callback = lambda inter: self.deny_quote(inter, msg)
-
-            view.add_item(approve_button)
-            view.add_item(deny_button)
-
-            await msg.edit(view=view)  # Edit pesan untuk menambahkan tombol
-
-        await ctx.message.delete()  # Hapus pesan pengguna setelah mengirim kutipan
-
-    @commands.command(name="deletequote", help="Menghapus kutipan berdasarkan ID.")
+    @commands.command(name="deletequote", help="[Admin] Menghapus kutipan berdasarkan ID.")
     @commands.has_permissions(administrator=True)
     async def deletequote(self, ctx, quote_id: int):
-        quotes = self.load_quotes_from_json()
-        if 0 < quote_id <= len(quotes):
-            deleted_quote = quotes.pop(quote_id - 1)  # Hapus kutipan berdasarkan ID
-            with open(self.quotes_file_path, 'w', encoding='utf-8') as f:
-                json.dump(quotes, f, indent=4)
-            await ctx.send(f"Kutipan dengan ID {quote_id} telah dihapus.")
+        quotes = load_json_data(self.quotes_file_path, default_value=[])
+        quote_to_delete = next((q for q in quotes if q.get('id') == quote_id), None)
+        
+        if quote_to_delete:
+            quotes.remove(quote_to_delete)
+            save_json_data(self.quotes_file_path, quotes)
+            await ctx.send(f"✅ Kutipan dengan ID {quote_id} telah dihapus.", ephemeral=True)
             logging.info(f"Kutipan dengan ID {quote_id} telah dihapus oleh admin {ctx.author.display_name}.")
         else:
-            await ctx.send("ID kutipan tidak valid. Silakan coba lagi.")
+            await ctx.send("❌ ID kutipan tidak valid. Silakan coba lagi.", ephemeral=True)
 
-    @commands.command(name="listquotes", help="Menampilkan semua kutipan yang telah dikirim.")
+    @commands.command(name="listquotes", help="[Admin] Menampilkan semua kutipan yang disetujui.")
     @commands.has_permissions(administrator=True)
     async def listquotes(self, ctx):
-        quotes = self.load_quotes_from_json()
-        if not quotes:
-            await ctx.send("Tidak ada kutipan yang tersedia.")
-            return
+        quotes = load_json_data(self.quotes_file_path, default_value=[])
+        approved_quotes = [q for q in quotes if q.get('is_approved', False)]
         
-        embed = discord.Embed(title="Daftar Kutipan", color=0x00ff00)
-        for quote in quotes:
-            embed.add_field(name=f"ID {quote['id']}", value=f"{quote['text']} - **{quote['user']}**", inline=False)
+        if not approved_quotes:
+            return await ctx.send("Tidak ada kutipan yang disetujui.", ephemeral=True)
         
-        await ctx.send(embed=embed)
+        embed = discord.Embed(title="Daftar Kutipan yang Disetujui", color=discord.Color.blue())
+        
+        # Tampilkan 10 kutipan terakhir
+        for quote in approved_quotes[-10:]:
+            embed.add_field(name=f"ID: {quote.get('id', 'N/A')}", 
+                            value=f"**{quote.get('text', 'N/A')}** - oleh **{quote.get('user', 'N/A')}**", 
+                            inline=False)
+        
+        await ctx.send(embed=embed, ephemeral=True)
 
-    def save_quote_to_json(self, user_id, user_name, quote_text):
-        quotes = self.load_quotes_from_json()
+    @commands.command(name="resrandom", help="Mengirim kutipan acak yang disetujui.")
+    async def resrandom(self, ctx):
+        quotes = load_json_data(self.quotes_file_path, default_value=[])
+        approved_quotes = [q for q in quotes if q.get('is_approved', False)]
+        
+        if not approved_quotes:
+            return await ctx.send("Tidak ada kutipan yang tersedia untuk diacak.", ephemeral=True)
+
+        random_quote = random.choice(approved_quotes)
+        
+        embed = discord.Embed(
+            title="Quotes Acak",
+            description=f"**{random_quote['text']}**",
+            color=discord.Color.purple()
+        )
+        embed.set_footer(text=f"Quotes by {random_quote['user']}")
+        await ctx.send(embed=embed)
+        
+    def save_quote_to_json(self, user_id, user_name, quote_text, is_approved):
+        quotes = load_json_data(self.quotes_file_path, default_value=[])
+        
+        # Buat ID unik berdasarkan timestamp
+        quote_id = int(datetime.now().timestamp() * 1000)
+        
         quotes.append({
-            "id": len(quotes) + 1,
+            "id": quote_id,
             "user": user_name,
             "text": quote_text,
             "user_id": user_id,
             "timestamp": str(datetime.now()),
-            "is_random": False  # Kutipan yang dikirim oleh admin tidak dapat diacak
+            "is_approved": is_approved
         })
-        with open(self.quotes_file_path, 'w', encoding='utf-8') as f:
-            json.dump(quotes, f, indent=4)
-
-    def load_quotes_from_json(self):
-        try:
-            with open(self.quotes_file_path, 'r', encoding='utf-8') as f:
-                return json.load(f)
-        except (FileNotFoundError, json.JSONDecodeError) as e:
-            logging.error(f"Error loading quotes from JSON: {e}")
-            return []
-
-    async def approve_quote(self, interaction: discord.Interaction, user_id, quote_text, message_id):
-        if not interaction.user.guild_permissions.administrator:
-            await interaction.response.send_message("Anda bukan admin! Hanya admin yang dapat memberikan persetujuan.", ephemeral=True)
-            return
+        save_json_data(self.quotes_file_path, quotes)
         
-        # Proses persetujuan kutipan dengan memberikan 100 EXP dan 100 RSWN
-        await self.give_reward(interaction.guild.id, user_id, 100, 100)  # Menambahkan 100 EXP dan 100 RSWN
-        await interaction.response.send_message(f"✅ Kutipan disetujui! Pengguna {quote_text} mendapatkan 100 EXP dan 100 RSWN.", ephemeral=True)
+    async def approve_quote_action(self, interaction: discord.Interaction, user_id: str, quote_text: str):
+        """Fungsi yang dipanggil saat kutipan disetujui."""
+        
+        # Simpan kutipan sebagai disetujui
+        self.save_quote_to_json(user_id, interaction.user.display_name, quote_text, is_approved=True)
 
-        # Kirim DM kepada pengguna yang kutipannya disetujui
+        # Berikan hadiah
+        await self.give_reward(interaction.guild.id, user_id, 100, 100)
+        
+        # Kirim DM kepada pengguna
         user = self.bot.get_user(int(user_id))
         if user:
-            await user.send(f"😢 Kutipanmu: \"{quote_text}\" telah disetujui, dan kamu mendapatkan 100 EXP dan 100 RSWN. "
-                            f"Semoga ini sedikit menghiburmu di hari yang kelabu ini. 🌧️")
-    
-        # Hapus tombol setelah disetujui
-        await interaction.message.edit(view=None)
-
-    async def deny_quote(self, interaction: discord.Interaction, msg):
-        if not interaction.user.guild_permissions.administrator:
-            await interaction.response.send_message("Anda bukan admin! Hanya admin yang dapat memberikan penolakan.", ephemeral=True)
-            return
-        
-        # Hapus pesan jika admin memberikan deny
-        await msg.delete()  # Hapus pesan kutipan
-        await interaction.response.send_message("Kutipan telah ditolak dan dihapus.", ephemeral=True)
+            try:
+                await user.send(f"✅ Kutipanmu: \"{quote_text}\" telah disetujui! Kamu mendapatkan 100 EXP dan 100 RSWN.")
+            except discord.Forbidden:
+                logging.warning(f"Tidak dapat mengirim DM ke pengguna {user.display_name} ({user_id}).")
 
     async def give_reward(self, server_id, user_id, exp, rswn):
+        """Memperbarui data level dan bank pengguna."""
         try:
             # Memperbarui level_data.json
-            with open(self.level_file_path, 'r', encoding='utf-8') as f:
-                level_data = json.load(f)
-
-            # Ambil data level pengguna atau buat baru jika tidak ada
-            server_data = level_data.get(str(server_id), {})
-            user_levels = server_data.get(user_id, {'level': 1, 'exp': 0})
-
-            # Tambahkan EXP
+            level_data = load_json_data(self.level_file_path, default_value={})
+            server_data = level_data.setdefault(str(server_id), {})
+            user_levels = server_data.setdefault(user_id, {'level': 1, 'exp': 0})
+            
             user_levels['exp'] += exp
-
-            # Level up jika cukup EXP
-            if user_levels['exp'] >= 10000:  # Misalnya, threshold level up
+            while user_levels['exp'] >= 1000: # Threshold EXP per level yang lebih realistis
                 user_levels['level'] += 1
-                user_levels['exp'] -= 10000  # Sisa EXP setelah level up
+                user_levels['exp'] -= 1000
+                logging.info(f"User {user_id} di server {server_id} naik ke level {user_levels['level']}!")
 
-            # Simpan kembali data level pengguna
-            if str(server_id) not in level_data:
-                level_data[str(server_id)] = {}
-            level_data[str(server_id)][user_id] = user_levels
-
-            with open(self.level_file_path, 'w', encoding='utf-8') as f:
-                json.dump(level_data, f, indent=4)
+            save_json_data(self.level_file_path, level_data)
 
             # Memperbarui bank_data.json
-            with open(self.bank_file_path, 'r', encoding='utf-8') as f:
-                bank_data = json.load(f)
-
-            # Tambahkan RSWN
-            if user_id in bank_data:
-                bank_data[user_id]['balance'] += rswn
-            else:
-                bank_data[user_id] = {'balance': rswn, 'debt': 0}
-
-            with open(self.bank_file_path, 'w', encoding='utf-8') as f:
-                json.dump(bank_data, f, indent=4)
+            bank_data = load_json_data(self.bank_file_path, default_value={})
+            user_bank = bank_data.setdefault(user_id, {'balance': 0, 'debt': 0})
+            user_bank['balance'] += rswn
+            
+            save_json_data(self.bank_file_path, bank_data)
 
             logging.info(f"User {user_id} di server {server_id} diberi hadiah: {exp} EXP dan {rswn} RSWN.")
         except Exception as e:
-            logging.error(f"Error memberikan hadiah kepada user {user_id} di server {server_id}: {e}")
+            logging.error(f"Error memberikan hadiah kepada user {user_id} di server {server_id}: {e}", exc_info=True)
 
-# Memungkinkan pengaturan cog
 async def setup(bot):
     await bot.add_cog(Quotes(bot))
