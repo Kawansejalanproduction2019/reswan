@@ -516,7 +516,7 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
                 "welcome_message": "Selamat datang di **{guild_name}**, {user}! 🎉",
                 "welcome_embed_title": "SELAMAT DATANG!",
                 "welcome_sender_name": "Admin Server",
-                "welcome_banner_url": None, # <--- PENAMBAHAN
+                "welcome_banner_url": None, 
                 "log_channel_id": None, 
                 "reaction_roles": {},
                 "channel_rules": {},
@@ -533,7 +533,7 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
             self.settings[guild_id_str]["welcome_embed_title"] = "SELAMAT DATANG!"
         if "welcome_sender_name" not in self.settings[guild_id_str]:
             self.settings[guild_id_str]["welcome_sender_name"] = "Admin Server"
-        if "welcome_banner_url" not in self.settings[guild_id_str]: # <--- PENAMBAHAN
+        if "welcome_banner_url" not in self.settings[guild_id_str]: 
             self.settings[guild_id_str]["welcome_banner_url"] = None
         if "channel_rules" not in self.settings[guild_id_str]:
             self.settings[guild_id_str]["channel_rules"] = {}
@@ -647,7 +647,7 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
             welcome_message_content = guild_settings.get("welcome_message", "Selamat datang di **{guild_name}**, {user}! 🎉")
             welcome_embed_title = guild_settings.get("welcome_embed_title", "SELAMAT DATANG!")
             welcome_sender_name = guild_settings.get("welcome_sender_name", "Admin Server")
-            welcome_banner_url = guild_settings.get("welcome_banner_url") # <--- PENAMBAHAN
+            welcome_banner_url = guild_settings.get("welcome_banner_url")
 
             embed = discord.Embed(
                 description=welcome_message_content.format(user=member.mention, guild_name=member.guild.name), 
@@ -661,7 +661,7 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
             embed.set_thumbnail(url=member.display_avatar.url)
             embed.set_footer(text=f"Kamu adalah anggota ke-{member.guild.member_count}!")
 
-            if welcome_banner_url: # <--- PENAMBAHAN: Atur banner jika URL ada
+            if welcome_banner_url:
                 embed.set_image(url=welcome_banner_url)
             
             try:
@@ -1628,6 +1628,10 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
                 
                 boost_ch = self.ctx.guild.get_channel(settings.get('boost_channel_id')) if settings.get('boost_channel_id') else "Tidak diatur"
                 boost_image = f"[URL]({settings.get('boost_image_url')})" if settings.get('boost_image_url') else "Tidak diatur"
+                
+                # Perbaikan di sini
+                welcome_banner = settings.get("welcome_banner_url")
+                banner_url_display = f"[URL]({welcome_banner})" if welcome_banner else "Tidak diatur"
 
                 embed = self.cog._create_embed(title=f"Konfigurasi untuk {self.ctx.guild.name}", color=self.cog.color_info)
                 embed.add_field(
@@ -1644,7 +1648,7 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
                     value=(
                         f"**Judul Embed**: `{settings.get('welcome_embed_title', 'Tidak diatur')}`\n"
                         f"**Pengirim Kustom**: `{settings.get('welcome_sender_name', 'Tidak diatur')}`\n"
-                        f"**URL Banner**: {f'[URL]({settings.get("welcome_banner_url")})' if settings.get('welcome_banner_url') else 'Tidak diatur'}\n"
+                        f"**URL Banner**: {banner_url_display}\n"
                         f"**Isi Pesan**: ```{settings.get('welcome_message')}```"
                     ), 
                     inline=False
