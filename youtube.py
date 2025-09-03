@@ -15,6 +15,7 @@ app = Flask(__name__)
 
 # --- Inisialisasi Bot dan Data ---
 try:
+    # Perbaikan: Mengubah jalur file menjadi relatif agar lebih fleksibel di VPS
     with open("config.json", "r", encoding="utf-8") as f:
         config = json.load(f)
 except FileNotFoundError:
@@ -115,7 +116,6 @@ def send_chat_message(message_text):
     body = {
         "snippet": {
             "liveChatId": current_live_chat_id,
-            # Perbaikan: Mengganti nilai "textMessage" menjadi "textMessageEvent"
             "type": "textMessageEvent",
             "textMessageDetails": {
                 "messageText": message_text
@@ -131,7 +131,13 @@ def send_chat_message(message_text):
     except requests.exceptions.RequestException as e:
         print(f"Terjadi kesalahan saat mengirim pesan: {e}")
         try:
-            print(f"Detail error: {e.response.text}")
+            error_details = e.response.json()
+            # Perbaikan: Beri pesan yang lebih jelas saat kuota terlampaui.
+            if e.response.status_code == 403 and any(err['reason'] == 'quotaExceeded' for err in error_details.get('error', {}).get('errors', [])):
+                print("DETAIL ERROR: Kuota untuk operasi tulis telah terlampaui.")
+                print("Solusi: Tunggu hingga kuota direset (biasanya 24 jam) atau gunakan akun YouTube lain.")
+            else:
+                print(f"Detail error: {e.response.text}")
         except:
             pass
         return False
@@ -211,27 +217,39 @@ def start_monitoring():
         return jsonify({"success": False, "message": "URL live stream tidak valid."}), 400
     video_id = video_id_match.group(0)
 
-    try:
-        if not youtube_service:
-            youtube_service = get_youtube_service()
+    # Perbaikan: Menambahkan percobaan ulang jika terjadi Quota Exceeded
+    for i in range(len(api_keys)):
+        try:
             if not youtube_service:
-                return jsonify({"success": False, "message": "Gagal mendapatkan layanan YouTube."}), 500
+                youtube_service = get_youtube_service()
+                if not youtube_service:
+                    return jsonify({"success": False, "message": "Gagal mendapatkan layanan YouTube."}), 500
 
-        broadcasts = youtube_service.liveBroadcasts().list(
-            part="snippet",
-            id=video_id
-        ).execute()
+            broadcasts = youtube_service.liveBroadcasts().list(
+                part="snippet",
+                id=video_id
+            ).execute()
 
-        if broadcasts['items'] and broadcasts['items'][0]['snippet']['liveChatId']:
-            current_live_chat_id = broadcasts['items'][0]['snippet']['liveChatId']
-            is_monitoring = True
-            return jsonify({"success": True, "message": f"Bot berhasil terhubung ke live chat: {live_url}"})
-        else:
-            is_monitoring = False
-            return jsonify({"success": False, "message": "URL bukan live stream yang aktif."}), 400
-    except Exception as e:
-        is_monitoring = False
-        return jsonify({"success": False, "message": f"Terjadi kesalahan: {e}"}), 500
+            if broadcasts['items'] and broadcasts['items'][0]['snippet']['liveChatId']:
+                current_live_chat_id = broadcasts['items'][0]['snippet']['liveChatId']
+                is_monitoring = True
+                return jsonify({"success": True, "message": f"Bot berhasil terhubung ke live chat: {live_url}"})
+            else:
+                is_monitoring = False
+                return jsonify({"success": False, "message": "URL bukan live stream yang aktif."}), 400
+        except Exception as e:
+            error_text = str(e)
+            if "quotaExceeded" in error_text:
+                print(f"DETAIL ERROR: API Key {api_keys[0][-4:]} kehabisan kuota.")
+                print("Mencoba API Key berikutnya...")
+                api_keys.rotate(-1)
+                youtube_service = None  # Reset service untuk mencoba dengan key baru
+            else:
+                is_monitoring = False
+                return jsonify({"success": False, "message": f"Terjadi kesalahan: {e}"}), 500
+
+    is_monitoring = False
+    return jsonify({"success": False, "message": "Semua API Key kehabisan kuota."}), 500
 
 @app.route('/stop_monitoring', methods=['POST'])
 def stop_monitoring():
@@ -305,4 +323,3 @@ if __name__ == "__main__":
             time.sleep(1)
     except KeyboardInterrupt:
         print("Bot YouTube berhenti.")
-
