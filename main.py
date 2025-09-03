@@ -358,7 +358,8 @@ async def load_cogs():
         "cogs.webhook",
         "cogs.info",
         "cogs.faq",
-        "cogs.reaction"
+        "cogs.reaction",
+        "cogs.youtube"
     ]
     for extension in initial_extensions:
         try:
