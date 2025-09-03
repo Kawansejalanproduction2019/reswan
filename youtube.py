@@ -10,6 +10,7 @@ import re
 import google.oauth2.credentials
 import google.auth.transport.requests
 import requests
+import googleapiclient.errors
 
 app = Flask(__name__)
 
@@ -190,6 +191,19 @@ def read_live_chat():
             next_page_token = response.get("nextPageToken")
             time.sleep(response.get("pollingIntervalMillis", 1000) / 1000.0)
 
+        except googleapiclient.errors.HttpError as e:
+            if e.resp.status == 403 and 'quotaExceeded' in str(e):
+                print("Error kuota terdeteksi saat membaca chat. Beralih ke API Key berikutnya...")
+                api_keys.rotate(-1) # Pindah ke key berikutnya
+                youtube_service = get_youtube_service() # Dapatkan layanan dengan key baru
+            else:
+                print(f"Terjadi kesalahan saat membaca chat: {e}")
+                is_monitoring = False
+                current_live_chat_id = None
+                youtube_service = get_youtube_service()
+                if not youtube_service:
+                    break
+                time.sleep(5)
         except Exception as e:
             print(f"Terjadi kesalahan saat membaca chat: {e}")
             is_monitoring = False
@@ -198,19 +212,6 @@ def read_live_chat():
             if not youtube_service:
                 break
             time.sleep(5)
-
-def send_auto_messages():
-    while True:
-        auto_messages_data = load_data('automessages.json')
-        messages = auto_messages_data["messages"]
-        interval = auto_messages_data["interval_minutes"] * 60
-        
-        if is_monitoring and messages:
-            message_to_send = random.choice(messages)
-            print(f"[AUTO-MESSAGE] Mengirim pesan otomatis: {message_to_send}")
-            send_chat_message(message_to_send)
-            
-        time.sleep(interval)
 
 @app.route('/start_monitoring', methods=['POST'])
 def start_monitoring():
@@ -245,16 +246,18 @@ def start_monitoring():
             else:
                 is_monitoring = False
                 return jsonify({"success": False, "message": "URL bukan live stream yang aktif."}), 400
-        except Exception as e:
-            error_text = str(e)
-            if "quotaExceeded" in error_text:
-                print(f"DETAIL ERROR: API Key {api_keys[0][-4:]} kehabisan kuota.")
-                print("Mencoba API Key berikutnya...")
+        except googleapiclient.errors.HttpError as e:
+            if e.resp.status == 403 and 'quotaExceeded' in str(e):
+                print("Error kuota terdeteksi saat memulai pemantauan. Beralih ke API Key berikutnya...")
                 api_keys.rotate(-1)
-                youtube_service = None  # Reset service untuk mencoba dengan key baru
+                youtube_service = get_youtube_service()
+                return jsonify({"success": False, "message": "Error kuota. Mencoba API Key berikutnya. Silakan coba lagi."}), 500
             else:
                 is_monitoring = False
                 return jsonify({"success": False, "message": f"Terjadi kesalahan: {e}"}), 500
+        except Exception as e:
+            is_monitoring = False
+            return jsonify({"success": False, "message": f"Terjadi kesalahan: {e}"}), 500
 
     is_monitoring = False
     return jsonify({"success": False, "message": "Semua API Key kehabisan kuota."}), 500
