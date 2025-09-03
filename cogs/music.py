@@ -602,7 +602,6 @@ class ReswanBot(commands.Cog):
 
     @tasks.loop(seconds=5)
     async def idle_check_task(self):
-        log.info("Running idle check task...")
         for guild in self.bot.guilds:
             vc = guild.voice_client
             if vc and vc.is_connected():
