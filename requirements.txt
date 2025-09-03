@@ -1,5 +1,5 @@
 discord.py==2.5.2
-flask
+Flask
 aiohttp
 Pillow
 python-dotenv
@@ -11,3 +11,8 @@ pymongo>=4.0.0
 spotipy
 spotify
 pytz
+google-api-python-client
+Flask-Cors
+requests
+google-auth-oauthlib
+google-auth-httplib2
