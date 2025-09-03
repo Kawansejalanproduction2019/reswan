@@ -8,7 +8,7 @@ class YoutubeControlCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         # Ganti localhost dengan IP server jika bot YouTube di server lain
-        self.youtube_bot_api_url = "http://127.0.0.1:5000"
+        self.youtube_bot_api_url = "http://localhost:5000"
 
     @commands.command(name="monitor")
     @commands.has_permissions(administrator=True)
