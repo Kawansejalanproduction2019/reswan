@@ -15,7 +15,6 @@ app = Flask(__name__)
 
 # --- Inisialisasi Bot dan Data ---
 try:
-    # Perbaikan: Mengubah jalur file menjadi relatif agar lebih fleksibel di VPS
     with open("config.json", "r", encoding="utf-8") as f:
         config = json.load(f)
 except FileNotFoundError:
@@ -49,9 +48,13 @@ def save_data(data, filename):
 
 # --- Fungsi Core Bot ---
 def get_youtube_service():
-    """Mengatur layanan YouTube dan mengelola otorisasi."""
+    """
+    Mengatur layanan YouTube dan mengelola otorisasi.
+    Sekarang akan mencoba OAuth, jika gagal karena kuota, akan beralih ke API Key.
+    """
     global youtube_service, credentials
-    
+
+    # Coba menggunakan OAuth credentials terlebih dahulu
     if os.path.exists("credentials.json"):
         try:
             credentials = google.oauth2.credentials.Credentials.from_authorized_user_file(
@@ -74,12 +77,19 @@ def get_youtube_service():
             return youtube_service
 
         except Exception as e:
-            print(f"!! GAGAL MEMUAT KREDENSIAL OAUTH !!")
-            print(f"Error: {e}")
-            print(f"Pastikan file 'credentials.json' valid.")
-            print(f"Bot akan berhenti.")
-            os._exit(1)
-
+            error_text = str(e)
+            if "quotaExceeded" in error_text:
+                print("DETAIL ERROR: Kuota OAuth untuk operasi baca telah terlampaui.")
+                print("Bot akan beralih ke API Key untuk sementara.")
+                # Lanjutkan ke loop di bawah untuk mencoba API Key
+            else:
+                print(f"!! GAGAL MEMUAT KREDENSIAL OAUTH !!")
+                print(f"Error: {e}")
+                print(f"Pastikan file 'credentials.json' valid.")
+                print(f"Bot akan berhenti.")
+                os._exit(1)
+    
+    # Jika OAuth gagal karena kuota atau file tidak ada, coba API Keys
     while True:
         try:
             current_key = api_keys[0]
@@ -132,7 +142,6 @@ def send_chat_message(message_text):
         print(f"Terjadi kesalahan saat mengirim pesan: {e}")
         try:
             error_details = e.response.json()
-            # Perbaikan: Beri pesan yang lebih jelas saat kuota terlampaui.
             if e.response.status_code == 403 and any(err['reason'] == 'quotaExceeded' for err in error_details.get('error', {}).get('errors', [])):
                 print("DETAIL ERROR: Kuota untuk operasi tulis telah terlampaui.")
                 print("Solusi: Tunggu hingga kuota direset (biasanya 24 jam) atau gunakan akun YouTube lain.")
@@ -217,7 +226,6 @@ def start_monitoring():
         return jsonify({"success": False, "message": "URL live stream tidak valid."}), 400
     video_id = video_id_match.group(0)
 
-    # Perbaikan: Menambahkan percobaan ulang jika terjadi Quota Exceeded
     for i in range(len(api_keys)):
         try:
             if not youtube_service:
