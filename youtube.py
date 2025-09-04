@@ -1,151 +1,333 @@
-import discord
-from discord.ext import commands
-import requests
+import googleapiclient.discovery
+import json
+import time
+from threading import Thread
+from flask import Flask, request, jsonify
+from collections import deque
+import random
+import os
 import re
-from typing import Optional
+import google.oauth2.credentials
+import google.auth.transport.requests
+import requests
 
-class YoutubeControlCog(commands.Cog):
-    """Cog yang berisi perintah untuk mengontrol bot YouTube."""
+app = Flask(__name__)
 
-    def __init__(self, bot):
-        self.bot = bot
-        # Ganti localhost dengan IP server jika bot YouTube di server lain
-        self.youtube_bot_api_url = "http://localhost:5000"
+# --- Inisialisasi Bot dan Data ---
+try:
+    with open("config.json", "r", encoding="utf-8") as f:
+        config = json.load(f)
+except FileNotFoundError:
+    print("Error: File 'config.json' tidak ditemukan.")
+    os._exit(1)
+except json.JSONDecodeError:
+    print("Error: File 'config.json' tidak valid. Periksa format JSON.")
+    os._exit(1)
 
-    @commands.command(name="monitor")
-    @commands.has_permissions(administrator=True)
-    async def monitor(self, ctx, live_url: str):
-        """Memulai pemantauan live chat YouTube dengan URL."""
+
+api_keys = deque(config['youtube_api_keys'])
+youtube_service = None
+current_live_chat_id = None
+is_monitoring = False
+credentials = None
+
+def load_data(filename):
+    try:
+        with open(filename, 'r') as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        if filename == 'commands.json':
+            return {}
+        if filename == 'automessages.json':
+            return {"messages": [], "interval_minutes": 10}
+        return None
+
+def save_data(data, filename):
+    with open(filename, 'w') as f:
+        json.dump(data, f, indent=4)
+
+# --- Fungsi Core Bot ---
+def get_youtube_service():
+    """
+    Mengatur layanan YouTube dan mengelola otorisasi.
+    Sekarang akan mencoba OAuth, jika gagal karena kuota, akan beralih ke API Key.
+    """
+    global youtube_service, credentials
+
+    # Coba menggunakan OAuth credentials terlebih dahulu
+    if os.path.exists("credentials.json"):
         try:
-            payload = {"url": live_url}
-            response = requests.post(f"{self.youtube_bot_api_url}/start_monitoring", json=payload)
-            response_json = response.json()
-            await ctx.send(response_json['message'])
-        except requests.exceptions.ConnectionError:
-            await ctx.send("Gagal terhubung ke bot YouTube. Pastikan bot YouTube sedang berjalan.")
+            credentials = google.oauth2.credentials.Credentials.from_authorized_user_file(
+                "credentials.json", ["https://www.googleapis.com/auth/youtube.force-ssl"]
+            )
+            if credentials and credentials.expired and credentials.refresh_token:
+                print("Token kedaluwarsa. Mencoba refresh...")
+                credentials.refresh(google.auth.transport.requests.Request())
+                print("Refresh token berhasil.")
+
+            if not credentials or not credentials.valid:
+                print("Kredensial tidak valid. Mungkin refresh token juga kedaluwarsa.")
+                print("Silakan jalankan ulang 'oauth_flow.py' untuk mendapatkan token baru.")
+                os._exit(1)
+
+            youtube_service = googleapiclient.discovery.build(
+                "youtube", "v3", credentials=credentials
+            )
+            print("Menggunakan layanan YouTube dengan otorisasi OAuth 2.0.")
+            return youtube_service
+
         except Exception as e:
-            await ctx.send(f"Terjadi kesalahan saat memulai pemantauan: {e}")
-
-    @commands.command(name="stopmonitor")
-    @commands.has_permissions(administrator=True)
-    async def stopmonitor(self, ctx):
-        """Menghentikan pemantauan live chat."""
-        try:
-            response = requests.post(f"{self.youtube_bot_api_url}/stop_monitoring")
-            response_json = response.json()
-            await ctx.send(response_json['message'])
-        except requests.exceptions.ConnectionError:
-            await ctx.send("Gagal terhubung ke bot YouTube. Pastikan bot YouTube sedang berjalan.")
-        except Exception as e:
-            await ctx.send(f"Terjadi kesalahan saat menghentikan pemantauan: {e}")
-
-    @commands.command(name="addcommand")
-    @commands.has_permissions(administrator=True)
-    async def addcommand(self, ctx, trigger: str, *, response: str):
-        """Menambahkan custom command untuk bot YouTube."""
-        try:
-            payload = {"trigger": trigger, "response": response}
-            response = requests.post(f"{self.youtube_bot_api_url}/add_command", json=payload)
-            response_json = response.json()
-            await ctx.send(response_json['message'])
-        except requests.exceptions.ConnectionError:
-            await ctx.send("Gagal terhubung ke bot YouTube. Pastikan bot YouTube sedang berjalan.")
-        except Exception as e:
-            await ctx.send(f"Terjadi kesalahan: {e}")
-
-    @commands.command(name="addauto")
-    @commands.has_permissions(administrator=True)
-    async def addauto(self, ctx, *, message: str):
-        """Menambahkan pesan otomatis untuk bot YouTube."""
-        try:
-            payload = {"message": message}
-            response = requests.post(f"{self.youtube_bot_api_url}/add_automessage", json=payload)
-            response_json = response.json()
-            await ctx.send(response_json['message'])
-        except requests.exceptions.ConnectionError:
-            await ctx.send("Gagal terhubung ke bot YouTube. Pastikan bot YouTube sedang berjalan.")
-        except Exception as e:
-            await ctx.send(f"Terjadi kesalahan: {e}")
-
-    @commands.command(name="setautointerval")
-    @commands.has_permissions(administrator=True)
-    async def setautointerval(self, ctx, minutes: int):
-        """Mengatur interval pesan otomatis dalam menit."""
-        try:
-            payload = {"interval": minutes}
-            response = requests.post(f"{self.youtube_bot_api_url}/update_interval", json=payload)
-            response_json = response.json()
-            await ctx.send(response_json['message'])
-        except requests.exceptions.ConnectionError:
-            await ctx.send("Gagal terhubung ke bot YouTube. Pastikan bot YouTube sedang berjalan.")
-        except Exception as e:
-            await ctx.send(f"Terjadi kesalahan: {e}")
-
-    ---
-    
-    ## Tambahan Perintah
-    
-    Perintah-perintah berikut telah ditambahkan untuk membantu Anda mengelola bot YouTube:
-    
-    * **!viewconfigs** atau **!listconfigs**: Menampilkan semua custom command dan pesan otomatis yang telah Anda atur.
-    * **!delcommand `<trigger>`**: Menghapus custom command dengan nama pemicu (`trigger`) yang Anda sebutkan.
-    * **!reset**: Mereset semua konfigurasi (custom commands dan pesan otomatis) secara keseluruhan.
-
-    @commands.command(name="viewconfigs", aliases=['listconfigs'])
-    @commands.has_permissions(administrator=True)
-    async def view_configs(self, ctx):
-        try:
-            response = requests.get(f"{self.youtube_bot_api_url}/get_all_configs")
-            response_json = response.json()
-
-            embed = discord.Embed(title="Konfigurasi Bot YouTube", color=discord.Color.blue())
-            
-            commands_list = response_json.get('commands', [])
-            if commands_list:
-                commands_text = "\n".join([f"**`!{cmd['trigger']}`** → {cmd['response']}" for cmd in commands_list])
-                embed.add_field(name="Custom Commands", value=commands_text, inline=False)
+            error_text = str(e)
+            if "quotaExceeded" in error_text:
+                print("DETAIL ERROR: Kuota OAuth untuk operasi baca telah terlampaui.")
+                print("Bot akan beralih ke API Key untuk sementara.")
+                # Lanjutkan ke loop di bawah untuk mencoba API Key
             else:
-                embed.add_field(name="Custom Commands", value="Tidak ada custom command yang diset.", inline=False)
+                print(f"!! GAGAL MEMUAT KREDENSIAL OAUTH !!")
+                print(f"Error: {e}")
+                print(f"Pastikan file 'credentials.json' valid.")
+                print(f"Bot akan berhenti.")
+                os._exit(1)
+    
+    # Jika OAuth gagal karena kuota atau file tidak ada, coba API Keys
+    while True:
+        try:
+            current_key = api_keys[0]
+            youtube_service = googleapiclient.discovery.build("youtube", "v3", developerKey=current_key)
+            youtube_service.channels().list(part="id", id="UC_x5XG1OV2P6uZZ5tdeowsg").execute()
+            print(f"Menggunakan layanan YouTube dengan API Key: {current_key[-4:]} (read-only)")
+            return youtube_service
+        except Exception as e:
+            print(f"Error dengan API Key {current_key[-4:]}: {e}")
+            print("Mencoba API Key berikutnya...")
+            api_keys.rotate(-1)
+            if not api_keys:
+                print("Semua API Key habis. Bot berhenti.")
+                os._exit(1)
+            time.sleep(1)
 
-            automessages_list = response_json.get('automessages', [])
-            if automessages_list:
-                automessages_text = "\n".join([f"**`#{i+1}`** → {msg['message']}" for i, msg in enumerate(automessages_list)])
-                embed.add_field(name="Auto Messages", value=automessages_text, inline=False)
+def send_chat_message(message_text):
+    """Mengirim pesan ke live chat menggunakan OAuth secara manual."""
+    global credentials, current_live_chat_id
+    
+    if not current_live_chat_id or not credentials:
+        print("Bot tidak terhubung ke live chat atau tidak memiliki kredensial.")
+        return False
+        
+    # Pastikan token tidak kedaluwarsa sebelum mengirim
+    if credentials.expired and credentials.refresh_token:
+        credentials.refresh(google.auth.transport.requests.Request())
+        
+    url = "https://youtube.googleapis.com/youtube/v3/liveChat/messages?part=snippet"
+    headers = {
+        "Authorization": f"Bearer {credentials.token}",
+        "Content-Type": "application/json"
+    }
+    body = {
+        "snippet": {
+            "liveChatId": current_live_chat_id,
+            "type": "textMessageEvent",
+            "textMessageDetails": {
+                "messageText": message_text
+            }
+        }
+    }
+    
+    try:
+        response = requests.post(url, headers=headers, json=body)
+        response.raise_for_status()
+        print(f"[BOT RESPONSE] Berhasil mengirim pesan: '{message_text}'")
+        return True
+    except requests.exceptions.RequestException as e:
+        print(f"Terjadi kesalahan saat mengirim pesan: {e}")
+        try:
+            error_details = e.response.json()
+            if e.response.status_code == 403 and any(err['reason'] == 'quotaExceeded' for err in error_details.get('error', {}).get('errors', [])):
+                print("DETAIL ERROR: Kuota untuk operasi tulis telah terlampaui.")
+                print("Solusi: Tunggu hingga kuota direset (biasanya 24 jam) atau gunakan akun YouTube lain.")
             else:
-                embed.add_field(name="Auto Messages", value="Tidak ada auto message yang diset.", inline=False)
+                print(f"Detail error: {e.response.text}")
+        except:
+            pass
+        return False
+    except Exception as e:
+        print(f"Terjadi kesalahan tak terduga: {e}")
+        return False
+
+def read_live_chat():
+    global youtube_service, current_live_chat_id, is_monitoring
+    
+    if not youtube_service:
+        youtube_service = get_youtube_service()
+        if not youtube_service:
+            return
+
+    next_page_token = None
+    
+    print("Menunggu perintah untuk memulai pemantauan live chat...")
+    while True:
+        if not is_monitoring or not current_live_chat_id:
+            time.sleep(5)
+            continue
             
-            await ctx.send(embed=embed)
-
-        except requests.exceptions.ConnectionError:
-            await ctx.send("Gagal terhubung ke bot YouTube.")
-        except Exception as e:
-            await ctx.send(f"Terjadi kesalahan: {e}")
-
-    @commands.command(name="delcommand")
-    @commands.has_permissions(administrator=True)
-    async def del_command(self, ctx, trigger: str):
         try:
-            payload = {"trigger": trigger}
-            response = requests.post(f"{self.youtube_bot_api_url}/del_command", json=payload)
-            response_json = response.json()
-            await ctx.send(response_json['message'])
-        except requests.exceptions.ConnectionError:
-            await ctx.send("Gagal terhubung ke bot YouTube.")
-        except Exception as e:
-            await ctx.send(f"Terjadi kesalahan: {e}")
+            request = youtube_service.liveChatMessages().list(
+                liveChatId=current_live_chat_id,
+                part="snippet",
+                pageToken=next_page_token
+            )
+            response = request.execute()
+            
+            commands = load_data('commands.json')
+            for item in response.get("items", []):
+                message = item["snippet"]["displayMessage"].lower()
+                
+                for trigger, response_text in commands.items():
+                    if f"!{trigger}" == message or trigger == message:
+                        print(f"Trigger '{trigger}' terdeteksi!")
+                        send_chat_message(response_text)
+                        
+            next_page_token = response.get("nextPageToken")
+            time.sleep(response.get("pollingIntervalMillis", 1000) / 1000.0)
 
-    @commands.command(name="reset")
-    @commands.has_permissions(administrator=True)
-    async def reset_all(self, ctx):
+        except Exception as e:
+            print(f"Terjadi kesalahan saat membaca chat: {e}")
+            is_monitoring = False
+            current_live_chat_id = None
+            youtube_service = get_youtube_service()
+            if not youtube_service:
+                break
+            time.sleep(5)
+
+def send_auto_messages():
+    while True:
+        auto_messages_data = load_data('automessages.json')
+        messages = auto_messages_data["messages"]
+        interval = auto_messages_data["interval_minutes"] * 60
+        
+        if is_monitoring and messages:
+            message_to_send = random.choice(messages)
+            print(f"[AUTO-MESSAGE] Mengirim pesan otomatis: {message_to_send}")
+            send_chat_message(message_to_send)
+            
+        time.sleep(interval)
+
+@app.route('/start_monitoring', methods=['POST'])
+def start_monitoring():
+    global current_live_chat_id, is_monitoring, youtube_service
+    data = request.json
+    live_url = data.get('url')
+    
+    if not live_url:
+        return jsonify({"success": False, "message": "URL tidak boleh kosong."}), 400
+
+    video_id_match = re.search(r'(?<=v=)[a-zA-Z0-9_-]{11}', live_url)
+    if not video_id_match:
+        return jsonify({"success": False, "message": "URL live stream tidak valid."}), 400
+    video_id = video_id_match.group(0)
+
+    for i in range(len(api_keys)):
         try:
-            response = requests.post(f"{self.youtube_bot_api_url}/reset_all_configs")
-            response_json = response.json()
-            await ctx.send(response_json['message'])
-        except requests.exceptions.ConnectionError:
-            await ctx.send("Gagal terhubung ke bot YouTube.")
-        except Exception as e:
-            await ctx.send(f"Terjadi kesalahan: {e}")
+            if not youtube_service:
+                youtube_service = get_youtube_service()
+                if not youtube_service:
+                    return jsonify({"success": False, "message": "Gagal mendapatkan layanan YouTube."}), 500
 
-# Fungsi ini harus ada agar bot utama bisa memuat cog
-async def setup(bot):
-    await bot.add_cog(YoutubeControlCog(bot))
+            broadcasts = youtube_service.liveBroadcasts().list(
+                part="snippet",
+                id=video_id
+            ).execute()
+
+            if broadcasts['items'] and broadcasts['items'][0]['snippet']['liveChatId']:
+                current_live_chat_id = broadcasts['items'][0]['snippet']['liveChatId']
+                is_monitoring = True
+                return jsonify({"success": True, "message": f"Bot berhasil terhubung ke live chat: {live_url}"})
+            else:
+                is_monitoring = False
+                return jsonify({"success": False, "message": "URL bukan live stream yang aktif."}), 400
+        except Exception as e:
+            error_text = str(e)
+            if "quotaExceeded" in error_text:
+                print(f"DETAIL ERROR: API Key {api_keys[0][-4:]} kehabisan kuota.")
+                print("Mencoba API Key berikutnya...")
+                api_keys.rotate(-1)
+                youtube_service = None  # Reset service untuk mencoba dengan key baru
+            else:
+                is_monitoring = False
+                return jsonify({"success": False, "message": f"Terjadi kesalahan: {e}"}), 500
+
+    is_monitoring = False
+    return jsonify({"success": False, "message": "Semua API Key kehabisan kuota."}), 500
+
+@app.route('/stop_monitoring', methods=['POST'])
+def stop_monitoring():
+    global is_monitoring, current_live_chat_id
+    if is_monitoring:
+        is_monitoring = False
+        current_live_chat_id = None
+        return jsonify({"success": True, "message": "Bot berhasil dihentikan."})
+    else:
+        return jsonify({"success": True, "message": "Bot tidak sedang memantau live stream."})
+
+@app.route('/add_command', methods=['POST'])
+def add_command():
+    data = request.json
+    trigger = data.get('trigger', '').lower()
+    response_text = data.get('response')
+    
+    if not trigger or not response_text:
+        return jsonify({"success": False, "message": "Trigger dan response tidak boleh kosong."}), 400
+
+    commands = load_data('commands.json')
+    commands[trigger] = response_text
+    save_data(commands, 'commands.json')
+    
+    return jsonify({"success": True, "message": f"Command '{trigger}' berhasil ditambahkan."})
+
+@app.route('/add_automessage', methods=['POST'])
+def add_automessage():
+    data = request.json
+    message = data.get('message')
+    
+    if not message:
+        return jsonify({"success": False, "message": "Pesan tidak boleh kosong."}), 400
+
+    auto_messages_data = load_data('automessages.json')
+    auto_messages_data['messages'].append(message)
+    save_data(auto_messages_data, 'automessages.json')
+    
+    return jsonify({"success": True, "message": "Pesan otomatis berhasil ditambahkan."})
+
+@app.route('/update_interval', methods=['POST'])
+def update_interval():
+    data = request.json
+    interval = data.get('interval')
+    
+    if not isinstance(interval, int) or interval <= 0:
+        return jsonify({"success": False, "message": "Interval harus angka positif."}), 400
+
+    auto_messages_data = load_data('automessages.json')
+    auto_messages_data['interval_minutes'] = interval
+    save_data(auto_messages_data, 'automessages.json')
+
+    return jsonify({"success": True, "message": f"Interval pesan otomatis diperbarui menjadi {interval} menit."})
+
+if __name__ == "__main__":
+    api_thread = Thread(target=app.run, kwargs={'port': config['port'], 'host': '0.0.0.0'})
+    api_thread.daemon = True
+    api_thread.start()
+
+    chat_thread = Thread(target=read_live_chat)
+    chat_thread.daemon = True
+    chat_thread.start()
+
+    auto_message_thread = Thread(target=send_auto_messages)
+    auto_message_thread.daemon = True
+    auto_message_thread.start()
+
+    print("Bot YouTube sedang berjalan dan siap menerima perintah. Tekan Ctrl+C untuk keluar.")
+    try:
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        print("Bot YouTube berhenti.")
