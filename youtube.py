@@ -158,6 +158,7 @@ def send_chat_message(message_text):
 def read_live_chat():
     global youtube_service, current_live_chat_id, is_monitoring
     
+    # Tambahkan logika untuk memastikan youtube_service valid
     if not youtube_service:
         youtube_service = get_youtube_service()
         if not youtube_service:
@@ -189,7 +190,11 @@ def read_live_chat():
                         send_chat_message(response_text)
                         
             next_page_token = response.get("nextPageToken")
-            time.sleep(response.get("pollingIntervalMillis", 1000) / 1000.0)
+            
+            # Perbaikan: Menyesuaikan waktu tidur minimum untuk menghemat kuota API.
+            # Waktu polling default dari API bisa sangat rendah. Mengatur minimum 5 detik membantu menghemat kuota.
+            polling_interval_seconds = max(5, response.get("pollingIntervalMillis", 5000) / 1000.0)
+            time.sleep(polling_interval_seconds)
 
         except googleapiclient.errors.HttpError as e:
             if e.resp.status == 403 and 'quotaExceeded' in str(e):
@@ -227,40 +232,37 @@ def start_monitoring():
         return jsonify({"success": False, "message": "URL live stream tidak valid."}), 400
     video_id = video_id_match.group(0)
 
-    for i in range(len(api_keys)):
-        try:
-            if not youtube_service:
-                youtube_service = get_youtube_service()
-                if not youtube_service:
-                    return jsonify({"success": False, "message": "Gagal mendapatkan layanan YouTube."}), 500
+    # Memastikan youtube_service sudah valid sebelum panggilan API
+    if not youtube_service:
+        youtube_service = get_youtube_service()
+        if not youtube_service:
+            return jsonify({"success": False, "message": "Gagal mendapatkan layanan YouTube."}), 500
 
-            broadcasts = youtube_service.liveBroadcasts().list(
-                part="snippet",
-                id=video_id
-            ).execute()
+    try:
+        broadcasts = youtube_service.liveBroadcasts().list(
+            part="snippet",
+            id=video_id
+        ).execute()
 
-            if broadcasts['items'] and broadcasts['items'][0]['snippet']['liveChatId']:
-                current_live_chat_id = broadcasts['items'][0]['snippet']['liveChatId']
-                is_monitoring = True
-                return jsonify({"success": True, "message": f"Bot berhasil terhubung ke live chat: {live_url}"})
-            else:
-                is_monitoring = False
-                return jsonify({"success": False, "message": "URL bukan live stream yang aktif."}), 400
-        except googleapiclient.errors.HttpError as e:
-            if e.resp.status == 403 and 'quotaExceeded' in str(e):
-                print("Error kuota terdeteksi saat memulai pemantauan. Beralih ke API Key berikutnya...")
-                api_keys.rotate(-1)
-                youtube_service = get_youtube_service()
-                return jsonify({"success": False, "message": "Error kuota. Mencoba API Key berikutnya. Silakan coba lagi."}), 500
-            else:
-                is_monitoring = False
-                return jsonify({"success": False, "message": f"Terjadi kesalahan: {e}"}), 500
-        except Exception as e:
+        if broadcasts['items'] and broadcasts['items'][0]['snippet']['liveChatId']:
+            current_live_chat_id = broadcasts['items'][0]['snippet']['liveChatId']
+            is_monitoring = True
+            return jsonify({"success": True, "message": f"Bot berhasil terhubung ke live chat: {live_url}"})
+        else:
+            is_monitoring = False
+            return jsonify({"success": False, "message": "URL bukan live stream yang aktif."}), 400
+    except googleapiclient.errors.HttpError as e:
+        if e.resp.status == 403 and 'quotaExceeded' in str(e):
+            print("Error kuota terdeteksi saat memulai pemantauan. Beralih ke API Key berikutnya...")
+            api_keys.rotate(-1)
+            youtube_service = get_youtube_service()
+            return jsonify({"success": False, "message": "Error kuota. Mencoba API Key berikutnya. Silakan coba lagi."}), 500
+        else:
             is_monitoring = False
             return jsonify({"success": False, "message": f"Terjadi kesalahan: {e}"}), 500
-
-    is_monitoring = False
-    return jsonify({"success": False, "message": "Semua API Key kehabisan kuota."}), 500
+    except Exception as e:
+        is_monitoring = False
+        return jsonify({"success": False, "message": f"Terjadi kesalahan: {e}"}), 500
 
 @app.route('/stop_monitoring', methods=['POST'])
 def stop_monitoring():
