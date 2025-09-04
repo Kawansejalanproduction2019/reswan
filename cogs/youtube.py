@@ -2,13 +2,14 @@ import discord
 from discord.ext import commands
 import requests
 import re
+from typing import Optional
 
 class YoutubeControlCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.youtube_bot_api_url = "http://localhost:5000"
+        self.youtube_bot_api_url = "http://127.0.0.1:5000"
 
-    def extract_video_id(self, url: str) -> str | None:
+    def extract_video_id(self, url: str) -> Optional[str]:
         match = re.search(r'(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})', url)
         if match:
             return match.group(1)
