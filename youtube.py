@@ -10,13 +10,12 @@ import re
 import google.oauth2.credentials
 import google.auth.transport.requests
 import requests
-import googleapiclient.errors
 
 app = Flask(__name__)
 
 # --- Inisialisasi Bot dan Data ---
 try:
-    with open("config.json", "r", encoding="utf-8") as f:
+    with open(r"C:\Users\Rahman\Downloads\Application\config.json", "r", encoding="utf-8") as f:
         config = json.load(f)
 except FileNotFoundError:
     print("Error: File 'config.json' tidak ditemukan.")
@@ -49,13 +48,9 @@ def save_data(data, filename):
 
 # --- Fungsi Core Bot ---
 def get_youtube_service():
-    """
-    Mengatur layanan YouTube dan mengelola otorisasi.
-    Sekarang akan mencoba OAuth, jika gagal karena kuota, akan beralih ke API Key.
-    """
+    """Mengatur layanan YouTube dan mengelola otorisasi."""
     global youtube_service, credentials
-
-    # Coba menggunakan OAuth credentials terlebih dahulu
+    
     if os.path.exists("credentials.json"):
         try:
             credentials = google.oauth2.credentials.Credentials.from_authorized_user_file(
@@ -78,19 +73,12 @@ def get_youtube_service():
             return youtube_service
 
         except Exception as e:
-            error_text = str(e)
-            if "quotaExceeded" in error_text:
-                print("DETAIL ERROR: Kuota OAuth untuk operasi baca telah terlampaui.")
-                print("Bot akan beralih ke API Key untuk sementara.")
-                # Lanjutkan ke loop di bawah untuk mencoba API Key
-            else:
-                print(f"!! GAGAL MEMUAT KREDENSIAL OAUTH !!")
-                print(f"Error: {e}")
-                print(f"Pastikan file 'credentials.json' valid.")
-                print(f"Bot akan berhenti.")
-                os._exit(1)
-    
-    # Jika OAuth gagal karena kuota atau file tidak ada, coba API Keys
+            print(f"!! GAGAL MEMUAT KREDENSIAL OAUTH !!")
+            print(f"Error: {e}")
+            print(f"Pastikan file 'credentials.json' valid.")
+            print(f"Bot akan berhenti.")
+            os._exit(1)
+
     while True:
         try:
             current_key = api_keys[0]
@@ -127,6 +115,7 @@ def send_chat_message(message_text):
     body = {
         "snippet": {
             "liveChatId": current_live_chat_id,
+            # Perbaikan: Mengganti nilai "textMessage" menjadi "textMessageEvent"
             "type": "textMessageEvent",
             "textMessageDetails": {
                 "messageText": message_text
@@ -142,12 +131,7 @@ def send_chat_message(message_text):
     except requests.exceptions.RequestException as e:
         print(f"Terjadi kesalahan saat mengirim pesan: {e}")
         try:
-            error_details = e.response.json()
-            if e.response.status_code == 403 and any(err['reason'] == 'quotaExceeded' for err in error_details.get('error', {}).get('errors', [])):
-                print("DETAIL ERROR: Kuota untuk operasi tulis telah terlampaui.")
-                print("Solusi: Tunggu hingga kuota direset (biasanya 24 jam) atau gunakan akun YouTube lain.")
-            else:
-                print(f"Detail error: {e.response.text}")
+            print(f"Detail error: {e.response.text}")
         except:
             pass
         return False
@@ -158,7 +142,6 @@ def send_chat_message(message_text):
 def read_live_chat():
     global youtube_service, current_live_chat_id, is_monitoring
     
-    # Tambahkan logika untuk memastikan youtube_service valid
     if not youtube_service:
         youtube_service = get_youtube_service()
         if not youtube_service:
@@ -190,25 +173,8 @@ def read_live_chat():
                         send_chat_message(response_text)
                         
             next_page_token = response.get("nextPageToken")
-            
-            # Perbaikan: Menyesuaikan waktu tidur minimum untuk menghemat kuota API.
-            # Waktu polling default dari API bisa sangat rendah. Mengatur minimum 5 detik membantu menghemat kuota.
-            polling_interval_seconds = max(5, response.get("pollingIntervalMillis", 5000) / 1000.0)
-            time.sleep(polling_interval_seconds)
+            time.sleep(response.get("pollingIntervalMillis", 1000) / 1000.0)
 
-        except googleapiclient.errors.HttpError as e:
-            if e.resp.status == 403 and 'quotaExceeded' in str(e):
-                print("Error kuota terdeteksi saat membaca chat. Beralih ke API Key berikutnya...")
-                api_keys.rotate(-1) # Pindah ke key berikutnya
-                youtube_service = get_youtube_service() # Dapatkan layanan dengan key baru
-            else:
-                print(f"Terjadi kesalahan saat membaca chat: {e}")
-                is_monitoring = False
-                current_live_chat_id = None
-                youtube_service = get_youtube_service()
-                if not youtube_service:
-                    break
-                time.sleep(5)
         except Exception as e:
             print(f"Terjadi kesalahan saat membaca chat: {e}")
             is_monitoring = False
@@ -217,6 +183,19 @@ def read_live_chat():
             if not youtube_service:
                 break
             time.sleep(5)
+
+def send_auto_messages():
+    while True:
+        auto_messages_data = load_data('automessages.json')
+        messages = auto_messages_data["messages"]
+        interval = auto_messages_data["interval_minutes"] * 60
+        
+        if is_monitoring and messages:
+            message_to_send = random.choice(messages)
+            print(f"[AUTO-MESSAGE] Mengirim pesan otomatis: {message_to_send}")
+            send_chat_message(message_to_send)
+            
+        time.sleep(interval)
 
 @app.route('/start_monitoring', methods=['POST'])
 def start_monitoring():
@@ -232,13 +211,12 @@ def start_monitoring():
         return jsonify({"success": False, "message": "URL live stream tidak valid."}), 400
     video_id = video_id_match.group(0)
 
-    # Memastikan youtube_service sudah valid sebelum panggilan API
-    if not youtube_service:
-        youtube_service = get_youtube_service()
-        if not youtube_service:
-            return jsonify({"success": False, "message": "Gagal mendapatkan layanan YouTube."}), 500
-
     try:
+        if not youtube_service:
+            youtube_service = get_youtube_service()
+            if not youtube_service:
+                return jsonify({"success": False, "message": "Gagal mendapatkan layanan YouTube."}), 500
+
         broadcasts = youtube_service.liveBroadcasts().list(
             part="snippet",
             id=video_id
@@ -251,15 +229,6 @@ def start_monitoring():
         else:
             is_monitoring = False
             return jsonify({"success": False, "message": "URL bukan live stream yang aktif."}), 400
-    except googleapiclient.errors.HttpError as e:
-        if e.resp.status == 403 and 'quotaExceeded' in str(e):
-            print("Error kuota terdeteksi saat memulai pemantauan. Beralih ke API Key berikutnya...")
-            api_keys.rotate(-1)
-            youtube_service = get_youtube_service()
-            return jsonify({"success": False, "message": "Error kuota. Mencoba API Key berikutnya. Silakan coba lagi."}), 500
-        else:
-            is_monitoring = False
-            return jsonify({"success": False, "message": f"Terjadi kesalahan: {e}"}), 500
     except Exception as e:
         is_monitoring = False
         return jsonify({"success": False, "message": f"Terjadi kesalahan: {e}"}), 500
