@@ -11,7 +11,7 @@ class YoutubeControlCog(commands.Cog):
 
     def extract_video_id(self, url: str) -> Optional[str]:
         # Ekspresi reguler yang lebih andal untuk berbagai format URL YouTube
-        match = re.search(r'(?:youtube\.com\/(?:watch\?v=|live\/|embed\/|v\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})', url)
+        match = re.search(r'(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/|youtube\.com\/live\/)([a-zA-Z0-9_-]{11})', url)
         if match:
             return match.group(1)
         return None
