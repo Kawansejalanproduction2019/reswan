@@ -7,10 +7,11 @@ from typing import Optional
 class YoutubeControlCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.youtube_bot_api_url = "http://127.0.0.1:5000"
+        self.youtube_bot_api_url = "http://localhost:5000"
 
     def extract_video_id(self, url: str) -> Optional[str]:
-        match = re.search(r'(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})', url)
+        # Ekspresi reguler yang lebih andal untuk berbagai format URL YouTube
+        match = re.search(r'(?:youtube\.com\/(?:watch\?v=|live\/|embed\/|v\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})', url)
         if match:
             return match.group(1)
         return None
@@ -84,7 +85,6 @@ class YoutubeControlCog(commands.Cog):
         except Exception as e:
             await ctx.send(f"Terjadi kesalahan: {e}")
 
-    # Tambahan: Perintah untuk melihat semua command dan automessage
     @commands.command(name="viewconfigs", aliases=['listconfigs'])
     @commands.has_permissions(administrator=True)
     async def view_configs(self, ctx):
@@ -94,7 +94,6 @@ class YoutubeControlCog(commands.Cog):
 
             embed = discord.Embed(title="Konfigurasi Bot YouTube", color=discord.Color.blue())
             
-            # Tampilkan Custom Commands
             commands_list = response_json.get('commands', [])
             if commands_list:
                 commands_text = "\n".join([f"**`!{cmd['trigger']}`** → {cmd['response']}" for cmd in commands_list])
@@ -102,7 +101,6 @@ class YoutubeControlCog(commands.Cog):
             else:
                 embed.add_field(name="Custom Commands", value="Tidak ada custom command yang diset.", inline=False)
 
-            # Tampilkan Auto Messages
             automessages_list = response_json.get('automessages', [])
             if automessages_list:
                 automessages_text = "\n".join([f"**`#{i+1}`** → {msg['message']}" for i, msg in enumerate(automessages_list)])
@@ -117,7 +115,6 @@ class YoutubeControlCog(commands.Cog):
         except Exception as e:
             await ctx.send(f"Terjadi kesalahan: {e}")
 
-    # Tambahan: Perintah untuk menghapus command tertentu
     @commands.command(name="delcommand")
     @commands.has_permissions(administrator=True)
     async def del_command(self, ctx, trigger: str):
@@ -131,7 +128,6 @@ class YoutubeControlCog(commands.Cog):
         except Exception as e:
             await ctx.send(f"Terjadi kesalahan: {e}")
 
-    # Tambahan: Perintah untuk mereset semua setup
     @commands.command(name="reset")
     @commands.has_permissions(administrator=True)
     async def reset_all(self, ctx):
@@ -146,3 +142,4 @@ class YoutubeControlCog(commands.Cog):
 
 async def setup(bot):
     await bot.add_cog(YoutubeControlCog(bot))
+    
