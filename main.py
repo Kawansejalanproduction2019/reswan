@@ -350,6 +350,7 @@ async def load_cogs():
         "cogs.moderation",
         "cogs.emojiquiz",
         "cogs.hangman",
+        "cogs.nulis",
         "cogs.quotes",
         "cogs.newgame",
         "cogs.multigame",
