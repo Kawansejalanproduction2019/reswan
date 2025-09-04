@@ -15,7 +15,7 @@ app = Flask(__name__)
 
 # --- Inisialisasi Bot dan Data ---
 try:
-    with open(r"C:\Users\Rahman\Downloads\Application\config.json", "r", encoding="utf-8") as f:
+    with open("config.json", "r", encoding="utf-8") as f:
         config = json.load(f)
 except FileNotFoundError:
     print("Error: File 'config.json' tidak ditemukan.")
@@ -305,3 +305,4 @@ if __name__ == "__main__":
             time.sleep(1)
     except KeyboardInterrupt:
         print("Bot YouTube berhenti.")
+
