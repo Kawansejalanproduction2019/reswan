@@ -10,7 +10,7 @@ FONT_URL = "https://github.com/MFarelS/RajinNulis-BOT/raw/master/font/Zahraaa.tt
 IMAGE_URL = "https://github.com/MFarelS/RajinNulis-BOT/raw/master/MFarelSZ/Farelll/magernulis1.jpg"
 
 # Pengaturan yang bisa diubah di dalam kode
-UKURAN_FONT_NAMA = 22 # <-- Ubah ukuran font nama di sini
+UKURAN_FONT_NAMA = 22
 UKURAN_FONT_TEKS = 18
 
 def download_asset(url, is_font=False):
@@ -35,14 +35,12 @@ def wrap_text(draw, text, font, max_width):
     words = text.split(' ')
     current_line = ""
     for word in words:
-        # Coba tambahkan kata ke baris saat ini
         if draw.textlength(current_line + " " + word, font=font) < max_width:
             if current_line == "":
                 current_line = word
             else:
                 current_line += " " + word
         else:
-            # Jika melebihi lebar, mulai baris baru
             lines.append(current_line)
             current_line = word
     lines.append(current_line)
@@ -72,27 +70,22 @@ def buat_tulisan_tangan(teks, nama):
         print(f"Error dalam memuat aset: {e}")
         return None
     
-    # Bagian penting: menyesuaikan posisi dan spasi
     start_x = 345
     start_y = 130
     line_spacing = 22 
     max_width = 500
     
-    # Posisi untuk nama pengguna
     nama_x = 500 
     nama_y = 70
     
     draw = ImageDraw.Draw(gambar_latar)
     
-    # Tambahkan nama pengguna di bagian atas
     draw.text((nama_x, nama_y), nama, font=font_nama, fill=(0, 0, 0))
     
     x_pos, y_pos = start_x, start_y
-    # Pecah teks input berdasarkan baris manual (\n)
     paragraphs = teks.split('\n')
     
     for paragraph in paragraphs:
-        # Pecah setiap paragraf menjadi baris-baris otomatis
         lines_to_draw = wrap_text(draw, paragraph, font_tulisan, max_width)
         for line in lines_to_draw:
             draw.text((x_pos, y_pos), line, font=font_tulisan, fill=(0, 0, 0))
@@ -114,6 +107,11 @@ class TulisanCog(commands.Cog):
 
     @commands.command(name='tulis', help='Mengubah teks menjadi gambar tulisan tangan.')
     async def tulis_tangan(self, ctx, nama: str, *, teks: str):
+        try:
+            await ctx.message.delete()
+        except discord.Forbidden:
+            await ctx.send("Saya tidak memiliki izin untuk menghapus pesan. Mohon berikan saya izin 'Manage Messages'.")
+        
         if not nama or not teks:
             await ctx.send("Mohon berikan nama dan teks yang ingin Anda ubah menjadi tulisan tangan. Contoh: `!tulis Rhdevs Ini adalah teks`")
             return
