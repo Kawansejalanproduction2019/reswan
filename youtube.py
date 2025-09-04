@@ -9,13 +9,12 @@ import os
 import re
 import google.oauth2.credentials
 import google.auth.transport.requests
-import requests
 
 app = Flask(__name__)
 
 # --- Inisialisasi Bot dan Data ---
 try:
-    with open("config.json", "r", encoding="utf-8") as f:
+    with open(r"C:\Users\Rahman\Downloads\Application\config.json", "r", encoding="utf-8") as f:
         config = json.load(f)
 except FileNotFoundError:
     print("Error: File 'config.json' tidak ditemukan.")
@@ -48,13 +47,9 @@ def save_data(data, filename):
 
 # --- Fungsi Core Bot ---
 def get_youtube_service():
-    """
-    Mengatur layanan YouTube dan mengelola otorisasi.
-    Sekarang akan mencoba OAuth, jika gagal karena kuota, akan beralih ke API Key.
-    """
+    """Mengatur layanan YouTube dan mengelola otorisasi."""
     global youtube_service, credentials
-
-    # Coba menggunakan OAuth credentials terlebih dahulu
+    
     if os.path.exists("credentials.json"):
         try:
             credentials = google.oauth2.credentials.Credentials.from_authorized_user_file(
@@ -77,19 +72,12 @@ def get_youtube_service():
             return youtube_service
 
         except Exception as e:
-            error_text = str(e)
-            if "quotaExceeded" in error_text:
-                print("DETAIL ERROR: Kuota OAuth untuk operasi baca telah terlampaui.")
-                print("Bot akan beralih ke API Key untuk sementara.")
-                # Lanjutkan ke loop di bawah untuk mencoba API Key
-            else:
-                print(f"!! GAGAL MEMUAT KREDENSIAL OAUTH !!")
-                print(f"Error: {e}")
-                print(f"Pastikan file 'credentials.json' valid.")
-                print(f"Bot akan berhenti.")
-                os._exit(1)
-    
-    # Jika OAuth gagal karena kuota atau file tidak ada, coba API Keys
+            print(f"!! GAGAL MEMUAT KREDENSIAL OAUTH !!")
+            print(f"Error: {e}")
+            print(f"Pastikan file 'credentials.json' valid.")
+            print(f"Bot akan berhenti.")
+            os._exit(1)
+
     while True:
         try:
             current_key = api_keys[0]
@@ -107,51 +95,33 @@ def get_youtube_service():
             time.sleep(1)
 
 def send_chat_message(message_text):
-    """Mengirim pesan ke live chat menggunakan OAuth secara manual."""
-    global credentials, current_live_chat_id
-    
-    if not current_live_chat_id or not credentials:
-        print("Bot tidak terhubung ke live chat atau tidak memiliki kredensial.")
+    """Mengirim pesan ke live chat menggunakan OAuth."""
+    global youtube_service, current_live_chat_id
+    if not current_live_chat_id or not youtube_service:
+        print("Bot tidak terhubung ke live chat atau tidak memiliki layanan YouTube.")
         return False
         
-    # Pastikan token tidak kedaluwarsa sebelum mengirim
-    if credentials.expired and credentials.refresh_token:
-        credentials.refresh(google.auth.transport.requests.Request())
-        
-    url = "https://youtube.googleapis.com/youtube/v3/liveChat/messages?part=snippet"
-    headers = {
-        "Authorization": f"Bearer {credentials.token}",
-        "Content-Type": "application/json"
-    }
-    body = {
-        "snippet": {
-            "liveChatId": current_live_chat_id,
-            "type": "textMessageEvent",
-            "textMessageDetails": {
-                "messageText": message_text
-            }
-        }
-    }
-    
     try:
-        response = requests.post(url, headers=headers, json=body)
-        response.raise_for_status()
+        request = youtube_service.liveChatMessages().insert(
+            part="snippet",
+            body={
+                "snippet": {
+                    "liveChatId": current_live_chat_id,
+                    "type": "textMessage",
+                    "textMessageDetails": {
+                        "messageText": message_text
+                    }
+                }
+            }
+        )
+        request.execute()
         print(f"[BOT RESPONSE] Berhasil mengirim pesan: '{message_text}'")
         return True
-    except requests.exceptions.RequestException as e:
+    except googleapiclient.errors.HttpError as e:
         print(f"Terjadi kesalahan saat mengirim pesan: {e}")
-        try:
-            error_details = e.response.json()
-            if e.response.status_code == 403 and any(err['reason'] == 'quotaExceeded' for err in error_details.get('error', {}).get('errors', [])):
-                print("DETAIL ERROR: Kuota untuk operasi tulis telah terlampaui.")
-                print("Solusi: Tunggu hingga kuota direset (biasanya 24 jam) atau gunakan akun YouTube lain.")
-            else:
-                print(f"Detail error: {e.response.text}")
-        except:
-            pass
         return False
     except Exception as e:
-        print(f"Terjadi kesalahan tak terduga: {e}")
+        print(f"Terjadi kesalahan tak terduga saat mengirim pesan: {e}")
         return False
 
 def read_live_chat():
@@ -190,6 +160,19 @@ def read_live_chat():
             next_page_token = response.get("nextPageToken")
             time.sleep(response.get("pollingIntervalMillis", 1000) / 1000.0)
 
+        except googleapiclient.errors.HttpError as e:
+            if e.resp.status == 403 and 'quotaExceeded' in str(e):
+                print("Error kuota terdeteksi saat membaca chat. Beralih ke API Key berikutnya...")
+                api_keys.rotate(-1)
+                youtube_service = get_youtube_service()
+            else:
+                print(f"Terjadi kesalahan saat membaca chat: {e}")
+                is_monitoring = False
+                current_live_chat_id = None
+                youtube_service = get_youtube_service()
+                if not youtube_service:
+                    break
+                time.sleep(5)
         except Exception as e:
             print(f"Terjadi kesalahan saat membaca chat: {e}")
             is_monitoring = False
@@ -226,38 +209,36 @@ def start_monitoring():
         return jsonify({"success": False, "message": "URL live stream tidak valid."}), 400
     video_id = video_id_match.group(0)
 
-    for i in range(len(api_keys)):
-        try:
+    try:
+        if not youtube_service:
+            youtube_service = get_youtube_service()
             if not youtube_service:
-                youtube_service = get_youtube_service()
-                if not youtube_service:
-                    return jsonify({"success": False, "message": "Gagal mendapatkan layanan YouTube."}), 500
+                return jsonify({"success": False, "message": "Gagal mendapatkan layanan YouTube."}), 500
 
-            broadcasts = youtube_service.liveBroadcasts().list(
-                part="snippet",
-                id=video_id
-            ).execute()
+        broadcasts = youtube_service.liveBroadcasts().list(
+            part="snippet",
+            id=video_id
+        ).execute()
 
-            if broadcasts['items'] and broadcasts['items'][0]['snippet']['liveChatId']:
-                current_live_chat_id = broadcasts['items'][0]['snippet']['liveChatId']
-                is_monitoring = True
-                return jsonify({"success": True, "message": f"Bot berhasil terhubung ke live chat: {live_url}"})
-            else:
-                is_monitoring = False
-                return jsonify({"success": False, "message": "URL bukan live stream yang aktif."}), 400
-        except Exception as e:
-            error_text = str(e)
-            if "quotaExceeded" in error_text:
-                print(f"DETAIL ERROR: API Key {api_keys[0][-4:]} kehabisan kuota.")
-                print("Mencoba API Key berikutnya...")
-                api_keys.rotate(-1)
-                youtube_service = None  # Reset service untuk mencoba dengan key baru
-            else:
-                is_monitoring = False
-                return jsonify({"success": False, "message": f"Terjadi kesalahan: {e}"}), 500
-
-    is_monitoring = False
-    return jsonify({"success": False, "message": "Semua API Key kehabisan kuota."}), 500
+        if broadcasts['items'] and broadcasts['items'][0]['snippet']['liveChatId']:
+            current_live_chat_id = broadcasts['items'][0]['snippet']['liveChatId']
+            is_monitoring = True
+            return jsonify({"success": True, "message": f"Bot berhasil terhubung ke live chat: {live_url}"})
+        else:
+            is_monitoring = False
+            return jsonify({"success": False, "message": "URL bukan live stream yang aktif."}), 400
+    except googleapiclient.errors.HttpError as e:
+        if e.resp.status == 403 and 'quotaExceeded' in str(e):
+            print("Error kuota terdeteksi saat memulai pemantauan. Beralih ke API Key berikutnya...")
+            api_keys.rotate(-1)
+            youtube_service = get_youtube_service()
+            return jsonify({"success": False, "message": "Error kuota. Mencoba API Key berikutnya. Silakan coba lagi."}), 500
+        else:
+            is_monitoring = False
+            return jsonify({"success": False, "message": f"Terjadi kesalahan: {e}"}), 500
+    except Exception as e:
+        is_monitoring = False
+        return jsonify({"success": False, "message": f"Terjadi kesalahan: {e}"}), 500
 
 @app.route('/stop_monitoring', methods=['POST'])
 def stop_monitoring():
