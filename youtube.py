@@ -1,15 +1,17 @@
 import discord
 from discord.ext import commands
 import requests
+import re
 from typing import Optional
 
 class YoutubeControlCog(commands.Cog):
+    """Cog yang berisi perintah untuk mengontrol bot YouTube."""
+
     def __init__(self, bot):
         self.bot = bot
+        # Ganti localhost dengan IP server jika bot YouTube di server lain
         self.youtube_bot_api_url = "http://localhost:5000"
 
-    # Fungsi extract_video_id dihapus
-    
     @commands.command(name="monitor")
     @commands.has_permissions(administrator=True)
     async def monitor(self, ctx, live_url: str):
@@ -79,6 +81,16 @@ class YoutubeControlCog(commands.Cog):
         except Exception as e:
             await ctx.send(f"Terjadi kesalahan: {e}")
 
+    ---
+    
+    ## Tambahan Perintah
+    
+    Perintah-perintah berikut telah ditambahkan untuk membantu Anda mengelola bot YouTube:
+    
+    * **!viewconfigs** atau **!listconfigs**: Menampilkan semua custom command dan pesan otomatis yang telah Anda atur.
+    * **!delcommand `<trigger>`**: Menghapus custom command dengan nama pemicu (`trigger`) yang Anda sebutkan.
+    * **!reset**: Mereset semua konfigurasi (custom commands dan pesan otomatis) secara keseluruhan.
+
     @commands.command(name="viewconfigs", aliases=['listconfigs'])
     @commands.has_permissions(administrator=True)
     async def view_configs(self, ctx):
@@ -137,4 +149,3 @@ class YoutubeControlCog(commands.Cog):
 # Fungsi ini harus ada agar bot utama bisa memuat cog
 async def setup(bot):
     await bot.add_cog(YoutubeControlCog(bot))
-    
