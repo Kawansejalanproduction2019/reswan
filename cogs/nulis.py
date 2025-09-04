@@ -4,6 +4,7 @@ from PIL import Image, ImageDraw, ImageFont
 import requests
 import io
 import os
+from pilmoji import Pilmoji # Tambahkan ini
 
 # URL aset dari repositori GitHub
 FONT_URL = "https://github.com/MFarelS/RajinNulis-BOT/raw/master/font/Zahraaa.ttf"
@@ -78,19 +79,20 @@ def buat_tulisan_tangan(teks, nama):
     nama_x = 500 
     nama_y = 70
     
-    draw = ImageDraw.Draw(gambar_latar)
+    # Gunakan Pilmoji untuk menggambar teks
+    with Pilmoji(gambar_latar) as pilmoji:
+        # Tambahkan nama pengguna di bagian atas
+        pilmoji.text((nama_x, nama_y), nama, font=font_nama, fill=(0, 0, 0))
     
-    draw.text((nama_x, nama_y), nama, font=font_nama, fill=(0, 0, 0))
-    
-    x_pos, y_pos = start_x, start_y
-    paragraphs = teks.split('\n')
-    
-    for paragraph in paragraphs:
-        lines_to_draw = wrap_text(draw, paragraph, font_tulisan, max_width)
-        for line in lines_to_draw:
-            draw.text((x_pos, y_pos), line, font=font_tulisan, fill=(0, 0, 0))
-            y_pos += line_spacing
-        y_pos += line_spacing * 0.5
+        x_pos, y_pos = start_x, start_y
+        paragraphs = teks.split('\n')
+        
+        for paragraph in paragraphs:
+            lines_to_draw = wrap_text(ImageDraw.Draw(gambar_latar), paragraph, font_tulisan, max_width)
+            for line in lines_to_draw:
+                pilmoji.text((x_pos, y_pos), line, font=font_tulisan, fill=(0, 0, 0))
+                y_pos += line_spacing
+            y_pos += line_spacing * 0.5
     
     nama_file_hasil = "tulisan_tangan_hasil.png"
     gambar_latar.save(nama_file_hasil)
