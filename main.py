@@ -110,232 +110,61 @@ async def on_message(message):
     # Process commands found in the message
     await bot.process_commands(message)
 
-# --- Custom Help Command (Admin Only) ---
-@bot.command(name="help", aliases=["halp", "h"])
-@commands.has_permissions(administrator=True) # Only users with Administrator permission can use this
+@bot.command(name="help", aliases=["h"])
 async def custom_help(ctx, *, command_name: str = None):
-    """
-    Menampilkan informasi bantuan untuk admin.
-    Jika ada command_name, akan menampilkan bantuan untuk command tersebut.
-    Jika tidak, akan menampilkan daftar semua command yang tersedia.
-    """
-    if command_name:
-        # Try to find a command or a cog
-        cmd = bot.get_command(command_name) or bot.get_cog(command_name.capitalize())
+    prefix = ctx.prefix
 
-        if cmd:
-            embed = discord.Embed(
-                title=f"Bantuan untuk `{command_name}`",
-                color=discord.Color.blue()
-            )
-            if isinstance(cmd, commands.Command):
-                embed.add_field(name="Command", value=f"`{ctx.prefix}{cmd.name} {cmd.signature}`", inline=False)
-                if cmd.aliases:
-                    embed.add_field(name="Aliases", value=", ".join([f"`{alias}`" for alias in cmd.aliases]), inline=False)
-                if cmd.help:
-                    embed.description = cmd.help
-                else:
-                    embed.description = "Tidak ada deskripsi untuk command ini."
-            elif isinstance(cmd, commands.Cog):
-                embed.add_field(name="Cog", value=cmd.qualified_name, inline=False)
-                embed.description = f"Command-command di bawah cog `{cmd.qualified_name}`:\n"
-                # Get commands from the cog that are not hidden
-                cog_commands = [f"`{ctx.prefix}{c.name}`" for c in cmd.get_commands() if not c.hidden]
-                if cog_commands:
-                    embed.description += ", ".join(cog_commands)
-                else:
-                    embed.description += "Tidak ada command di cog ini."
-            
-            message_sent = await ctx.send(embed=embed)
-            await message_sent.delete(delay=60) # Delete message after 1 minute
-        else:
-            message_sent = await ctx.send(f"Command atau Cog `{command_name}` tidak ditemukan.")
-            await message_sent.delete(delay=60)
-    else:
-        # Display a list of all commands and cogs
+    if not command_name:
         embed = discord.Embed(
-            title="Daftar Command Bot (Admin Only)",
-            description="Berikut adalah semua command yang bisa kamu gunakan:",
-            color=discord.Color.green()
+            title="👋 Bantuan Perintah Bot",
+            description=f"Gunakan `{prefix}help [nama_command]` untuk melihat info detail dari sebuah command.",
+            color=0x3498db
         )
+        if bot.user.avatar:
+            embed.set_thumbnail(url=bot.user.avatar.url)
 
         for cog_name, cog in bot.cogs.items():
-            # Skip Jishaku if it's an internal development cog
-            if cog_name == "Jishaku": 
+            if cog_name in ["Jishaku"]:
                 continue
             
-            # Get commands from the cog that are not hidden
-            commands_in_cog = [f"`{ctx.prefix}{command.name}`" for command in cog.get_commands() if not command.hidden]
-            if commands_in_cog:
-                embed.add_field(name=f"__**{cog_name}**__", value=" ".join(commands_in_cog), inline=False)
-            
-        # Get commands that are not part of any cog and are not hidden
-        no_cog_commands = [f"`{ctx.prefix}{command.name}`" for command in bot.commands if command.cog is None and not command.hidden]
-        if no_cog_commands:
-            embed.add_field(name="__**Lain-lain**__", value=" ".join(no_cog_commands), inline=False)
-
-        embed.set_footer(text=f"Gunakan {ctx.prefix}help <command> untuk detail. Pesan ini akan hilang dalam 1 menit.")
-        message_sent = await ctx.send(embed=embed)
-        await message_sent.delete(delay=60)
-
-
-@custom_help.error
-async def custom_help_error(ctx, error):
-    """Error handler for the custom help command."""
-    if isinstance(error, commands.MissingPermissions):
-        embed = discord.Embed(
-            title="Akses Ditolak! 🚫",
-            description=(
-                "Oops! Sepertinya kamu mencoba mengakses area terlarang.\n"
-                "Command ini hanya untuk mata-mata terpilih yang memiliki izin khusus.\n\n"
-                "Jika kamu merasa ini adalah kesalahan, hubungi petinggi server ya! 😉"
-            ),
-            color=discord.Color.red()
+            commands_list = [f"`{c.name}`" for c in cog.get_commands() if not c.hidden]
+            if commands_list:
+                embed.add_field(
+                    name=f"**Kategori: {cog_name}**",
+                    value=" ".join(commands_list),
+                    inline=False
+                )
+        
+        embed.add_field(
+            name="🔗 Panduan Lengkap",
+            value='Untuk cara pakai yang lebih detail, kunjungi website kami di:\n**🔗 [Klik di sini untuk melihat cara pakai]( http://3.27.18.147/ )**',
+            inline=False
         )
-        embed.set_thumbnail(url="https://i.imgur.com/example_forbidden_icon.png") # Placeholder image
-        embed.set_footer(text="Tetap semangat menjelajahi fitur lain!")
         
-        message_sent = await ctx.send(embed=embed)
-        await message_sent.delete(delay=15) # Delete after 15 seconds
-    elif isinstance(error, commands.NotOwner):
-        await ctx.send("❌ Maaf, command ini hanya bisa digunakan oleh **pemilik bot**.", ephemeral=True)
-    else:
-        await ctx.send(f"❌ Terjadi error: {error}", ephemeral=True)
-        log.error(f"Error in custom help command: {error}", exc_info=True)
-
-
-# --- Backup Commands (Owner Only) ---
-@bot.command()
-@commands.is_owner()
-async def backupnow(ctx):
-    """Creates a backup of all .json files in specified folders to MongoDB."""
-    await ctx.send("Starting backup process...")
-    backup_data = {}
-
-    if not client:
-        await ctx.send("❌ MongoDB client not initialized. Cannot perform backup.", ephemeral=True)
-        log.error("MongoDB client is None, cannot perform backupnow.")
+        embed.set_footer(text=f"Diminta oleh: {ctx.author.display_name}")
+        await ctx.send(embed=embed)
         return
 
-    try:
-        client.admin.command('ping') # Ping MongoDB to ensure active connection
-    except Exception as e:
-        await ctx.send(f"❌ Gagal terhubung ke MongoDB untuk backup: {e}. Tidak dapat melakukan backup.", ephemeral=True)
-        log.error(f"MongoDB ping failed for backupnow command: {e}", exc_info=True)
+    cmd = bot.get_command(command_name.lower())
+    if not cmd or cmd.hidden:
+        await ctx.send(f"❌ Command `{command_name}` tidak ditemukan.", delete_after=10)
         return
 
-    directories_to_scan = ['.', 'data/', 'config/'] # Folders to scan for JSON files
+    embed = discord.Embed(
+        title=f"🔎 Detail Command: `{cmd.name}`",
+        description=cmd.help or "Tidak ada deskripsi untuk command ini.",
+        color=0x2ecc71
+    )
+    
+    aliases = ", ".join([f"`{a}`" for a in cmd.aliases]) if cmd.aliases else "Tidak ada"
+    embed.add_field(name="Alias", value=aliases, inline=True)
+    
+    usage = f"`{prefix}{cmd.name} {cmd.signature}`"
+    embed.add_field(name="Cara Penggunaan", value=usage, inline=True)
+    
+    embed.set_footer(text="Tanda < > berarti wajib, [ ] berarti opsional.")
+    await ctx.send(embed=embed)
 
-    for directory in directories_to_scan:
-        if not os.path.isdir(directory):
-            log.warning(f"Directory '{directory}' not found, skipping for backup.")
-            continue
-        
-        for filename in os.listdir(directory):
-            file_path = os.path.join(directory, filename)
-            if filename.endswith('.json') and os.path.isfile(file_path):
-                try:
-                    with open(file_path, 'r', encoding='utf-8') as f:
-                        json_data = json.load(f)
-                        backup_data[file_path] = json_data # Store JSON data in the backup dictionary
-                        log.info(f"✅ File '{file_path}' successfully read for backup.")
-                except json.JSONDecodeError as e:
-                    await ctx.send(f"❌ Failed to read JSON file for backup: `{file_path}`. Error: {e}")
-                    log.error(f"❌ Failed to read JSON file for backup: {file_path}, Error: {e}", exc_info=True)
-                except Exception as e:
-                    await ctx.send(f"❌ An unexpected error occurred while reading `{file_path}` for backup: {e}")
-                    log.error(f"❌ An unexpected error occurred while reading `{file_path}` for backup: {e}", exc_info=True)
-
-    if backup_data:
-        try:
-            # Update or insert the latest backup document in MongoDB
-            collection.update_one(
-                {"_id": "latest_backup"},
-                {"$set": {
-                    "backup": backup_data,
-                    "timestamp": datetime.utcnow()
-                }},
-                upsert=True # Create the document if it doesn't exist
-            )
-            
-            log.info("✅ Backup data successfully saved to MongoDB.")
-            await ctx.send("✅ Backup data successfully saved to MongoDB!")
-
-        except pymongo_errors.PyMongoError as e: # Catch PyMongo specific errors
-            # This will catch authentication errors, connection errors, etc.
-            await ctx.send(f"❌ Failed to save data to MongoDB: {e}")
-            log.error(f"❌ Failed to save data to MongoDB: {e}", exc_info=True)
-        except Exception as e:
-            await ctx.send(f"❌ An unexpected error occurred while saving data to MongoDB: {e}")
-            log.error(f"❌ An unexpected error occurred while saving data to MongoDB: {e}", exc_info=True)
-    else:
-        await ctx.send("🤷 No .json files found to backup.")
-        log.warning("No .json files found to backup.")
-
-@bot.command()
-@commands.is_owner()
-async def sendbackup(ctx):
-    """Sends the latest backup file from MongoDB to the bot owner's DM."""
-    # Verify MongoDB client connection
-    if not client:
-        await ctx.send("❌ MongoDB client not initialized. Cannot retrieve backup.", ephemeral=True)
-        log.error("MongoDB client is None, cannot perform sendbackup.")
-        return
-
-    try:
-        client.admin.command('ping') # Ping MongoDB to ensure active connection
-    except Exception as e:
-        await ctx.send(f"❌ Gagal terhubung ke MongoDB untuk mengirim backup: {e}. Tidak dapat mengambil backup.", ephemeral=True)
-        log.error(f"MongoDB ping failed for sendbackup command: {e}", exc_info=True)
-        return
-
-    user_id = 1000737066822410311  # Replace with your Discord User ID
-    user = await bot.fetch_user(user_id) # Fetch the user object
-
-    try:
-        stored_data = collection.find_one({"_id": "latest_backup"})
-        if not stored_data or 'backup' not in stored_data:
-            await ctx.send("❌ No backup data available.")
-            log.warning("No backup data available in MongoDB.")
-            return
-
-        backup_data = stored_data["backup"]
-        await ctx.send("📬 Sending backup files one by one to DM...")
-        log.info("Starting to send backup files to owner DM.")
-
-        for file_path, content in backup_data.items():
-            filename = os.path.basename(file_path)
-            
-            # Convert JSON content to a BytesIO object for sending as a file
-            string_content = json.dumps(content, indent=4, ensure_ascii=False)
-            byte_buffer = io.BytesIO(string_content.encode('utf-8'))
-            
-            file = discord.File(fp=byte_buffer, filename=filename)
-
-            try:
-                await user.send(content=f"📄 Here's a backup file from `/{file_path}`:", file=file)
-                log.info(f"✅ File '{filename}' successfully sent to DM.")
-            except discord.HTTPException as e:
-                await ctx.send(f"❌ Failed to send file `{filename}` to DM: {e}")
-                log.error(f"❌ Failed to send file `{filename}` to DM: {e}", exc_info=True)
-            except Exception as e:
-                await ctx.send(f"❌ An unexpected error occurred while sending `{filename}` to DM: {e}")
-                log.error(f"❌ An unexpected error occurred while sending `{filename}` to DM: {e}", exc_info=True)
-            
-            byte_buffer.seek(0) # Reset buffer position for the next file
-
-        await ctx.send("✅ All backup files successfully sent to DM!")
-        log.info("All backup files successfully sent to owner DM.")
-
-    except discord.Forbidden:
-        await ctx.send("❌ Failed to send DM. Make sure I can send DMs to this user.")
-        log.error("❌ Bot forbidden from sending DM to owner for backup.")
-    except pymongo_errors.PyMongoError as e:
-        await ctx.send(f"❌ An error occurred while retrieving backup data from MongoDB: {e}")
-        log.error(f"❌ Failed to retrieve data from MongoDB: {e}", exc_info=True)
-    except Exception as e:
-        await ctx.send(f"❌ An unexpected error occurred while retrieving backup data: {e}")
-        log.error(f"❌ An unexpected error occurred while retrieving backup data: {e}", exc_info=True)
 
 # --- Cog Loading ---
 async def load_cogs():
