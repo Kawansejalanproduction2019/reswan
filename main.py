@@ -12,21 +12,67 @@ from pymongo import MongoClient, errors as pymongo_errors
 from dotenv import load_dotenv
 from datetime import datetime
 
-load_dotenv() # Load environment variables from .env file
+load_dotenv()
 
-# --- Setup Logging ---
-# Set logging level to INFO for general information, WARNING/ERROR for issues.
-# Remove DEBUG to avoid excessive logging unless specifically troubleshooting.
+class WebhookHandler(logging.Handler):
+    def __init__(self, webhook_url):
+        super().__init__()
+        self.webhook_url = webhook_url
+        self.session = None
+
+    def emit(self, record):
+        try:
+            loop = asyncio.get_running_loop()
+            loop.create_task(self.send_log(record))
+        except RuntimeError:
+            # Handle logs before the event loop starts
+            print(self.format(record))
+            
+    async def send_log(self, record):
+        if not self.webhook_url:
+            return
+
+        if self.session is None or self.session.closed:
+            self.session = aiohttp.ClientSession()
+            
+        try:
+            log_entry = self.format(record)
+            if len(log_entry) > 1900:
+                log_entry = log_entry[:1900] + "..."
+
+            embed = {
+                "title": f"🚨 Bot Error: {record.levelname}",
+                "description": f"```python\n{log_entry}\n```",
+                "color": 0xFF0000,
+                "timestamp": datetime.utcnow().isoformat()
+            }
+            payload = {"embeds": [embed], "username": "Bot Logger"}
+            
+            async with self.session.post(self.webhook_url, json=payload) as response:
+                if not response.ok:
+                    print(f"Gagal mengirim log ke webhook: Status {response.status}")
+        except Exception as e:
+            print(f"Terjadi error pada WebhookHandler: {e}")
+
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-log = logging.getLogger(__name__) # Get a logger instance for this module
+log = logging.getLogger(__name__)
 
-# --- Helper to save cookies from environment variable ---
+WEBHOOK_URL = os.getenv("LOG_WEBHOOK_URL")
+if WEBHOOK_URL:
+    webhook_handler_error = WebhookHandler(WEBHOOK_URL)
+    webhook_handler_error.setLevel(logging.ERROR)
+    
+    root_logger = logging.getLogger()
+    root_logger.addHandler(webhook_handler_error)
+    log.info("✅ Webhook logger untuk error kritikal telah aktif.")
+else:
+    log.warning("Variabel LOG_WEBHOOK_URL tidak ditemukan di .env. Logging error ke Discord dinonaktifkan.")
+
 def save_cookies_from_env():
-    """Reads base64 encoded cookies from environment variable and saves them to a file."""
     encoded = os.getenv("COOKIES_BASE64")
     if not encoded:
         log.warning("Environment variable COOKIES_BASE64 not found. Skipping cookies.txt creation.")
-        return # Don't raise error, allow bot to run without cookies if not set
+        return
     
     try:
         decoded = base64.b64decode(encoded)
@@ -36,33 +82,24 @@ def save_cookies_from_env():
     except Exception as e:
         log.error(f"❌ Failed to decode or save cookies: {e}")
 
-# --- MongoDB Connection ---
 mongo_uri = os.getenv("MONGODB_URI")
 if not mongo_uri:
     log.critical("Environment variable MONGODB_URI not found. Bot cannot connect to MongoDB.")
-    # If MONGODB_URI is not set, it's a critical configuration error, so raise an exception
     raise ValueError("Environment variable MONGODB_URI not found. Please set it up.")
 
-# Global client, db, and collection variables, initialized here for accessibility
 client = None
 db = None
 collection = None
 
 try:
-    log.info(f"Attempting to connect to MongoDB...") # Simplified log
-    # Initialize MongoClient with a timeout for server selection
-    client = MongoClient(mongo_uri, serverSelectionTimeoutMS=5000) # 5-second timeout for connection
-    
-    # Define database and collection names
+    log.info(f"Attempting to connect to MongoDB...")
+    client = MongoClient(mongo_uri, serverSelectionTimeoutMS=5000)
     db = client["reSwan"]
     collection = db["Data collection"]
-    
-    # Attempt a simple ping command to verify the connection works
     client.admin.command('ping') 
     log.info("✅ Successfully connected to MongoDB!")
 except pymongo_errors.ServerSelectionTimeoutError as err:
     log.critical(f"❌ MongoDB Server Selection Timeout: {err}. Check your network connection and MongoDB Atlas IP whitelist settings.")
-    # If connection fails at startup, raise an exception to prevent the bot from running
     raise Exception("MongoDB connection failed at startup.") from err
 except pymongo_errors.ConfigurationError as err:
     log.critical(f"❌ MongoDB Configuration Error: {err}. Check your MONGODB_URI format and credentials carefully.")
@@ -71,43 +108,112 @@ except Exception as e:
     log.critical(f"❌ An unexpected error occurred during MongoDB connection: {e}")
     raise Exception("Unexpected MongoDB connection error at startup.") from e
 
-# --- Keep Alive for Replit or similar hosting ---
 try:
     from keep_alive import keep_alive
-    # Call keep_alive if successfully imported
     keep_alive()
     log.info("✅ `keep_alive.py` found and initiated.")
 except ImportError:
-    log.warning("`keep_alive.py` not found. If you are not using Replit, this is normal and can be ignored.")
-    def keep_alive(): # Define a dummy function to avoid errors if not imported
-        pass
+    log.warning("`keep_alive.py` not found. If you are not using Replit, this is normal.")
 except Exception as e:
     log.error(f"❌ Error calling keep_alive: {e}", exc_info=True)
 
-
-# --- Discord Intents Configuration ---
 intents = discord.Intents.default()
 intents.messages = True
-intents.message_content = True # Required to read message content from Discord API v2
+intents.message_content = True
 intents.guilds = True
-intents.members = True # Required for member caching and voice state updates
-intents.voice_states = True # Required for voice channel monitoring (Music, TempVoice cogs)
+intents.members = True
+intents.voice_states = True
 
-# --- Bot Initialization ---
-bot = commands.Bot(command_prefix="!", intents=intents, help_command=None) # help_command=None to use custom help
+bot = commands.Bot(command_prefix="!", intents=intents, help_command=None)
 
-# --- Bot Events ---
 @bot.event
 async def on_ready():
-    """Called when the bot successfully connects to Discord."""
-    log.info(f"😎 Bot {bot.user} is now online!")
+    log.info(f"😎 Bot {bot.user} is now online and ready!")
+    log.info(f"Total server: {len(bot.guilds)}")
+
+@bot.event
+async def on_guild_join(guild):
+    JOIN_WEBHOOK_URL = os.getenv("JOIN_WEBHOOK_URL")
+    if not JOIN_WEBHOOK_URL:
+        log.warning(f"Bot joined '{guild.name}' but JOIN_WEBHOOK_URL is not set. Skipping notification.")
+        return
+
+    invite_link = "Tidak dapat membuat invite (kurang izin)."
+    for channel in guild.text_channels:
+        if channel.permissions_for(guild.me).create_instant_invite:
+            try:
+                invite = await channel.create_invite(max_age=0, max_uses=0, reason="Notifikasi Bot Join")
+                invite_link = invite.url
+                break
+            except Exception as e:
+                log.error(f"Gagal membuat invite untuk server {guild.name}: {e}")
+                break
+
+    embed = discord.Embed(
+        title="🎉 Bot Bergabung ke Server Baru!",
+        description=f"Bot telah ditambahkan ke server **{guild.name}**.",
+        color=0x00FF00,
+        timestamp=datetime.utcnow()
+    )
+
+    if guild.icon:
+        embed.set_thumbnail(url=guild.icon.url)
+
+    embed.add_field(name="👑 Pemilik Server", value=f"{guild.owner.mention} (`{guild.owner.id}`)", inline=False)
+    embed.add_field(name="👥 Jumlah Anggota", value=str(guild.member_count), inline=True)
+    embed.add_field(name="🆔 ID Server", value=f"`{guild.id}`", inline=True)
+    embed.add_field(name="🔗 Link Invite", value=invite_link, inline=False)
+    embed.set_footer(text=f"Total server saat ini: {len(bot.guilds)}")
+
+    payload = {"embeds": [embed.to_dict()], "username": "Notifikasi Server"}
+    async with aiohttp.ClientSession() as session:
+        try:
+            async with session.post(JOIN_WEBHOOK_URL, json=payload) as response:
+                if not response.ok:
+                    log.error(f"Gagal mengirim notifikasi join server ke webhook: Status {response.status}")
+                else:
+                    log.info(f"Notifikasi join server '{guild.name}' berhasil dikirim.")
+        except Exception as e:
+            log.error(f"Terjadi error saat mengirim notifikasi join server: {e}")
+
+@bot.event
+async def on_guild_remove(guild):
+    JOIN_WEBHOOK_URL = os.getenv("JOIN_WEBHOOK_URL")
+    if not JOIN_WEBHOOK_URL:
+        log.warning(f"Bot was removed from '{guild.name}' but JOIN_WEBHOOK_URL is not set. Skipping notification.")
+        return
+
+    embed = discord.Embed(
+        title="💔 Bot Dikeluarkan dari Server",
+        description=f"Bot telah dikeluarkan dari server **{guild.name}**.",
+        color=0xFF0000, 
+        timestamp=datetime.utcnow()
+    )
+
+    if guild.icon:
+        embed.set_thumbnail(url=guild.icon.url)
+    
+    owner_info = f"{guild.owner.mention} (`{guild.owner.id}`)" if guild.owner else "Tidak diketahui"
+    embed.add_field(name="👑 Pemilik Server", value=owner_info, inline=False)
+    embed.add_field(name="👥 Jumlah Anggota", value=str(guild.member_count), inline=True)
+    embed.add_field(name="🆔 ID Server", value=f"`{guild.id}`", inline=True)
+    embed.set_footer(text=f"Total server saat ini: {len(bot.guilds)}")
+
+    payload = {"embeds": [embed.to_dict()], "username": "Notifikasi Server"}
+    async with aiohttp.ClientSession() as session:
+        try:
+            async with session.post(JOIN_WEBHOOK_URL, json=payload) as response:
+                if not response.ok:
+                    log.error(f"Gagal mengirim notifikasi keluar server ke webhook: Status {response.status}")
+                else:
+                    log.info(f"Notifikasi keluar server '{guild.name}' berhasil dikirim.")
+        except Exception as e:
+            log.error(f"Terjadi error saat mengirim notifikasi keluar server: {e}")
 
 @bot.event
 async def on_message(message):
-    # Ignore messages from bots to prevent infinite loops or unwanted processing
     if message.author.bot:
         return
-    # Process commands found in the message
     await bot.process_commands(message)
 
 @bot.command(name="help", aliases=["h"])
@@ -166,33 +272,22 @@ async def custom_help(ctx, *, command_name: str = None):
     await ctx.send(embed=embed)
 
 
-# --- Cog Loading ---
 async def load_cogs():
-    """Loads all cogs from the 'cogs' folder."""
-    # This list will be dynamically generated by scanning the 'cogs' directory.
     initial_extensions = [
         "cogs.music"
     ]
     for extension in initial_extensions:
         try:
             await bot.load_extension(extension)
-            log.info(f"✅ Loaded {extension}")
+            log.info(f"✅ Cog berhasil dimuat: {extension}")
         except Exception as e:
-            log.error(f"❌ Failed to load {extension}: {e}", exc_info=True) # Log full traceback on error
-
+            log.error(f"❌ Cog gagal dimuat: {extension}: {e}", exc_info=True)
 
 @bot.event
 async def setup_hook():
-    """Called once when the bot first starts up."""
-    log.info("🚀 Starting setup_hook and loading cogs...")
+    log.info("🚀 Memulai setup_hook dan memuat cogs...")
     await load_cogs()
-    log.info(f"✅ Finished setup_hook and all cogs attempted to load.")
-    # Log registered commands after cogs are loaded
-    log.info(f"All commands registered: {[command.name for command in bot.commands]}")
+    log.info("✅ setup_hook selesai.")
 
-# --- Entry Point of the Bot ---
-# Save cookies if configured (for yt-dlp)
 save_cookies_from_env()
-
-# Run the bot with the Discord token from environment variables
 bot.run(os.getenv("DISCORD_TOKEN"))
