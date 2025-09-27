@@ -4,7 +4,7 @@ aiohttp
 Pillow
 python-dotenv
 PyNaCl
-yt-dlp
+yt-dlp==2025.9.27
 ffmpeg-python
 lyricsgenius
 pymongo>=4.0.0
