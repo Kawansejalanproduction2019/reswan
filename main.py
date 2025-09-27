@@ -11,6 +11,7 @@ from io import BytesIO
 from pymongo import MongoClient, errors as pymongo_errors
 from dotenv import load_dotenv
 from datetime import datetime
+import zipfile
 
 load_dotenv()
 
@@ -25,7 +26,6 @@ class WebhookHandler(logging.Handler):
             loop = asyncio.get_running_loop()
             loop.create_task(self.send_log(record))
         except RuntimeError:
-            # Handle logs before the event loop starts
             print(self.format(record))
             
     async def send_log(self, record):
@@ -242,8 +242,8 @@ async def custom_help(ctx, *, command_name: str = None):
                 )
         
         embed.add_field(
-            name="🔗 Panduan Lengkap",
-            value='Untuk cara pakai yang lebih detail, kunjungi website kami di:\n**🔗 [Klik di sini untuk melihat cara pakai]( http://3.27.18.147/ )**',
+            name="Panduan Lengkap",
+            value='Untuk cara pakai yang lebih detail, kunjungi website kami di:\n**🔗 [Klik di sini untuk melihat cara pakai]( https://kawansejalanproduction2019.github.io/html/ )**',
             inline=False
         )
         
@@ -271,6 +271,140 @@ async def custom_help(ctx, *, command_name: str = None):
     embed.set_footer(text="Tanda < > berarti wajib, [ ] berarti opsional.")
     await ctx.send(embed=embed)
 
+async def send_backup_to_webhook(backup_data):
+    BACKUP_WEBHOOK_URL = os.getenv("BACKUP_WEBHOOK_URL")
+    if not BACKUP_WEBHOOK_URL:
+        log.warning("Variabel BACKUP_WEBHOOK_URL tidak ditemukan. Backup ke webhook dilewati.")
+        return False
+
+    try:
+        payload = {
+            "content": f"✅ Backup database berhasil dikirim pada <t:{int(datetime.now().timestamp())}:F>."
+        }
+        
+        # Buat file ZIP di memori
+        zip_buffer = io.BytesIO()
+        with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+            for file_path, content in backup_data.items():
+                filename = os.path.basename(file_path)
+                string_content = json.dumps(content, indent=4, ensure_ascii=False)
+                zip_file.writestr(filename, string_content)
+        
+        zip_buffer.seek(0)
+        
+        async with aiohttp.ClientSession() as session:
+            form = aiohttp.FormData()
+            form.add_field(
+                'file',
+                zip_buffer,
+                filename='backup.zip',
+                content_type='application/zip'
+            )
+            
+            form.add_field('payload_json', json.dumps(payload), content_type='application/json')
+            
+            async with session.post(BACKUP_WEBHOOK_URL, data=form) as response:
+                if not response.ok:
+                    log.error(f"Gagal mengirim backup ke webhook: Status {response.status}, Respon: {await response.text()}")
+                    return False
+                log.info("✅ Backup berhasil dikirim ke webhook.")
+                return True
+    except Exception as e:
+        log.error(f"❌ Terjadi error saat mengirim backup ke webhook: {e}", exc_info=True)
+        return False
+
+@bot.command()
+@commands.is_owner()
+async def backup(ctx):
+    await ctx.send("Memulai proses backup...")
+    backup_data = {}
+
+    if not client:
+        await ctx.send("❌ MongoDB client tidak aktif. Backup dibatalkan.", ephemeral=True)
+        log.error("MongoDB client is None, cannot perform backupnow.")
+        return
+
+    try:
+        client.admin.command('ping')
+    except Exception as e:
+        await ctx.send(f"❌ Gagal terhubung ke MongoDB untuk backup: {e}", ephemeral=True)
+        log.error(f"MongoDB ping failed for backupnow command: {e}", exc_info=True)
+        return
+
+    directories_to_scan = ['.', 'data/', 'config/']
+
+    for directory in directories_to_scan:
+        if not os.path.isdir(directory):
+            log.warning(f"Direktori '{directory}' tidak ditemukan, dilewati.")
+            continue
+        
+        for filename in os.listdir(directory):
+            file_path = os.path.join(directory, filename)
+            if filename.endswith('.json') and os.path.isfile(file_path):
+                try:
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        json_data = json.load(f)
+                        backup_data[file_path] = json_data
+                        log.info(f"✅ File '{file_path}' berhasil dibaca untuk backup.")
+                except Exception as e:
+                    await ctx.send(f"❌ Gagal membaca file `{file_path}`: {e}")
+                    log.error(f"❌ Gagal membaca file `{file_path}`: {e}", exc_info=True)
+
+    if backup_data:
+        try:
+            collection.update_one(
+                {"_id": "latest_backup"},
+                {"$set": {
+                    "backup": backup_data,
+                    "timestamp": datetime.utcnow()
+                }},
+                upsert=True
+            )
+            log.info("✅ Data backup berhasil disimpan ke MongoDB.")
+            await ctx.send("✅ Data backup berhasil disimpan ke MongoDB!")
+        except Exception as e:
+            await ctx.send(f"❌ Gagal menyimpan data ke MongoDB: {e}")
+            log.error(f"❌ Gagal menyimpan data ke MongoDB: {e}", exc_info=True)
+    else:
+        await ctx.send("🤷 Tidak ada file .json yang ditemukan untuk di-backup.")
+        log.warning("Tidak ada file .json ditemukan untuk di-backup.")
+
+@bot.command()
+@commands.is_owner()
+async def send(ctx):
+    if not client:
+        await ctx.send("❌ MongoDB client tidak aktif.", ephemeral=True)
+        log.error("MongoDB client is None, cannot perform sendbackup.")
+        return
+
+    try:
+        client.admin.command('ping')
+    except Exception as e:
+        await ctx.send(f"❌ Gagal terhubung ke MongoDB: {e}", ephemeral=True)
+        log.error(f"MongoDB ping failed for sendbackup command: {e}", exc_info=True)
+        return
+
+    try:
+        stored_data = collection.find_one({"_id": "latest_backup"})
+        if not stored_data or 'backup' not in stored_data:
+            await ctx.send("❌ Tidak ada data backup yang tersedia.")
+            log.warning("Tidak ada data backup di MongoDB.")
+            return
+
+        backup_data = stored_data["backup"]
+        
+        await ctx.send("🌐 Mengirim file backup ke webhook...")
+        webhook_sent = await send_backup_to_webhook(backup_data)
+        
+        if webhook_sent:
+            await ctx.send("✅ File backup berhasil dikirim ke webhook!")
+            log.info("File backup berhasil dikirim ke webhook.")
+        else:
+            await ctx.send("❌ Gagal mengirim file backup ke webhook.")
+
+    except Exception as e:
+        await ctx.send(f"❌ Terjadi error saat mengambil data backup: {e}")
+        log.error(f"❌ Terjadi error saat mengambil data backup: {e}", exc_info=True)
 
 async def load_cogs():
     initial_extensions = [
