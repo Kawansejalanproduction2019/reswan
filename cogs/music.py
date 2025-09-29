@@ -13,24 +13,24 @@ import logging
 import json
 import random
 from datetime import datetime, timedelta
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 # Konfigurasi logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 log = logging.getLogger(__name__)
 
-# --- FILE DATA UNTUK MELACAK PREFERENSI, RIWAYAT, DAN CHANNEL SEMENTARA (Persisten antar restart bot) ---
+# --- FILE DATA UNTUK MELACAK RIWAYAT DAN CHANNEL SEMENTARA (Persisten antar restart bot) ---
 TEMP_CHANNELS_FILE = 'data/temp_voice_channels.json'
 LISTENING_HISTORY_FILE = 'data/listening_history.json'
-USER_PREFERENCES_FILE = 'data/user_preferences.json'
 GUILD_CONFIG_FILE = 'data/guild_config.json'
-WEEKLY_STATS_FILE = 'data/weekly_stats.json'
 
 # --- KONFIGURASI PENGATURAN TEMPOVICE BARU ---
-# Jadwal Pembuatan Channel Suara Pribadi (dalam format 24 jam)
 ENABLE_SCHEDULED_CREATION = False
 CREATION_START_TIME = (20, 0)
 CREATION_END_TIME = (6, 0)
+
+# KONSTANTA TAMBAHAN UNTUK TEMPOVICE
+MAX_BITRATE = 384000 # 384 kbps (Max Bitrate Discord)
+TARGET_REGION = 'singapore' # Region yang diminta
 
 def load_json_file(file_path, default_data={}):
     os.makedirs(os.path.dirname(file_path), exist_ok=True)
@@ -72,12 +72,6 @@ def load_listening_history():
 
 def save_listening_history(data):
     save_json_file(LISTENING_HISTORY_FILE, data)
-
-def load_user_preferences():
-    return load_json_file(USER_PREFERENCES_FILE)
-
-def save_user_preferences(data):
-    save_json_file(USER_PREFERENCES_FILE, data)
     
 def load_guild_config():
     return load_json_file(GUILD_CONFIG_FILE)
@@ -85,12 +79,6 @@ def load_guild_config():
 def save_guild_config(data):
     save_json_file(GUILD_CONFIG_FILE, data)
     
-def load_weekly_stats():
-    return load_json_file(WEEKLY_STATS_FILE, {})
-
-def save_weekly_stats(data):
-    save_json_file(WEEKLY_STATS_FILE, data)
-
 # --- Updated YTDL Options for Opus and FFMPEG Options for Stability ---
 ytdl_opts = {
     'format': 'bestaudio[ext=opus]/bestaudio[ext=m4a]/bestaudio/best',
@@ -231,9 +219,6 @@ class MusicControlView(discord.ui.View):
             'message_id': new_message.id,
             'channel_id': new_message.channel.id
         }
-        if vc and vc.is_playing():
-            await new_message.add_reaction('👍')
-            await new_message.add_reaction('👎')
 
     @discord.ui.button(emoji="▶️", style=discord.ButtonStyle.primary, custom_id="music:play_pause", row=0)
     async def play_pause_button(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -266,7 +251,7 @@ class MusicControlView(discord.ui.View):
             await interaction.followup.send("⏭️ Skip lagu.", ephemeral=True)
         else:
             await interaction.followup.send("Tidak ada lagu yang sedang diputar.", ephemeral=True)
-        
+            
     @discord.ui.button(emoji="⏹️", style=discord.ButtonStyle.danger, custom_id="music:stop", row=0)
     async def stop_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not await self._check_voice_channel(interaction):
@@ -613,9 +598,7 @@ class Music(commands.Cog):
         self.old_volume = {}
         self.now_playing_info = {}
         self.listening_history = load_listening_history()
-        self.user_preferences = load_user_preferences()
         self.guild_config = load_guild_config()
-        self.weekly_stats = load_weekly_stats()
 
         GENIUS_API_TOKEN = os.getenv("GENIUS_API")
         self.genius = None
@@ -645,17 +628,12 @@ class Music(commands.Cog):
         self.bot.add_view(VCControlView(self))
         self.active_temp_channels = load_temp_channels()
         
-        self.scheduler = AsyncIOScheduler()
-        self.scheduler.add_job(self.send_weekly_summary, 'cron', day_of_week='mon', hour=9)
-        self.scheduler.start()
-        
         self.cleanup_task.start()
         self.idle_check_task.start()
         
     def cog_unload(self):
         self.cleanup_task.cancel()
         self.idle_check_task.cancel()
-        self.scheduler.shutdown()
 
     @tasks.loop(seconds=10)
     async def cleanup_task(self):
@@ -805,21 +783,27 @@ class Music(commands.Cog):
                         mute_members=True, deafen_members=True, move_members=True
                     )
                 }
+                
+                # --- MODIFIKASI: Tambahkan bitrate dan region ---
                 new_vc = await guild.create_voice_channel(
                     name=new_channel_name,
                     category=category,
                     user_limit=0,
                     overwrites=overwrites,
-                    reason=f"{member.display_name} created a temporary voice channel."
+                    bitrate=MAX_BITRATE, 
+                    rtc_region=TARGET_REGION,
+                    reason=f"{member.display_name} created a temporary voice channel with max bitrate and {TARGET_REGION} region."
                 )
+                
                 await member.move_to(new_vc)
                 self.active_temp_channels[str(new_vc.id)] = {"owner_id": str(member.id), "guild_id": guild_id_str}
                 save_temp_channels(self.active_temp_channels)
                 embed = discord.Embed(
                     title="🎉 Channel Pribadimu Dibuat!",
                     description=f"Selamat datang di **{new_vc.name}**, {member.mention}! Kamu adalah pemilik channel ini.\n"
-                                f"Gunakan tombol di bawah untuk mengelola channelmu tanpa perintah teks.\n"
-                                f"Channel ini akan otomatis dihapus jika tidak ada user di dalamnya.",
+                                 f"**Bitrate diatur maksimal** ({MAX_BITRATE // 1000} kbps) dan **Region diatur ke {TARGET_REGION.upper()}**.\n"
+                                 f"Gunakan tombol di bawah untuk mengelola channelmu tanpa perintah teks.\n"
+                                 f"Channel ini akan otomatis dihapus jika tidak ada user di dalamnya.",
                     color=discord.Color.green()
                 )
                 embed.add_field(name="User Limit (Batas Pengguna)", value="""
@@ -880,46 +864,12 @@ class Music(commands.Cog):
             self.listening_history[user_id_str] = []
         if not isinstance(self.listening_history[user_id_str], list):
              self.listening_history[user_id_str] = []
+        
         self.listening_history[user_id_str].insert(0, song_info)
+        
         if len(self.listening_history[user_id_str]) > 50:
             self.listening_history[user_id_str] = self.listening_history[user_id_str][:50]
         save_listening_history(self.listening_history)
-
-    def add_liked_song(self, user_id, song_info):
-        user_id_str = str(user_id)
-        if user_id_str not in self.user_preferences or not isinstance(self.user_preferences[user_id_str], dict):
-            self.user_preferences[user_id_str] = {'liked_songs': [], 'disliked_songs': []}
-        if not isinstance(self.user_preferences[user_id_str].get('disliked_songs'), list):
-             self.user_preferences[user_id_str]['disliked_songs'] = []
-        if not isinstance(self.user_preferences[user_id_str].get('liked_songs'), list):
-             self.user_preferences[user_id_str]['liked_songs'] = []
-        self.user_preferences[user_id_str]['disliked_songs'] = [
-            s for s in self.user_preferences[user_id_str]['disliked_songs']
-            if s['webpage_url'] != song_info['webpage_url']
-        ]
-        if not any(s['webpage_url'] == song_info['webpage_url'] for s in self.user_preferences[user_id_str]['liked_songs']):
-            self.user_preferences[user_id_str]['liked_songs'].insert(0, song_info)
-            if len(self.user_preferences[user_id_str]['liked_songs']) > 25:
-                self.user_preferences[user_id_str]['liked_songs'] = self.user_preferences[user_id_str]['liked_songs'][:25]
-        save_user_preferences(self.user_preferences)
-
-    def add_disliked_song(self, user_id, song_info):
-        user_id_str = str(user_id)
-        if user_id_str not in self.user_preferences or not isinstance(self.user_preferences[user_id_str], dict):
-            self.user_preferences[user_id_str] = {'liked_songs': [], 'disliked_songs': []}
-        if not isinstance(self.user_preferences[user_id_str].get('disliked_songs'), list):
-             self.user_preferences[user_id_str]['disliked_songs'] = []
-        if not isinstance(self.user_preferences[user_id_str].get('liked_songs'), list):
-             self.user_preferences[user_id_str]['liked_songs'] = []
-        self.user_preferences[user_id_str]['liked_songs'] = [
-            s for s in self.user_preferences[user_id_str]['liked_songs']
-            if s['webpage_url'] != song_info['webpage_url']
-        ]
-        if not any(s['webpage_url'] == song_info['webpage_url'] for s in self.user_preferences[user_id_str]['disliked_songs']):
-            self.user_preferences[user_id_str]['disliked_songs'].insert(0, song_info)
-            if len(self.user_preferences[user_id_str]['disliked_songs']) > 100:
-                self.user_preferences[user_id_str]['disliked_songs'] = self.user_preferences[user_id_str]['disliked_songs'][:100]
-        save_user_preferences(self.user_preferences)
 
     async def get_song_info_from_url(self, url):
         try:
@@ -1044,7 +994,7 @@ class Music(commands.Cog):
                         await old_message.delete()
                 except (discord.NotFound, discord.HTTPException):
                     pass
-            await ctx.send("Antrean kosong. Bot akan keluar dari voice channel jika tidak ada pengguna lain.", ephemeral=True)
+                await ctx.send("Antrean kosong. Bot akan keluar dari voice channel jika tidak ada pengguna lain.", ephemeral=True)
             return
         url = queue.pop(0)
         try:
@@ -1082,8 +1032,6 @@ class Music(commands.Cog):
                     pass
             message_sent = await ctx.send(embed=embed, view=view)
             self.current_music_message_info[guild_id] = {'message_id': message_sent.id, 'channel_id': message_sent.channel.id}
-            await message_sent.add_reaction('👍')
-            await message_sent.add_reaction('👎')
         except Exception as e:
             await ctx.send(f'Gagal memutar lagu: {e}', ephemeral=True)
             if ctx.voice_client and (ctx.voice_client.is_playing() or ctx.voice_client.is_paused()):
@@ -1127,37 +1075,39 @@ class Music(commands.Cog):
 
     async def refill_queue_for_random(self, ctx, num_songs=10):
         user_id_str = str(ctx.author.id)
-        if not isinstance(self.user_preferences, dict):
-            self.user_preferences = {}
-            save_user_preferences(self.user_preferences)
-        user_preferences = self.user_preferences.get(user_id_str, {'liked_songs': [], 'disliked_songs': []})
-        disliked_urls = {s.get('webpage_url') for s in user_preferences.get('disliked_songs', [])}
         new_urls = []
-        liked_songs = user_preferences.get('liked_songs', [])
-        if liked_songs and isinstance(liked_songs, list):
-            random.shuffle(liked_songs)
-            liked_urls = [s['webpage_url'] for s in liked_songs if s['webpage_url'] not in disliked_urls]
-            new_urls.extend(liked_urls[:num_songs])
-        if len(new_urls) < num_songs:
-            user_history = self.listening_history.get(user_id_str, [])
-            if user_history and isinstance(user_history, list):
-                filtered_history = [s['webpage_url'] for s in user_history if s['webpage_url'] not in disliked_urls]
-                if filtered_history:
-                    random.shuffle(filtered_history)
-                    urls_from_history = filtered_history[:num_songs - len(new_urls)]
-                    new_urls.extend(urls_from_history)
+        
+        # 1. Ambil URL dari riwayat putar pengguna
+        user_history = self.listening_history.get(user_id_str, [])
+        
+        if not isinstance(user_history, list):
+            user_history = []
+        
+        if user_history:
+            # Menggunakan set untuk menghindari duplikat dalam riwayat
+            filtered_history_urls = [s['webpage_url'] for s in user_history if 'webpage_url' in s]
+            
+            # Acak dan ambil yang paling atas
+            if filtered_history_urls:
+                random.shuffle(filtered_history_urls)
+                urls_from_history = filtered_history_urls[:num_songs]
+                new_urls.extend(urls_from_history)
+
+        # 2. Jika masih kurang, ambil dari trending music umum
         if len(new_urls) < num_songs:
             search_query = "trending music"
             try:
                 info = await asyncio.to_thread(lambda: ytdl.extract_info(search_query, download=False, process=True))
                 if 'entries' in info and isinstance(info.get('entries'), list):
-                    filtered_entries = [entry for entry in info['entries'] if entry.get('webpage_url') not in disliked_urls]
-                    if filtered_entries:
-                        random.shuffle(filtered_entries)
-                        urls_from_search = [entry['webpage_url'] for entry in filtered_entries[:num_songs - len(new_urls)]]
+                    filtered_entries_urls = [entry['webpage_url'] for entry in info['entries'] if 'webpage_url' in entry]
+                    
+                    if filtered_entries_urls:
+                        random.shuffle(filtered_entries_urls)
+                        urls_from_search = filtered_entries_urls[:num_songs - len(new_urls)]
                         new_urls.extend(urls_from_search)
             except Exception as e:
                 pass
+                
         self.get_queue(ctx.guild.id).extend(new_urls)
 
     async def _update_music_message_from_ctx(self, ctx):
@@ -1224,53 +1174,16 @@ class Music(commands.Cog):
             'message_id': new_message.id,
             'channel_id': new_message.channel.id
         }
-        if vc and vc.is_playing():
-            await new_message.add_reaction('👍')
-            await new_message.add_reaction('👎')
 
-    async def send_weekly_summary(self):
-        # Proses ringkasan mingguan
-        today = datetime.now()
-        last_week = today - timedelta(days=7)
-        for user_id_str, history in self.listening_history.items():
-            user_id = int(user_id_str)
-            user = self.bot.get_user(user_id)
-            if not user:
-                continue
-
-            songs_in_week = [s for s in history if datetime.fromisoformat(s.get('timestamp')) > last_week]
-            if not songs_in_week:
-                continue
-            
-            # Hitung statistik
-            artist_counts = {}
-            for song in songs_in_week:
-                artist = song.get('artist', 'Unknown Artist')
-                artist_counts[artist] = artist_counts.get(artist, 0) + 1
-            
-            most_played_artist = max(artist_counts, key=artist_counts.get) if artist_counts else 'Tidak diketahui'
-            total_songs = len(songs_in_week)
-            
-            # Buat embed
-            embed = discord.Embed(
-                title=f"🎶 Ringkasan Musik Anda Minggu Ini!",
-                description=f"Halo, {user.display_name}! Berikut adalah ringkasan musik Anda dari {last_week.strftime('%d %b')} hingga {today.strftime('%d %b')}.",
-                color=discord.Color.blue()
-            )
-            embed.add_field(name="Jumlah Lagu Didengarkan", value=f"{total_songs} lagu", inline=False)
-            embed.add_field(name="Artis Terpopuler", value=most_played_artist, inline=False)
-            
-            # Rekomendasi
-            user_prefs = self.user_preferences.get(user_id_str, {})
-            liked_songs = user_prefs.get('liked_songs', [])
-            if liked_songs:
-                rec_song = random.choice(liked_songs)
-                embed.add_field(name="Rekomendasi Minggu Ini", value=f"Karena Anda menyukai **{rec_song['title']}**, coba cari lagu lain dari **{rec_song['artist']}**!", inline=False)
-            
-            try:
-                await user.send(embed=embed)
-            except discord.Forbidden:
-                pass
+    async def send_scheduled_message(self, member, message_content):
+        try:
+            await member.move_to(None)
+        except Exception:
+            pass
+        try:
+            await member.send(message_content)
+        except discord.Forbidden:
+            pass
     
     @commands.command(name="resjoin")
     async def join(self, ctx):
@@ -1376,8 +1289,6 @@ class Music(commands.Cog):
                         'message_id': message_sent.id,
                         'channel_id': message_sent.channel.id
                     }
-                    await message_sent.add_reaction('👍')
-                    await message_sent.add_reaction('👎')
             except Exception as e:
                 await ctx.send(f'Gagal memutar lagu: {e}', ephemeral=True)
                 if ctx.voice_client and (ctx.voice_client.is_playing() or ctx.voice_client.is_paused()):
@@ -1534,11 +1445,6 @@ class Music(commands.Cog):
             if not ctx.voice_client:
                 return await ctx.send("Gagal bergabung ke voice channel.", ephemeral=True)
         await ctx.defer()
-        if not isinstance(self.user_preferences, dict):
-            self.user_preferences = load_user_preferences()
-            if not isinstance(self.user_preferences, dict):
-                self.user_preferences = {}
-                save_user_preferences(self.user_preferences)
         is_spotify_request = False
         if urls and self.spotify and ("open.spotify.com" in urls[0] or "spotify:" in urls[0]):
             is_spotify_request = True
@@ -1582,67 +1488,13 @@ class Music(commands.Cog):
         await self.refill_queue_for_random(ctx, num_songs=10)
         queue = self.get_queue(ctx.guild.id)
         if not queue:
-            return await ctx.send("❌ Tidak dapat menemukan lagu untuk dimainkan. Pastikan riwayat dan preferensi Anda tidak kosong, atau coba lagi nanti.", ephemeral=True)
+            return await ctx.send("❌ Tidak dapat menemukan lagu untuk dimainkan. Pastikan riwayat Anda tidak kosong, atau coba lagi nanti.", ephemeral=True)
         if not ctx.voice_client.is_playing() and not ctx.voice_client.is_paused():
             await ctx.send("🎧 Memulai mode acak pribadi. Menambahkan 10 lagu ke antrean.", ephemeral=True)
             await self.play_next(ctx)
         else:
             await ctx.send(f"🎧 Menambahkan 10 lagu acak ke antrean.", ephemeral=True)
-
-    @commands.command(name="respliked")
-    async def play_liked_songs(self, ctx):
-        if not ctx.voice_client:
-            await ctx.invoke(self.join)
-            if not ctx.voice_client:
-                return await ctx.send("Gagal bergabung ke voice channel.", ephemeral=True)
-        user_id_str = str(ctx.author.id)
-        if not isinstance(self.user_preferences, dict):
-            self.user_preferences = load_user_preferences()
-            if not isinstance(self.user_preferences, dict):
-                self.user_preferences = {}
-                save_user_preferences(self.user_preferences)
-        user_preferences = self.user_preferences.get(user_id_str, {})
-        liked_songs = user_preferences.get('liked_songs', [])
-        if not isinstance(liked_songs, list) or not liked_songs:
-            return await ctx.send("❌ Anda belum memiliki lagu yang disukai (gunakan `👍` pada pesan musik yang sedang diputar).", ephemeral=True)
-        await ctx.defer()
-        liked_urls = [song['webpage_url'] for song in liked_songs]
-        random.shuffle(liked_urls)
-        queue = self.get_queue(ctx.guild.id)
-        self.queues[ctx.guild.id] = []
-        self.queues[ctx.guild.id].extend(liked_urls)
-        await ctx.send(f"▶️ Memulai playlist lagu kesukaan Anda dengan {len(liked_urls)} lagu.", ephemeral=True)
-        if not ctx.voice_client.is_playing() and not ctx.voice_client.is_paused():
-            await self.play_next(ctx)
-        else:
-            await self._update_music_message_from_ctx(ctx)
             
-    @commands.Cog.listener()
-    async def on_reaction_add(self, reaction, user):
-        if user.bot:
-            return
-        guild_id = reaction.message.guild.id
-        current_message_info = self.current_music_message_info.get(guild_id)
-        if not current_message_info or reaction.message.id != current_message_info['message_id']:
-            return
-        now_playing_info = self.now_playing_info.get(guild_id)
-        if not now_playing_info:
-            return
-        if str(reaction.emoji) == '👍':
-            self.add_liked_song(user.id, now_playing_info)
-        elif str(reaction.emoji) == '👎':
-            self.add_disliked_song(user.id, now_playing_info)
-
-    async def send_scheduled_message(self, member, message_content):
-        try:
-            await member.move_to(None)
-        except Exception:
-            pass
-        try:
-            await member.send(message_content)
-        except discord.Forbidden:
-            pass
-    
     @commands.command(name="settriger", help="[ADMIN] Mengatur saluran suara pemicu untuk server ini.")
     @commands.has_permissions(administrator=True)
     async def set_trigger_channel(self, ctx, channel_id: int):
