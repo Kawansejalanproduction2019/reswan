@@ -29,8 +29,7 @@ CREATION_START_TIME = (20, 0)
 CREATION_END_TIME = (6, 0)
 
 # KONSTANTA TAMBAHAN UNTUK TEMPOVICE
-MAX_BITRATE = 128000 # 384 kbps (Max Bitrate Discord)
-TARGET_REGION = 'singapore' # Region yang diminta
+TARGET_REGION = 'singapore' 
 
 def load_json_file(file_path, default_data={}):
     os.makedirs(os.path.dirname(file_path), exist_ok=True)
@@ -752,7 +751,7 @@ class Music(commands.Cog):
             guild = member.guild
             category = guild.get_channel(target_cat_id)
             if not category or not isinstance(category, discord.CategoryChannel):
-                try: await member.send("❌ Gagal membuat channel suara pribadi: Kategori tujuan tidak ditemukan atau tidak valid. Hubungi admin server.", ephemeral=True)
+                try: await member.send("❌ Gagal membuat channel suara pribadi: Kategori tujuan tidak ditemukan atau tidak valid. Hubungi admin server.")
                 except discord.Forbidden: pass
                 try: await member.move_to(None, reason="Target category invalid.")
                 except: pass
@@ -784,24 +783,30 @@ class Music(commands.Cog):
                     )
                 }
                 
-                # --- MODIFIKASI: Tambahkan bitrate dan region ---
+                # --- Implementasi Bitrate Dinamis ---
+                # Mengambil batas bitrate maksimum yang diizinkan oleh Level Boost Server
+                dynamic_bitrate = guild.bitrate_limit
+                bitrate_to_set = dynamic_bitrate
+                bitrate_kbps = bitrate_to_set // 1000 
+                
                 new_vc = await guild.create_voice_channel(
                     name=new_channel_name,
                     category=category,
                     user_limit=0,
                     overwrites=overwrites,
-                    bitrate=MAX_BITRATE, 
+                    bitrate=bitrate_to_set, 
                     rtc_region=TARGET_REGION,
-                    reason=f"{member.display_name} created a temporary voice channel with max bitrate and {TARGET_REGION} region."
+                    reason=f"{member.display_name} created a temporary voice channel with max server bitrate ({bitrate_kbps}kbps) and {TARGET_REGION} region."
                 )
                 
                 await member.move_to(new_vc)
                 self.active_temp_channels[str(new_vc.id)] = {"owner_id": str(member.id), "guild_id": guild_id_str}
                 save_temp_channels(self.active_temp_channels)
+                
                 embed = discord.Embed(
                     title="🎉 Channel Pribadimu Dibuat!",
                     description=f"Selamat datang di **{new_vc.name}**, {member.mention}! Kamu adalah pemilik channel ini.\n"
-                                 f"**Bitrate diatur maksimal** ({MAX_BITRATE // 1000} kbps) dan **Region diatur ke {TARGET_REGION.upper()}**.\n"
+                                 f"**Bitrate diatur maksimal ({bitrate_kbps} kbps)** dan **Region diatur ke {TARGET_REGION.upper()}**.\n"
                                  f"Gunakan tombol di bawah untuk mengelola channelmu tanpa perintah teks.\n"
                                  f"Channel ini akan otomatis dihapus jika tidak ada user di dalamnya.",
                     color=discord.Color.green()
@@ -814,12 +819,12 @@ class Music(commands.Cog):
                 view = VCControlView(self)
                 await new_vc.send(embed=embed, view=view)
             except discord.Forbidden:
-                try: await member.send(f"❌ Gagal membuat channel suara pribadi: Bot tidak memiliki izin yang cukup (Manage Channels atau Move Members). Hubungi admin server.", ephemeral=True)
+                try: await member.send(f"❌ Gagal membuat channel suara pribadi: Bot tidak memiliki izin yang cukup (Manage Channels atau Move Members). Hubungi admin server.")
                 except discord.Forbidden: pass
                 try: await member.move_to(None, reason="Bot lacks permissions.")
                 except: pass
             except Exception as e:
-                try: await member.send(f"❌ Terjadi kesalahan saat memindahkan Anda ke channel pribadi Anda: {e}. Hubungi admin server.", ephemeral=True)
+                try: await member.send(f"❌ Terjadi kesalahan saat memindahkan Anda ke channel pribadi Anda: {e}. Hubungi admin server.")
                 except discord.Forbidden: pass
                 try: await member.move_to(None, reason="Unexpected error.")
                 except: pass
@@ -1180,6 +1185,7 @@ class Music(commands.Cog):
             await member.move_to(None)
         except Exception:
             pass
+        # Perbaikan: Menghapus 'ephemeral=True' dari member.send()
         try:
             await member.send(message_content)
         except discord.Forbidden:
