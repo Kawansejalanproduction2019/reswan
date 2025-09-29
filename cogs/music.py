@@ -29,7 +29,7 @@ CREATION_START_TIME = (20, 0)
 CREATION_END_TIME = (6, 0)
 
 # KONSTANTA TAMBAHAN UNTUK TEMPOVICE
-MAX_BITRATE = 384000 # 384 kbps (Max Bitrate Discord)
+MAX_BITRATE = 128000 # 384 kbps (Max Bitrate Discord)
 TARGET_REGION = 'singapore' # Region yang diminta
 
 def load_json_file(file_path, default_data={}):
