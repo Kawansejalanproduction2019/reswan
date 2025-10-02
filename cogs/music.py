@@ -1770,11 +1770,11 @@ async def setup(bot):
                 "url": "https://bagibagi.co/Rh7155"
             },
             {
-                "label": "Donasi via Saweria!",
+                "label": "Dukung via Saweria!",
                 "url": "https://saweria.co/RH7155"
             },
             {
-                "label": "Donasi via Sosiabuzz",
+                "label": "Dukung via Sosiabuzz",
                 "url": "https://sociabuzz.com/abogoboga7155/tribe"
             }
         ]
