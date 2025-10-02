@@ -217,7 +217,7 @@ async def custom_help(ctx, *, command_name: str = None):
     if not command_name:
         embed = discord.Embed(
             title="👋 Bantuan Perintah Bot",
-            description=f"Gunakan `{prefix}help [nama_command]` untuk melihat info detail dari sebuah command.",
+            description=f"Cek website untuk detail cara penggunaan nya",
             color=0x3498db
         )
         if bot.user.avatar:
