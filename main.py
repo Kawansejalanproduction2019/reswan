@@ -210,7 +210,7 @@ async def on_guild_remove(guild):
         except Exception as e:
             log.error(f"Terjadi error saat mengirim notifikasi keluar server: {e}")
 
-@bot.command(name="help", aliases=["h"])
+@bot.command(name="reshelp", aliases=["h"])
 async def custom_help(ctx, *, command_name: str = None):
     prefix = ctx.prefix
 
