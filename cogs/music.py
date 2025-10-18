@@ -1341,7 +1341,7 @@ class Music(commands.Cog):
         else:
             await ctx.send("Tidak ada lagu yang dijeda.", ephemeral=True)
 
-    @commands.command(name="resstop", aliases=["s", "stop"])
+    @commands.command(name="resstop", aliases=["stop"])
     async def stop_cmd(self, ctx):
         if ctx.voice_client:
             if ctx.guild.id in self.current_music_message_info:
