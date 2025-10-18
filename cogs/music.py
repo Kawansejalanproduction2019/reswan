@@ -1203,7 +1203,7 @@ class Music(commands.Cog):
         else:
             await ctx.send("Kamu harus berada di voice channel dulu.")
 
-    @commands.command(name="resp")
+    @commands.command(name="resp", aliases=["p", "play"])
     async def play(self, ctx, *, query):
         if not ctx.voice_client:
             await ctx.invoke(self.join)
@@ -1310,7 +1310,7 @@ class Music(commands.Cog):
             if ctx.guild.id in self.current_music_message_info:
                 await self._update_music_message_from_ctx(ctx)
 
-    @commands.command(name="resskip")
+    @commands.command(name="resskip", aliases=["s", "skip"])
     async def skip_cmd(self, ctx):
         if not ctx.voice_client or (not ctx.voice_client.is_playing() and not ctx.voice_client.is_paused()):
             return await ctx.send("Tidak ada lagu yang sedang diputar.", ephemeral=True)
@@ -1321,7 +1321,7 @@ class Music(commands.Cog):
         ctx.voice_client.stop()
         await ctx.send("⏭️ Skip lagu.", ephemeral=True)
 
-    @commands.command(name="respause")
+    @commands.command(name="respause", aliases=["pause", "jeda"])
     async def pause_cmd(self, ctx):
         if ctx.voice_client and ctx.voice_client.is_playing():
             ctx.voice_client.pause()
@@ -1331,7 +1331,7 @@ class Music(commands.Cog):
         else:
             await ctx.send("Tidak ada lagu yang sedang diputar.", ephemeral=True)
 
-    @commands.command(name="resresume")
+    @commands.command(name="resresume", aliases=["r", "resume"])
     async def resume_cmd(self, ctx):
         if ctx.voice_client and ctx.voice_client.is_paused():
             ctx.voice_client.resume()
@@ -1341,7 +1341,7 @@ class Music(commands.Cog):
         else:
             await ctx.send("Tidak ada lagu yang dijeda.", ephemeral=True)
 
-    @commands.command(name="resstop")
+    @commands.command(name="resstop", aliases=["s", "stop"])
     async def stop_cmd(self, ctx):
         if ctx.voice_client:
             if ctx.guild.id in self.current_music_message_info:
@@ -1367,7 +1367,7 @@ class Music(commands.Cog):
         else:
             await ctx.send("Bot tidak ada di voice channel.", ephemeral=True)
 
-    @commands.command(name="resqueue")
+    @commands.command(name="resqueue", aliases=["q", "queue"])
     async def queue_cmd(self, ctx):
         queue = self.get_queue(ctx.guild.id)
         if queue:
