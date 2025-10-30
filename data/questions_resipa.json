@@ -1,0 +1,937 @@
+[
+    {
+        "word": "Atom",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Bagian terkecil dari suatu unsur yang masih memiliki sifat unsur tersebut."
+    },
+    {
+        "word": "Sel",
+        "category": "Biologi Dasar",
+        "clue": "Kisi-kisi: Unit struktural dan fungsional terkecil dari makhluk hidup."
+    },
+    {
+        "word": "Oksigen",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Gas yang sangat penting dalam proses pernapasan dan pembakaran."
+    },
+    {
+        "word": "Fotosintesis",
+        "category": "Biologi Dasar",
+        "clue": "Kisi-kisi: Proses tumbuhan menghasilkan makanan dengan bantuan cahaya matahari."
+    },
+    {
+        "word": "Proton",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Partikel bermuatan positif yang berada di inti atom."
+    },
+    {
+        "word": "Klorofil",
+        "category": "Biologi Dasar",
+        "clue": "Kisi-kisi: Zat hijau daun yang membantu tumbuhan menangkap cahaya."
+    },
+    {
+        "word": "pH",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Ukuran tingkat keasaman atau kebasaan suatu larutan."
+    },
+    {
+        "word": "Organ",
+        "category": "Biologi Dasar",
+        "clue": "Kisi-kisi: Kumpulan jaringan yang bekerja sama melakukan fungsi tertentu dalam tubuh."
+    },
+    {
+        "word": "Unsur",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Zat murni yang tidak bisa diuraikan menjadi zat lain yang lebih sederhana."
+    },
+    {
+        "word": "DNA",
+        "category": "Biologi Dasar",
+        "clue": "Kisi-kisi: Molekul pembawa informasi genetik dalam sel makhluk hidup."
+    },
+    {
+        "word": "Ion",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Partikel bermuatan listrik akibat kehilangan atau mendapatkan elektron."
+    },
+    {
+        "word": "Hormon",
+        "category": "Biologi Dasar",
+        "clue": "Kisi-kisi: Zat kimia alami dalam tubuh yang mengatur berbagai fungsi biologis."
+    },
+    {
+        "word": "Larutan",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Campuran homogen antara pelarut dan zat terlarut."
+    },
+    {
+        "word": "Enzim",
+        "category": "Biologi Dasar",
+        "clue": "Kisi-kisi: Protein yang mempercepat reaksi kimia di dalam tubuh."
+    },
+    {
+        "word": "Ikatan Ion",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Ikatan yang terbentuk karena transfer elektron dari satu atom ke atom lain."
+    },
+    {
+        "word": "Mitokondria",
+        "category": "Biologi Dasar",
+        "clue": "Kisi-kisi: Organel sel yang berfungsi sebagai pusat produksi energi."
+    },
+    {
+        "word": "Ikatan Kovalen",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Jenis ikatan yang terbentuk melalui pembagian pasangan elektron."
+    },
+    {
+        "word": "Sistem Saraf",
+        "category": "Biologi Dasar",
+        "clue": "Kisi-kisi: Sistem tubuh yang mengatur dan mengoordinasikan semua aktivitas tubuh."
+    },
+    {
+        "word": "Katalis",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Zat yang mempercepat reaksi tanpa ikut bereaksi."
+    },
+    {
+        "word": "Sel Darah Merah",
+        "category": "Biologi Dasar",
+        "clue": "Kisi-kisi: Komponen darah yang mengangkut oksigen ke seluruh tubuh."
+    },
+    {
+        "word": "Mol",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Satuan jumlah zat dalam kimia yang digunakan untuk menghitung partikel."
+    },
+    {
+        "word": "Organisme",
+        "category": "Biologi Dasar",
+        "clue": "Kisi-kisi: Sebutan untuk makhluk hidup secara keseluruhan."
+    },
+    {
+        "word": "Reduksi",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Proses kimia yang melibatkan penambahan elektron."
+    },
+    {
+        "word": "Mutasi",
+        "category": "Biologi Dasar",
+        "clue": "Kisi-kisi: Perubahan pada materi genetik yang dapat diwariskan."
+    },
+    {
+        "word": "Reaksi Eksoterm",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Reaksi kimia yang melepaskan panas ke lingkungan."
+    },
+    {
+        "word": "Respirasi Sel",
+        "category": "Biologi Dasar",
+        "clue": "Kisi-kisi: Proses pembentukan energi dalam sel dengan bantuan oksigen."
+    },
+    {
+        "word": "Gugus Fungsional",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Bagian dari molekul organik yang menentukan sifat kimia suatu senyawa."
+    },
+    {
+        "word": "Jaringan",
+        "category": "Biologi Dasar",
+        "clue": "Kisi-kisi: Sekelompok sel sejenis yang bekerja sama melakukan fungsi tertentu."
+    },
+    {
+        "word": "Titrasi",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Teknik laboratorium untuk menentukan konsentrasi suatu larutan."
+    },
+    {
+        "word": "Reproduksi",
+        "category": "Biologi Dasar",
+        "clue": "Kisi-kisi: Proses biologis untuk menghasilkan individu baru."
+    },
+    {
+        "word": "Indikator",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Zat yang menunjukkan perubahan pH dalam suatu larutan."
+    },
+    {
+        "word": "Plasma Darah",
+        "category": "Biologi Dasar",
+        "clue": "Kisi-kisi: Cairan kekuningan dalam darah tempat sel-sel darah mengapung."
+    },
+    {
+        "word": "Logam Alkali",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Kelompok unsur pada golongan 1 yang sangat reaktif dalam air."
+    },
+    {
+        "word": "Kromosom",
+        "category": "Biologi Dasar",
+        "clue": "Kisi-kisi: Struktur dalam inti sel yang membawa informasi genetik."
+    },
+    {
+        "word": "Reaksi Netralisasi",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Reaksi antara asam dan basa yang menghasilkan garam dan air."
+    },
+    {
+        "word": "Sistem Imun",
+        "category": "Biologi Dasar",
+        "clue": "Kisi-kisi: Mekanisme pertahanan tubuh terhadap patogen."
+    },
+    {
+        "word": "Isomer",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Senyawa dengan rumus molekul sama tapi struktur berbeda."
+    },
+    {
+        "word": "Kelenjar Tiroid",
+        "category": "Biologi Dasar",
+        "clue": "Kisi-kisi: Organ di leher yang menghasilkan hormon pengatur metabolisme."
+    },
+    {
+        "word": "Zat Asam",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Zat dengan pH rendah dan rasa masam jika dikecap."
+    },
+    {
+        "word": "Homeostasis",
+        "category": "Biologi Dasar",
+        "clue": "Kisi-kisi: Kemampuan tubuh menjaga kondisi internal tetap stabil."
+    },
+    {
+        "word": "Reaksi Redoks",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Reaksi kimia yang melibatkan transfer elektron."
+    },
+    {
+        "word": "Difusi",
+        "category": "Biologi Dasar",
+        "clue": "Kisi-kisi: Perpindahan molekul dari konsentrasi tinggi ke rendah."
+    },
+    {
+        "word": "Larutan Penyangga",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Larutan yang dapat mempertahankan pH meskipun ditambah asam atau basa."
+    },
+    {
+        "word": "Virus",
+        "category": "Biologi Dasar",
+        "clue": "Kisi-kisi: Mikroorganisme yang hanya dapat berkembang biak di dalam sel hidup."
+    },
+    {
+        "word": "Endoterm",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Proses yang menyerap panas dari lingkungan sekitarnya."
+    },
+    {
+        "word": "Kelenjar Keringat",
+        "category": "Biologi Dasar",
+        "clue": "Kisi-kisi: Struktur kulit yang membantu mengatur suhu tubuh melalui penguapan."
+    },
+    {
+        "word": "Netron",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Partikel netral yang terdapat dalam inti atom."
+    },
+    {
+        "word": "Hati",
+        "category": "Biologi Dasar",
+        "clue": "Kisi-kisi: Organ dalam tubuh yang menyaring racun dan menghasilkan empedu."
+    },
+    {
+        "word": "Unsur Transisi",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Unsur yang terletak di tengah tabel periodik, sering membentuk ion berwarna."
+    },
+    {
+        "word": "Kelenjar Hipofisis",
+        "category": "Biologi Dasar",
+        "clue": "Kisi-kisi: Pengatur utama hormon tubuh, terletak di dasar otak."
+    },
+    {
+        "word": "Anatomi",
+        "category": "Biologi Dasar",
+        "clue": "Kisi-kisi: Ilmu yang mempelajari struktur tubuh makhluk hidup."
+    },
+    {
+        "word": "Elektrolit",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Larutan yang dapat menghantarkan arus listrik karena adanya ion bebas."
+    },
+    {
+        "word": "Organel",
+        "category": "Biologi Dasar",
+        "clue": "Kisi-kisi: Bagian kecil di dalam sel yang memiliki fungsi khusus."
+    },
+    {
+        "word": "Spektrofotometer",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Alat yang digunakan untuk mengukur intensitas cahaya yang diserap larutan."
+    },
+    {
+        "word": "Metabolisme",
+        "category": "Biologi Dasar",
+        "clue": "Kisi-kisi: Proses kimia dalam tubuh yang mengubah makanan menjadi energi."
+    },
+    {
+        "word": "Reaksi Pengendapan",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Reaksi kimia yang menghasilkan zat padat dari larutan."
+    },
+    {
+        "word": "Kloning",
+        "category": "Biologi Dasar",
+        "clue": "Kisi-kisi: Proses membuat salinan genetik identik dari makhluk hidup."
+    },
+    {
+        "word": "Ionisasi",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Proses pembentukan ion dari atom atau molekul."
+    },
+    {
+        "word": "Kapiler",
+        "category": "Biologi Dasar",
+        "clue": "Kisi-kisi: Pembuluh darah paling kecil tempat pertukaran gas dan zat."
+    },
+    {
+        "word": "Hidrolisis",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Reaksi kimia yang melibatkan pemecahan senyawa oleh air."
+    },
+    {
+        "word": "Alveolus",
+        "category": "Biologi Dasar",
+        "clue": "Kisi-kisi: Kantung udara kecil di paru-paru tempat pertukaran gas terjadi."
+    },
+    {
+        "word": "Litmus",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Indikator alami yang berubah warna untuk menunjukkan sifat asam atau basa."
+    },
+    {
+        "word": "Fotosistem",
+        "category": "Biologi Dasar",
+        "clue": "Kisi-kisi: Komponen dalam kloroplas yang berperan dalam penangkapan cahaya."
+    },
+    {
+        "word": "Isotop",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Atom dengan jumlah proton sama tapi jumlah neutron berbeda."
+    },
+    {
+        "word": "Kelenjar Getah Bening",
+        "category": "Biologi Dasar",
+        "clue": "Kisi-kisi: Struktur kecil dalam sistem imun yang menyaring zat asing dari cairan tubuh."
+    },
+    {
+        "word": "Reaksi Pembakaran",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Reaksi eksoterm yang melibatkan oksigen dan menghasilkan panas."
+    },
+    {
+        "word": "Zigot",
+        "category": "Biologi Dasar",
+        "clue": "Kisi-kisi: Sel hasil pembuahan yang menjadi awal dari individu baru."
+    },
+    {
+        "word": "Garam",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Senyawa yang terbentuk dari reaksi antara asam dan basa."
+    },
+    {
+        "word": "Sumsum Tulang",
+        "category": "Biologi Dasar",
+        "clue": "Kisi-kisi: Tempat produksi sel darah di bagian dalam tulang."
+    },
+    {
+        "word": "Endapan",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Zat padat yang terbentuk dan mengendap dari larutan setelah reaksi kimia."
+    },
+    {
+        "word": "Epidermis",
+        "category": "Biologi Dasar",
+        "clue": "Kisi-kisi: Lapisan terluar dari kulit yang melindungi tubuh."
+    },
+    {
+        "word": "Sistem Ekskresi",
+        "category": "Biologi Dasar",
+        "clue": "Kisi-kisi: Sistem tubuh yang membuang zat sisa metabolisme."
+    },
+    {
+        "word": "Valensi",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Kemampuan suatu unsur untuk berikatan dengan unsur lain."
+    },
+    {
+        "word": "Neuron",
+        "category": "Biologi Dasar",
+        "clue": "Kisi-kisi: Sel saraf yang membawa impuls dalam sistem saraf."
+    },
+    {
+        "word": "Pelarut",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Zat yang melarutkan zat lain dalam suatu larutan."
+    },
+    {
+        "word": "Kromatin",
+        "category": "Biologi Dasar",
+        "clue": "Kisi-kisi: Materi genetik dalam inti sel sebelum berubah menjadi kromosom."
+    },
+    {
+        "word": "Netral",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Kondisi pH 7 yang bukan asam maupun basa."
+    },
+    {
+        "word": "Kelenjar Pankreas",
+        "category": "Biologi Dasar",
+        "clue": "Kisi-kisi: Organ yang memproduksi insulin dan enzim pencernaan."
+    },
+    {
+        "word": "Asam",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Zat dengan rasa masam dan pH di bawah 7."
+    },
+    {
+        "word": "Vena",
+        "category": "Biologi Dasar",
+        "clue": "Kisi-kisi: Pembuluh darah yang membawa darah kembali ke jantung."
+    },
+    {
+        "word": "Basidiomycota",
+        "category": "Biologi Dasar",
+        "clue": "Kisi-kisi: Kelompok jamur yang berkembang biak melalui basidiospora."
+    },
+    {
+        "word": "Amilase",
+        "category": "Biologi Dasar",
+        "clue": "Kisi-kisi: Enzim dalam air liur yang mengubah pati menjadi gula."
+    },
+    {
+        "word": "Destilasi",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Proses pemisahan campuran berdasarkan titik didihnya."
+    },
+    {
+        "word": "Otot Polos",
+        "category": "Biologi Dasar",
+        "clue": "Kisi-kisi: Jenis otot yang bekerja secara tidak sadar, ditemukan pada organ dalam."
+    },
+    {
+        "word": "Karbohidrat",
+        "category": "Biologi Dasar",
+        "clue": "Kisi-kisi: Zat gizi utama yang menjadi sumber energi tubuh."
+    },
+    {
+        "word": "Unsur Gas Mulia",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Kelompok unsur yang sangat stabil dan jarang bereaksi."
+    },
+    {
+        "word": "Kelenjar Adrenal",
+        "category": "Biologi Dasar",
+        "clue": "Kisi-kisi: Penghasil hormon adrenalin yang merespons stres."
+    },
+    {
+        "word": "Atom Netral",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Atom dengan jumlah proton dan elektron yang seimbang."
+    },
+    {
+        "word": "Laring",
+        "category": "Biologi Dasar",
+        "clue": "Kisi-kisi: Bagian saluran pernapasan yang juga berfungsi menghasilkan suara."
+    },
+    {
+        "word": "Emulsi",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Campuran dua zat cair yang tidak saling larut sempurna."
+    },
+    {
+        "word": "Ovum",
+        "category": "Biologi Dasar",
+        "clue": "Kisi-kisi: Sel reproduksi betina dalam organisme seksual."
+    },
+    {
+        "word": "Reaksi Substitusi",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Reaksi kimia di mana atom atau gugus digantikan oleh yang lain."
+    },
+    {
+        "word": "Medula Spinalis",
+        "category": "Biologi Dasar",
+        "clue": "Kisi-kisi: Jalur utama penghantar impuls dari otak ke seluruh tubuh dan sebaliknya."
+    },
+    {
+        "word": "Elektrolisis",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Proses pemecahan senyawa menggunakan arus listrik."
+    },
+    {
+        "word": "Hemoglobin",
+        "category": "Biologi Dasar",
+        "clue": "Kisi-kisi: Protein dalam sel darah merah yang mengikat oksigen."
+    },
+    {
+        "word": "Gugus Karboksil",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Kelompok fungsional khas dari senyawa asam organik."
+    },
+    {
+        "word": "Fagositosis",
+        "category": "Biologi Dasar",
+        "clue": "Kisi-kisi: Proses sel imun menelan dan menghancurkan benda asing."
+    },
+    {
+        "word": "Amoniak",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Senyawa kimia dengan rumus NH₃, berbau menyengat dan digunakan sebagai pupuk."
+    },
+    {
+        "word": "Limpa",
+        "category": "Biologi Dasar",
+        "clue": "Kisi-kisi: Organ sistem imun yang menyaring darah dan menghancurkan sel darah tua."
+    },
+    {
+        "word": "Isotonik",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Larutan dengan konsentrasi zat terlarut yang sama dengan cairan tubuh."
+    },
+    {
+        "word": "Epitel",
+        "category": "Biologi Dasar",
+        "clue": "Kisi-kisi: Jaringan yang melapisi permukaan tubuh dan organ dalam."
+    },
+    {
+        "word": "Hidrogen",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Unsur paling ringan dan pertama dalam tabel periodik."
+    },
+    {
+        "word": "Neuron Motorik",
+        "category": "Biologi Dasar",
+        "clue": "Kisi-kisi: Sel saraf yang membawa impuls dari sistem saraf pusat ke otot."
+    },
+    {
+        "word": "Koagulasi",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Proses penggumpalan partikel dalam suspensi menjadi endapan."
+    },
+    {
+        "word": "Hipotalamus",
+        "category": "Biologi Dasar",
+        "clue": "Kisi-kisi: Bagian otak yang mengatur suhu tubuh, rasa lapar, dan hormon."
+    },
+    {
+        "word": "Asam Sulfat",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Zat kimia korosif berformula H₂SO₄ yang digunakan dalam aki."
+    },
+    {
+        "word": "Fotosintat",
+        "category": "Biologi Dasar",
+        "clue": "Kisi-kisi: Hasil akhir dari proses fotosintesis berupa zat makanan tumbuhan."
+    },
+    {
+        "word": "Elektrolit Kuat",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Larutan yang terionisasi penuh dan sangat menghantarkan listrik."
+    },
+    {
+        "word": "Neuron Sensorik",
+        "category": "Biologi Dasar",
+        "clue": "Kisi-kisi: Sel saraf yang membawa rangsangan dari reseptor ke sistem saraf pusat."
+    },
+    {
+        "word": "Asam Basa Konjugat",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Pasangan zat yang berbeda satu proton dalam reaksi asam-basa."
+    },
+    {
+        "word": "Kelenjar Parotis",
+        "category": "Biologi Dasar",
+        "clue": "Kisi-kisi: Penghasil air liur terbesar, terletak di dekat telinga."
+    },
+    {
+        "word": "Oksidasi",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Proses pelepasan elektron dalam reaksi kimia."
+    },
+    {
+        "word": "Sitoskeleton",
+        "category": "Biologi Dasar",
+        "clue": "Kisi-kisi: Struktur protein dalam sel yang menjaga bentuk dan mendukung pergerakan."
+    },
+    {
+        "word": "Cairan Elektrolit",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Larutan yang mengandung ion bebas dan menghantarkan arus listrik."
+    },
+    {
+        "word": "Aorta",
+        "category": "Biologi Dasar",
+        "clue": "Kisi-kisi: Pembuluh darah utama yang mengalirkan darah dari jantung ke seluruh tubuh."
+    },
+    {
+        "word": "Campuran Homogen",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Campuran dengan komposisi seragam dan tak dapat dibedakan komponen zatnya."
+    },
+    {
+        "word": "Trakea",
+        "category": "Biologi Dasar",
+        "clue": "Kisi-kisi: Saluran utama udara dari laring menuju paru-paru."
+    },
+    {
+        "word": "Gas Mulia",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Unsur yang bersifat sangat stabil dan tidak mudah bereaksi."
+    },
+    {
+        "word": "Sklera",
+        "category": "Biologi Dasar",
+        "clue": "Kisi-kisi: Bagian putih dari bola mata yang bersifat keras dan melindungi."
+    },
+    {
+        "word": "Asam Lemak",
+        "category": "Biologi Dasar",
+        "clue": "Kisi-kisi: Komponen pembentuk lemak dan minyak dalam tubuh dan makanan."
+    },
+    {
+        "word": "Etanol",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Senyawa alkohol yang digunakan sebagai pelarut dan antiseptik."
+    },
+    {
+        "word": "Pupil",
+        "category": "Biologi Dasar",
+        "clue": "Kisi-kisi: Lubang di tengah iris yang mengatur jumlah cahaya yang masuk mata."
+    },
+    {
+        "word": "Asam Asetat",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Zat kimia berbau tajam, komponen utama cuka."
+    },
+    {
+        "word": "Zat Pewarna",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Senyawa yang memberi warna pada bahan tekstil atau makanan."
+    },
+    {
+        "word": "Lidah",
+        "category": "Biologi Dasar",
+        "clue": "Kisi-kisi: Organ yang berfungsi merasakan rasa dan membantu proses menelan."
+    },
+    {
+        "word": "Plasenta",
+        "category": "Biologi Dasar",
+        "clue": "Kisi-kisi: Jaringan yang menghubungkan janin dan ibu selama kehamilan."
+    },
+    {
+        "word": "Biokimia",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Ilmu gabungan yang mempelajari proses kimia dalam makhluk hidup."
+    },
+    {
+        "word": "Refleks",
+        "category": "Biologi Dasar",
+        "clue": "Kisi-kisi: Respons tubuh yang terjadi secara otomatis tanpa kesadaran."
+    },
+    {
+        "word": "Nukleotida",
+        "category": "Biologi Dasar",
+        "clue": "Kisi-kisi: Unit dasar penyusun DNA dan RNA."
+    },
+    {
+        "word": "Alotrop",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Bentuk berbeda dari unsur yang sama dalam keadaan fisik berbeda."
+    },
+    {
+        "word": "Serabut Otot",
+        "category": "Biologi Dasar",
+        "clue": "Kisi-kisi: Struktur panjang dalam otot yang bertanggung jawab terhadap kontraksi."
+    },
+    {
+        "word": "Alkohol",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Golongan senyawa organik dengan gugus -OH."
+    },
+    {
+        "word": "Korpus Kalosum",
+        "category": "Biologi Dasar",
+        "clue": "Kisi-kisi: Struktur yang menghubungkan dua belahan otak manusia."
+    },
+    {
+        "word": "Pereaksi",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Zat yang terlibat dan bereaksi dalam reaksi kimia."
+    },
+    {
+        "word": "RNA",
+        "category": "Biologi Dasar",
+        "clue": "Kisi-kisi: Molekul yang berperan dalam sintesis protein dan penyampaian kode genetik."
+    },
+    {
+        "word": "Larutan Jenuh",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Larutan yang tidak dapat melarutkan zat tambahan pada suhu tertentu."
+    },
+    {
+        "word": "Konsentrasi",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Ukuran jumlah zat terlarut dalam suatu volume larutan."
+    },
+    {
+        "word": "Miosis",
+        "category": "Biologi Dasar",
+        "clue": "Kisi-kisi: Proses pembelahan sel untuk membentuk sel kelamin."
+    },
+    {
+        "word": "Mitosis",
+        "category": "Biologi Dasar",
+        "clue": "Kisi-kisi: Proses pembelahan inti sel untuk pertumbuhan dan regenerasi."
+    },
+    {
+        "word": "Pipet Ukur",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Alat laboratorium untuk mengambil larutan dengan volume tepat."
+    },
+    {
+        "word": "Bioteknologi",
+        "category": "Biologi Dasar",
+        "clue": "Kisi-kisi: Penerapan ilmu biologi dan teknologi untuk memanfaatkan organisme."
+    },
+    {
+        "word": "pOH",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Ukuran kebasaan suatu larutan sebagai kebalikan dari pH."
+    },
+    {
+        "word": "Isotermal",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Proses termodinamika yang terjadi pada suhu tetap."
+    },
+    {
+        "word": "Kloroplas",
+        "category": "Biologi Dasar",
+        "clue": "Kisi-kisi: Organel pada sel tumbuhan tempat terjadinya fotosintesis."
+    },
+    {
+        "word": "Vakula",
+        "category": "Biologi Dasar",
+        "clue": "Kisi-kisi: Ruang dalam sel tumbuhan yang menyimpan air dan zat terlarut."
+    },
+    {
+        "word": "Litium",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Unsur logam ringan, berada di golongan alkali dan digunakan dalam baterai."
+    },
+    {
+        "word": "Metafase",
+        "category": "Biologi Dasar",
+        "clue": "Kisi-kisi: Tahapan pembelahan sel saat kromosom berjajar di tengah."
+    },
+    {
+        "word": "Gugus Amino",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Kelompok fungsional penting dalam pembentukan asam amino."
+    },
+    {
+        "word": "Silia",
+        "category": "Biologi Dasar",
+        "clue": "Kisi-kisi: Struktur seperti rambut kecil pada sel yang membantu pergerakan atau filtrasi."
+    },
+    {
+        "word": "Asam Nitrat",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Asam kuat dengan rumus HNO₃ yang digunakan dalam pupuk dan peledak."
+    },
+    {
+        "word": "Endoplasma",
+        "category": "Biologi Dasar",
+        "clue": "Kisi-kisi: Cairan kental dalam sel tempat organel berada."
+    },
+    {
+        "word": "Kapsid",
+        "category": "Biologi Dasar",
+        "clue": "Kisi-kisi: Lapisan pelindung protein pada virus yang menyelubungi materi genetik."
+    },
+    {
+        "word": "Asam Karboksilat",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Senyawa organik dengan gugus -COOH yang bersifat asam."
+    },
+    {
+        "word": "Stomata",
+        "category": "Biologi Dasar",
+        "clue": "Kisi-kisi: Celah kecil di daun tumbuhan tempat keluar masuknya gas."
+    },
+    {
+        "word": "Ion Poliatomik",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Ion yang terdiri dari dua atau lebih atom yang terikat bersama dan bermuatan."
+    },
+    {
+        "word": "Karioplasma",
+        "category": "Biologi Dasar",
+        "clue": "Kisi-kisi: Cairan dalam inti sel yang mengandung kromatin dan nukleolus."
+    },
+    {
+        "word": "Buffer",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Larutan yang menjaga kestabilan pH meski ditambah asam atau basa."
+    },
+    {
+        "word": "Xilem",
+        "category": "Biologi Dasar",
+        "clue": "Kisi-kisi: Jaringan tumbuhan yang mengangkut air dan mineral dari akar ke daun."
+    },
+    {
+        "word": "Basidiokarp",
+        "category": "Biologi Dasar",
+        "clue": "Kisi-kisi: Bagian tubuh buah dari jamur yang menghasilkan spora."
+    },
+    {
+        "word": "Alkil",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Gugus turunan hidrokarbon jenuh dari alkana yang hilang satu atom H."
+    },
+    {
+        "word": "Leukosit",
+        "category": "Biologi Dasar",
+        "clue": "Kisi-kisi: Sel darah putih yang berfungsi melawan infeksi dalam tubuh."
+    },
+    {
+        "word": "Zat Terlarut",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Komponen dalam larutan yang jumlahnya lebih sedikit dan larut dalam pelarut."
+    },
+    {
+        "word": "Nodus Limfa",
+        "category": "Biologi Dasar",
+        "clue": "Kisi-kisi: Struktur dalam sistem limfatik yang menyaring patogen dan menghasilkan limfosit."
+    },
+    {
+        "word": "Hibridisasi",
+        "category": "Biologi Dasar",
+        "clue": "Kisi-kisi: Proses penggabungan dua spesies berbeda untuk menciptakan keturunan baru."
+    },
+    {
+        "word": "Gas Ideal",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Model gas yang mengikuti hukum Boyle dan Charles secara sempurna."
+    },
+    {
+        "word": "Heliks Ganda",
+        "category": "Biologi Dasar",
+        "clue": "Kisi-kisi: Struktur khas molekul DNA yang terdiri dari dua untai berpilin."
+    },
+    {
+        "word": "Katalisator",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Zat yang mempercepat reaksi kimia tanpa ikut habis bereaksi."
+    },
+    {
+        "word": "Reaksi Reversibel",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Reaksi kimia yang bisa berlangsung dua arah dan mencapai kesetimbangan."
+    },
+    {
+        "word": "Paru-Paru",
+        "category": "Biologi Dasar",
+        "clue": "Kisi-kisi: Organ utama sistem pernapasan manusia tempat pertukaran gas."
+    },
+    {
+        "word": "Radikal Bebas",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Atom atau molekul dengan elektron tidak berpasangan yang sangat reaktif."
+    },
+    {
+        "word": "Senyawa Organik",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Senyawa yang umumnya mengandung karbon dan ditemukan dalam makhluk hidup."
+    },
+    {
+        "word": "Bronkus",
+        "category": "Biologi Dasar",
+        "clue": "Kisi-kisi: Saluran cabang dari trakea yang menuju ke paru-paru."
+    },
+    {
+        "word": "Ion Hidronium",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Kation hasil pelarutan asam kuat dalam air, biasa ditulis sebagai H₃O⁺."
+    },
+    {
+        "word": "Retina",
+        "category": "Biologi Dasar",
+        "clue": "Kisi-kisi: Lapisan dalam mata tempat terbentuknya bayangan dan menangkap cahaya."
+    },
+    {
+        "word": "Faring",
+        "category": "Biologi Dasar",
+        "clue": "Kisi-kisi: Persimpangan saluran makanan dan udara yang terletak di tenggorokan."
+    },
+    {
+        "word": "Emisi",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Proses pelepasan energi dalam bentuk cahaya oleh atom yang tereksitasi."
+    },
+    {
+        "word": "Sitoplasma",
+        "category": "Biologi Dasar",
+        "clue": "Kisi-kisi: Cairan sel tempat berlangsungnya sebagian besar proses metabolisme."
+    },
+    {
+        "word": "Kristal",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Padatan dengan struktur atom tersusun teratur dan simetris."
+    },
+    {
+        "word": "Kelenjar Pituitari",
+        "category": "Biologi Dasar",
+        "clue": "Kisi-kisi: Kelenjar kecil di otak yang disebut juga master gland karena mengontrol hormon lain."
+    },
+    {
+        "word": "Isomer Geometrik",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Senyawa dengan struktur sama tapi berbeda posisi gugus di sekitar ikatan rangkap."
+    },
+    {
+        "word": "Simpul Saraf",
+        "category": "Biologi Dasar",
+        "clue": "Kisi-kisi: Kumpulan badan sel saraf di luar sistem saraf pusat."
+    },
+    {
+        "word": "Endapan Perak",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Hasil reaksi ion Ag⁺ dengan ion halida seperti Cl⁻ membentuk senyawa tak larut."
+    },
+    {
+        "word": "Refleks Lutut",
+        "category": "Biologi Dasar",
+        "clue": "Kisi-kisi: Respon otomatis tubuh saat bagian bawah lutut diketuk ringan."
+    },
+    {
+        "word": "Unsur Halogen",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Kelompok unsur golongan 17 yang sangat reaktif dan membentuk garam."
+    },
+    {
+        "word": "Korteks Otak",
+        "category": "Biologi Dasar",
+        "clue": "Kisi-kisi: Bagian terluar dari otak besar yang mengatur kesadaran dan pengambilan keputusan."
+    },
+    {
+        "word": "Cincin Benzena",
+        "category": "Kimia Dasar",
+        "clue": "Kisi-kisi: Struktur molekul heksagonal dengan ikatan rangkap bergantian, khas senyawa aromatik."
+    },
+    {
+        "word": "Telomer",
+        "category": "Biologi Dasar",
+        "clue": "Kisi-kisi: Ujung kromosom yang melindungi informasi genetik saat pembelahan sel."
+    }
+]

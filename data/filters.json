@@ -1,0 +1,61 @@
+{
+    "1039509114008649778": {
+        "bad_words": [
+            "anjing",
+            "babi"
+        ],
+        "link_patterns": [
+            "discord.gg/",
+            "bit.ly",
+            "steamcommunity.com"
+        ]
+    },
+    "998877665544332211": {
+        "bad_words": [
+            "bodoh"
+        ],
+        "link_patterns": []
+    },
+    "765138959625486357": {
+        "bad_words": [
+            "seks",
+            "steamcommunity.com/gift",
+            "$50",
+            "media.discordapp.net"
+        ],
+        "link_patterns": [
+            "discord.gg/",
+            "bit.ly",
+            "discord.com/",
+            "steamcommunity.com/gift",
+            "e.vg",
+            "u.to",
+            "media.discordapp.net"
+        ]
+    },
+    "788337048997199882": {
+        "bad_words": [],
+        "link_patterns": [
+            "steamcommunity.com",
+            "discord.gg/"
+        ]
+    },
+    "1417636227179483221": {
+        "bad_words": [],
+        "link_patterns": []
+    },
+    "722619465644113962": {
+        "bad_words": [
+            "steamcommunity.com/gift-card"
+        ],
+        "link_patterns": [
+            "https://u.to/9a5jig",
+            "https://u.to/",
+            "https://e.vg/",
+            "steamcommunity.com/gift-card",
+            "u.to",
+            "e.vg",
+            "gift-card"
+        ]
+    }
+}

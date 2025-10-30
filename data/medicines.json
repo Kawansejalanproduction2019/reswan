@@ -1,0 +1,37 @@
+{
+    "medicines": [
+        {
+            "name": "Perban Seadanya",
+            "description": "Hanya perban kotor yang kamu temukan di jalan, dililitkan dengan penuh harapan. Mungkin bisa membantu... mungkin juga malah infeksi.",
+            "heal_chance": 15,
+            "chance": 50,
+            "color": "#95a5a6",
+            "effect_desc": "Peluang sembuh **15%**. Sebuah usaha yang patut dihargai, walau hasilnya sangat meragukan."
+        },
+        {
+            "name": "Ramuan Herbal Pahit",
+            "description": "Racikan daun-daunan dari tetua desa yang baunya seperti kaus kaki basah. Rasanya sangat pahit, tapi katanya manjur.",
+            "heal_chance": 40,
+            "chance": 35,
+            "color": "#27ae60",
+            "effect_desc": "Peluang sembuh **40%**. Kamu harus menahan napas saat meminumnya, tapi ada harapan di setiap tegukan."
+        },
+        {
+            "name": "Serum Ajaib (Langka)",
+            "description": "Cairan bening yang berkilauan lembut, hasil penelitian laboratorium rahasia yang sudah lama ditinggalkan. Sangat sulit ditemukan.",
+            "heal_chance": 75,
+            "chance": 10,
+            "color": "#3498db",
+            "effect_desc": "Peluang sembuh **75%**. Hampir pasti menyembuhkan, sebuah keajaiban sains yang langka."
+        },
+        {
+            "name": "Penawar Bintang Jatuh (Legendaris)",
+            "description": "Dibuat dari serpihan meteor yang berhasil diklaim saat Anomali Hujan Meteor. Benda ini memancarkan cahaya hangat dan penuh harapan.",
+            "heal_chance": 100,
+            "chance": 5,
+            "color": "#f1c40f",
+            "effect_desc": "Peluang sembuh **100%**. Tidak hanya menyembuhkan secara instan, tapi juga memberimu **perlindungan dari serangan monster selama 24 jam**!"
+        }
+    ]
+}
+

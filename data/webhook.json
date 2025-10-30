@@ -1,0 +1,174 @@
+{
+    "788337048997199882": {
+        "1272937917886500987": {
+            "1395956423967510550": {
+                "title": "Dapatkan Pemberitahuan Restock Grow a Garden!",
+                "desc": "> Jangan pernah ketinggalan pembaruan penting di Grow a Garden!\n> Dengan mengklik tombol di bawah, Anda akan mendapatkan role khusus yang akan di-mention setiap kali ada pembaruan restock dari database. Ini cara termudah untuk memastikan Anda selalu terdepan.\n> Cara Kerjanya:\n> \u2022 Satu kali klik untuk mendapatkan role dan mulai menerima pemberitahuan.\n> \u2022 Klik lagi untuk menghapus role jika Anda tidak ingin menerima pemberitahuan lagi.\n> Mudah, praktis, dan langsung terhubung dengan informasi terbaru!\n>",
+                "buttons": [
+                    {
+                        "label": "Ambil Role Roblox",
+                        "style": "blurple",
+                        "action": "role",
+                        "value": "1394664997740875899",
+                        "id": "5aaa6acd-24e5-412e-b055-db8d11c0adda"
+                    },
+                    {
+                        "label": "Godly Sprinkler",
+                        "style": "green",
+                        "action": "role",
+                        "value": "1395237508710797393",
+                        "id": "6a0dd6cb-1266-45c5-8a5e-d2a940a7dac0"
+                    },
+                    {
+                        "label": "Master Sprinkler",
+                        "style": "green",
+                        "action": "role",
+                        "value": "1395237612633198663",
+                        "id": "4679af30-dabe-431c-8b80-7cecf5bbada1"
+                    },
+                    {
+                        "label": "Gear Lollipop",
+                        "style": "blurple",
+                        "action": "role",
+                        "value": "1395237668643934268",
+                        "id": "3c07204a-033a-4acd-9de1-659f1f138ffe"
+                    },
+                    {
+                        "label": "Burning Bud",
+                        "style": "blurple",
+                        "action": "role",
+                        "value": "1395237730362855595",
+                        "id": "69fa640a-6ea6-4e29-b54e-1fb17bf6569c"
+                    },
+                    {
+                        "label": "Giant Pinnecone",
+                        "style": "blurple",
+                        "action": "role",
+                        "value": "1395237896549826571",
+                        "id": "a694b2d8-e5fd-4450-beb1-cac0c43bbece"
+                    },
+                    {
+                        "label": "Gear EXP Boost",
+                        "style": "blurple",
+                        "action": "role",
+                        "value": "1395237991575846962",
+                        "id": "985d0c35-721b-4c88-b84e-d27591d97d90"
+                    }
+                ],
+                "color": "#00FFFF",
+                "content": "Ambil role Grow A Garden"
+            },
+            "1395957138622255165": {
+                "title": "Kritik dan saran?",
+                "desc": "> Butuh bantuan? Klik tombol di bawah untuk membuat tiket dukungan.\n> Sebuah kanal privat akan dibuat khusus untuk Anda dan tim staff kami. Mohon jelaskan masalah Anda secara detail di sana agar kami dapat membantu Anda dengan lebih cepat.",
+                "buttons": [
+                    {
+                        "label": "Buka Tiket",
+                        "style": "green",
+                        "action": "ticket",
+                        "value": "1395912599966711892",
+                        "id": "5f8f225a-de5a-4771-bd67-101521b838bf"
+                    }
+                ],
+                "color": "#E74C3C"
+            }
+        }
+    },
+    "765138959625486357": {
+        "1382486705113927811": {
+            "1396676428828905551": {
+                "title": "Ambil role gender disinii",
+                "desc": "Selamat datang! Silakan pilih gender Anda untuk mendapatkan role yang sesuai dan membuka akses ke kanal-kanal tertentu.\n> \u2022 Klik tombol Male untuk mendapatkan role Male.\n> \u2022 Klik tombol Female untuk open ticket dan minta verifikasi oleh staf agar akses ke channel khusus perempuan dan akses lainnya terbuka.\nPilihan Anda akan membantu kami menyediakan pengalaman yang lebih personal dan relevan di server.",
+                "author": "reSwan",
+                "buttons": [
+                    {
+                        "label": "\ud83d\udc68\u200d\ud83e\uddb1Male",
+                        "style": "blurple",
+                        "action": "role",
+                        "value": "1255277534908645416",
+                        "id": "282eb86f-0ca2-4f8a-a973-2113503bf281"
+                    },
+                    {
+                        "label": "\ud83d\udc69Female",
+                        "style": "red",
+                        "action": "ticket",
+                        "value": {
+                            "category_id": "1379918569554313390",
+                            "allowed_roles": [],
+                            "blocked_roles": [
+                                "1255278470251151420",
+                                "1255277534908645416"
+                            ]
+                        },
+                        "id": "76a7040e-c9d3-4e68-938a-7f81ccd1e6c1"
+                    }
+                ],
+                "color": "#2ECC71"
+            }
+        },
+        "1395541707449303233": {
+            "1407357872391589952": {
+                "title": "Pilih Jenis Kelamin Anda",
+                "desc": "Untuk mengakses seluruh kanal di server ini dan mendapatkan role Anda, silakan pilih jenis kelamin Anda di bawah ini dengan mengklik tombol yang sesuai.",
+                "buttons": [
+                    {
+                        "label": "Male",
+                        "style": "blurple",
+                        "action": "role",
+                        "value": "1255277534908645416",
+                        "id": "cea2189f-d429-4007-b879-6a16f7e1af8a"
+                    },
+                    {
+                        "label": "Female",
+                        "style": "red",
+                        "action": "role",
+                        "value": "1255278470251151420",
+                        "id": "bffe9514-cf2e-4e75-ac39-48c4cc34397b"
+                    }
+                ],
+                "color": "#F1C40F",
+                "author": "reSwan"
+            },
+            "1407357881887490200": {
+                "title": "Pilih Jenis Kelamin Anda",
+                "desc": "Untuk mengakses seluruh kanal di server ini dan mendapatkan role Anda, silakan pilih jenis kelamin Anda di bawah ini dengan mengklik tombol yang sesuai.",
+                "buttons": [
+                    {
+                        "label": "Male",
+                        "style": "blurple",
+                        "action": "role",
+                        "value": "1255277534908645416",
+                        "id": "cea2189f-d429-4007-b879-6a16f7e1af8a"
+                    },
+                    {
+                        "label": "Female",
+                        "style": "red",
+                        "action": "role",
+                        "value": "1255278470251151420",
+                        "id": "bffe9514-cf2e-4e75-ac39-48c4cc34397b"
+                    }
+                ],
+                "color": "#F1C40F",
+                "author": "reSwan"
+            }
+        }
+    },
+    "722619465644113962": {
+        "969997656707453010": {
+            "1419216694060253198": {
+                "buttons": [
+                    {
+                        "label": "RFAS ARMY",
+                        "style": "red",
+                        "action": "role",
+                        "value": "722620175697838080",
+                        "id": "0d678642-bf7c-4ca5-a16d-ff04341b23ec"
+                    }
+                ],
+                "title": "Ambil role disini",
+                "desc": "Yuk ambil role mu rising agar semua akses ke server terbuka sesuai role mu",
+                "color": "#E74C3C"
+            }
+        }
+    }
+}

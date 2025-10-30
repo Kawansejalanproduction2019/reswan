@@ -1,0 +1,847 @@
+{
+    "1039509114008649778": {
+        "auto_role_id": null,
+        "welcome_channel_id": 1379762287149187162,
+        "welcome_message": "Selamat bersenang-senang dan mari ciptakan pengalaman Discord yang tak terlupakan bersama! Enjoy the ride! \u270c\ufe0f",
+        "log_channel_id": null,
+        "reaction_roles": {},
+        "channel_rules": {
+            "1379762287149187162": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "1379458566452154438": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "1039509115044626487": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "1394125599752060991": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "1405574966711161013": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "1417599133065285884": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "1419777158540296412": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "1379762287740715060": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "1422289021333409916": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "1422571833726861355": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "1422834476731596863": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            }
+        },
+        "welcome_embed_title": "halo",
+        "welcome_sender_name": "ADMIN",
+        "boost_channel_id": 1419777158540296412,
+        "boost_message": "Terima kasih banyak, {user}, telah menjadi **Server Booster** kami di {guild_name}! Kami sangat menghargai dukunganmu! \u2764\ufe0f",
+        "boost_embed_title": "TERIMA KASIH SERVER BOOSTER!",
+        "boost_sender_name": "Tim Server",
+        "boost_image_url": "",
+        "announcement_webhooks": {},
+        "welcome_banner_url": "",
+        "mod_panel_message_id": 1420689686703247446,
+        "mod_panel_channel_id": 1417599133065285884,
+        "main_membership_role_id": null,
+        "membership_roles": {},
+        "membership_invite_message": "\ud83e\udd7a Anda belum menjadi anggota channel YouTube. Silakan berlangganan untuk mendapatkan role eksklusif! [LINK MEMBERSHIP]",
+        "membership_confirm_message": "\ud83c\udf89 Anda sudah menjadi anggota! Anda adalah anggota tier: **{tier_name}**.",
+        "verification_button_label": "Verifikasi Membership",
+        "spam_whitelist_roles": [],
+        "goodbye_message": "sampai jumpa, {user} ! Kami sangat menyayangkan kepergian Anda \ud83e\udd79. Terima kasih banyak atas waktu dan kontribusi Anda selama berada di komunitas kami. Semoga kita bisa bertemu lagi di masa depan! \n\nJika ada masalah yang membuat Anda keluar, kami mohon maaf dan berharap Anda baik-baik saja."
+    },
+    "788337048997199882": {
+        "auto_role_id": null,
+        "welcome_channel_id": 788337048997199885,
+        "welcome_message": "halo {user} welcome to {guild_name} jangan lupa ambil role di https://discord.com/channels/788337048997199882/1384603362787590246",
+        "log_channel_id": null,
+        "reaction_roles": {
+            "1384604148053442782": {
+                "\ud83d\udc68\u200d\ud83e\uddb1": 1266493929792995438,
+                "\ud83d\udc69": 1270461543234146396
+            },
+            "1394667082951561256": {
+                "\ud83d\ude2d": 1394664997740875899,
+                "\ud83d\ude02": 1394664997740875899,
+                "\ud83d\ude01": 1395237508710797393,
+                "\ud83d\ude04": 1395237612633198663,
+                "\ud83d\ude00": 1395237991575846962,
+                "\ud83d\ude06": 1395237668643934268,
+                "\ud83d\ude1c": 1395237730362855595,
+                "\ud83d\ude1d": 1395237896549826571
+            }
+        },
+        "channel_rules": {
+            "1384603362787590246": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "1382047607702028339": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "788337048997199885": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "1278788130425540689": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "1272937917886500987": {
+                "disallow_bots": true,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 5
+            },
+            "1284831265614331904": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "1296890540087840820": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "1270468545943175239": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            }
+        },
+        "welcome_embed_title": "halo",
+        "welcome_sender_name": "Admin",
+        "boost_channel_id": 1394097105492119612,
+        "boost_message": "Terima kasih banyak, {user}, telah menjadi **Server Booster** kami di {guild_name}! Kami sangat menghargai dukunganmu! \u2764\ufe0f",
+        "boost_embed_title": "TERIMA KASIH SERVER BOOSTER!",
+        "boost_sender_name": "Tim Server",
+        "boost_image_url": null,
+        "announcement_webhooks": {},
+        "welcome_banner_url": null,
+        "mod_panel_message_id": null,
+        "mod_panel_channel_id": null,
+        "main_membership_role_id": null,
+        "membership_roles": {},
+        "membership_invite_message": "\ud83e\udd7a Anda belum menjadi anggota channel YouTube. Silakan berlangganan untuk mendapatkan role eksklusif! [LINK MEMBERSHIP]",
+        "membership_confirm_message": "\ud83c\udf89 Anda sudah menjadi anggota! Anda adalah anggota tier: **{tier_name}**.",
+        "verification_button_label": "Verifikasi Membership",
+        "spam_whitelist_roles": [],
+        "goodbye_message": "Selamat tinggal, **{user}**. Sampai jumpa lagi! \ud83d\udc4b"
+    },
+    "765138959625486357": {
+        "auto_role_id": null,
+        "welcome_channel_id": 1255219778407366688,
+        "welcome_message": "Selamat datang di {guild_name}! \ud83d\udc4b\n\nHalo {user}, kami gembira sekali kamu sudah bergabung dengan komunitas kami. Agar kamu bisa langsung nyaman dan berinteraksi, yuk, baca beberapa hal penting ini:\n- **Aturan:** Baca dulu ya, biar kita semua bisa enjoy bareng: **[klik di sini](https://canary.discord.com/channels/765138959625486357/1255220296508768326)**.\n- **Butuh Bantuan?**: Cek **[FAQ](https://discord.com/channels/765138959625486357/1410342866760241162)** untuk jawaban cepat.\n\nSelamat menikmati waktu di server ini! Enjoy! \u270c\ufe0f",
+        "log_channel_id": null,
+        "reaction_roles": {},
+        "channel_rules": {
+            "765140300145360896": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 120
+            },
+            "1255219778407366688": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "851069782803742720": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "1255226119221940265": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "1388480998060331102": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "1389302816031510578": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "965586009859452928": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 90
+            },
+            "1394076149000175656": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "1394077346515914886": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "1394078313932132514": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "1394120623617343675": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "1255216677717545021": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "1394128285990129775": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "1394557376354451510": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "1394678556138803282": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "1394724071886815273": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "1378059241654587502": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "1255220715410554982": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "771629447253590036": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "865037072019488808": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "1255232545927331900": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "1395414634898395269": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "1255221880940531754": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "1395512360210403378": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "1382486705113927811": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": true,
+                "auto_delete_seconds": 60
+            },
+            "1405767077351919626": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "1406237360194195508": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "1255222918791827527": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "1255221503344246834": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "1395541707449303233": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "1255234363373916232": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "765444110336655390": {
+                "disallow_bots": true,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "1255233051840217129": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "1416360566724755519": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "1416390163835260998": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "1413604641421398069": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "1417204879583215627": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "1417457183515476030": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "1418129658259570688": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "1418581013960982528": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "1418978753547206797": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "1418979012734226452": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "1419369718158196818": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "1256287991899488276": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "1421507454679781477": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "1421518402303955177": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "1421520090826014753": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "1255221263811743836": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "1422909105147871333": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "1256133228117491762": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "1429132845749633076": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "1431658168429183138": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            }
+        },
+        "welcome_embed_title": "Halo",
+        "welcome_sender_name": "Njan",
+        "boost_channel_id": 1256133228117491762,
+        "boost_message": "Terima kasih banyak, {user}, telah menjadi **Server Booster** kami di {guild_name}! Kami sangat menghargai dukunganmu! \u2764\ufe0f",
+        "boost_embed_title": "halo",
+        "boost_sender_name": "Tim server",
+        "boost_image_url": "",
+        "announcement_webhooks": {
+            "851069782803742720": "https://discord.com/api/webhooks/1412652444776792174/pyW8DIvAxKQvHs3FBf3sSgcIhfg64ykwmTAAs_ui93CZs1sdNXyZGEm4FCHQA1PKL_Ak"
+        },
+        "welcome_banner_url": "https://raw.githubusercontent.com/Kawansejalanproduction2019/my-projek/main/GIF_20250901_195905_205.gif",
+        "mod_panel_message_id": 1422655375139672235,
+        "mod_panel_channel_id": 1413604641421398069,
+        "spam_whitelist_roles": [
+            765141076691386428,
+            1255468095217078272
+        ],
+        "main_membership_role_id": 1256218091000434718,
+        "membership_roles": {
+            "1279003289643646996": {
+                "tier_name": "Aniyolite",
+                "emoji": "\ud83c\udf1f"
+            },
+            "1279003289643646997": {
+                "tier_name": "Sheesmate",
+                "emoji": "\ud83c\udf1f"
+            },
+            "1279003289643646998": {
+                "tier_name": "Mofokhobi",
+                "emoji": "\ud83c\udf1f"
+            }
+        },
+        "membership_invite_message": "Maaf {member}, Anda belum terdaftar sebagai membership, Dapatkan role eksklusif dan video eksklusif di YouTube dengan berlangganan bersama kami caranya cek **[disini](https://discord.com/channels/765138959625486357/1410348378067570728)** \nJika kamu sudah berlangganan dan belum dapat role pastikan kamu sudah mengkoneksikan Discord dengan akun YouTube yang sama caranya cek **[disini](https://discord.com/channels/765138959625486357/1410347196880130140)**",
+        "membership_confirm_message": "\ud83e\udd73 Selamat {member}! Anda terverifikasi sebagai **{tier_name}**. Role eksklusif Anda sudah diberikan! Terima kasih telah mensupport. Mau upgrade membership ? Cek disini https://discord.com/channels/765138959625486357/1417457183515476030",
+        "verification_button_label": "Klik untuk Verifikasi Member",
+        "goodbye_message": "sampai jumpa, {user} ! Kami sangat menyayangkan kepergian Anda \ud83e\udd79. Terima kasih banyak atas waktu dan kontribusi Anda selama berada di komunitas kami. Semoga kita bisa bertemu lagi di masa depan! \n\nJika ada masalah yang membuat Anda keluar, kami mohon maaf dan berharap Anda baik-baik saja.",
+        "panel_role_stats": [
+            1279003289643646996,
+            1279003289643646997,
+            1279003289643646998
+        ]
+    },
+    "1417636227179483221": {
+        "auto_role_id": null,
+        "welcome_channel_id": null,
+        "welcome_message": "Selamat datang di **{guild_name}**, {user}! \ud83c\udf89",
+        "welcome_embed_title": "SELAMAT DATANG!",
+        "welcome_sender_name": "Admin Server",
+        "welcome_banner_url": null,
+        "log_channel_id": null,
+        "reaction_roles": {},
+        "channel_rules": {
+            "1417919917637898370": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "1417636236356485144": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "1417636236356485141": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "1419326969480347758": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "1423376178156273664": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            }
+        },
+        "boost_channel_id": null,
+        "boost_message": "Terima kasih banyak, {user}, telah menjadi **Server Booster** kami di {guild_name}! Kami sangat menghargai dukunganmu! \u2764\ufe0f",
+        "boost_embed_title": "TERIMA KASIH SERVER BOOSTER!",
+        "boost_sender_name": "Tim Server",
+        "boost_image_url": null,
+        "mod_panel_message_id": null,
+        "mod_panel_channel_id": null,
+        "announcement_webhooks": {},
+        "main_membership_role_id": null,
+        "membership_roles": {},
+        "membership_invite_message": "\ud83e\udd7a Anda belum menjadi anggota channel YouTube. Silakan berlangganan untuk mendapatkan role eksklusif! [LINK MEMBERSHIP]",
+        "membership_confirm_message": "\ud83c\udf89 Anda sudah menjadi anggota! Anda adalah anggota tier: **{tier_name}**.",
+        "verification_button_label": "Verifikasi Membership",
+        "spam_whitelist_roles": [],
+        "goodbye_message": "Selamat tinggal, **{user}**. Sampai jumpa lagi! \ud83d\udc4b"
+    },
+    "722619465644113962": {
+        "auto_role_id": null,
+        "welcome_channel_id": 722619465644113965,
+        "welcome_message": "Halo {user}, selamat datang di **{guild_name}**,\ud83c\udfe1\nSenang banget kamu sudah bergabung di rumah digital kita semua! Ini adalah tempat untuk ngobrolin musik, karya, dan main game bareng Rizky Febian dan teman-teman lainnya.\n\nBiar kamu nggak bingung, yuk ikuti beberapa langkah awal ini:\n **Wajib Baca Peraturan**\n Mampir dulu ke <#1418894497420677232> biar kita semua nyaman dan seru bareng.\n**Kenalan, Yuk!**\nJangan malu-malu buat sapa yang lain di <#1418839313130717276>.\n\nKami tunggu kamu di obrolan ya. Semoga betah! \u2728",
+        "welcome_embed_title": "Selamat datang",
+        "welcome_sender_name": "IkyLini",
+        "welcome_banner_url": "https://raw.githubusercontent.com/Kawansejalanproduction2019/my-projek/main/20250920_200231.jpg",
+        "log_channel_id": null,
+        "reaction_roles": {},
+        "channel_rules": {
+            "723728765888495636": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "1418887093299580968": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "847166471594704926": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "969997656707453010": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 60
+            },
+            "878517112786788392": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "966088569863143494": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "833829116204941363": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "1418839313130717276": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "1418933376529989683": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "723724572045737985": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "840580518173212673": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "965565045335552001": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "1419249095473631242": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "723726441363275777": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "1419335918396903526": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "1418977869966741679": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "1419341843677708410": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "723724436561330216": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "1202215489527631883": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "759210443771871252": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            }
+        },
+        "boost_channel_id": null,
+        "boost_message": "Terima kasih banyak, {user}, telah menjadi **Server Booster** kami di {guild_name}! Kami sangat menghargai dukunganmu! \u2764\ufe0f",
+        "boost_embed_title": "TERIMA KASIH SERVER BOOSTER!",
+        "boost_sender_name": "Tim Server",
+        "boost_image_url": null,
+        "mod_panel_message_id": 1418887131874463888,
+        "mod_panel_channel_id": 1418887093299580968,
+        "announcement_webhooks": {},
+        "main_membership_role_id": null,
+        "membership_roles": {},
+        "membership_invite_message": "\ud83e\udd7a Anda belum menjadi anggota channel YouTube. Silakan berlangganan untuk mendapatkan role eksklusif! [LINK MEMBERSHIP]",
+        "membership_confirm_message": "\ud83c\udf89 Anda sudah menjadi anggota! Anda adalah anggota tier: **{tier_name}**.",
+        "verification_button_label": "Verifikasi Membership",
+        "spam_whitelist_roles": [],
+        "goodbye_message": "sampai jumpa, {user} ! Kami sangat menyayangkan kepergian Anda \ud83e\udd79. Terima kasih banyak atas waktu dan kontribusi Anda selama berada di komunitas kami. Semoga kita bisa bertemu lagi di masa depan! \n\nJika ada masalah yang membuat Anda keluar, kami mohon maaf dan berharap Anda baik-baik saja."
+    }
+}

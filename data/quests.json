@@ -1,0 +1,29 @@
+{
+    "quests": {
+        "1": {
+            "description": "Kirim 10 pesan di channel.",
+            "reward_exp": 100,
+            "reward_coins": 150
+        },
+        "2": {
+            "description": "Bergabung di voice channel selama 15 menit.",
+            "reward_exp": 150,
+            "reward_coins": 900
+        },
+        "3": {
+            "description": "Berikan 5 EXP kepada teman.",
+            "reward_exp": 50,
+            "reward_coins": 200
+        },
+        "4": {
+            "description": "kirim 10 pesan di server",
+            "reward_exp": 100,
+            "reward_coins": 150
+        },
+        "5": {
+            "description": "kirim 1 pesan di server",
+            "reward_exp": 50,
+            "reward_coins": 50
+        }
+    }
+}

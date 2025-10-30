@@ -1,0 +1,97 @@
+{
+    "dimensions": {
+        "introvert_ekstrovert": {
+            "thresholds": [
+                {
+                    "min_score": -100,
+                    "max_score": -30,
+                    "type": "Ekstrovert Dominan",
+                    "description": "Individu dengan profil **Ekstrovert Dominan** menunjukkan preferensi kuat terhadap interaksi sosial eksternal. Sumber energi utama Anda berasal dari lingkungan yang dinamis dan stimulasi sosial yang intens. Anda cenderung proaktif dalam mencari pengalaman baru, berinteraksi dengan cakupan jejaring yang luas, serta menunjukkan ekspresi diri yang terbuka dan antusias."
+                },
+                {
+                    "min_score": -29,
+                    "max_score": 29,
+                    "type": "Ambivert Seimbang",
+                    "description": "Profil Anda mencerminkan adaptabilitas yang signifikan dalam orientasi sosial. Sebagai **Ambivert Seimbang**, Anda mampu bertransisi secara fluid antara kebutuhan akan interaksi sosial dan periode introspeksi pribadi. Fleksibilitas ini memungkinkan Anda untuk berfungsi secara efektif di berbagai konteks lingkungan, baik dalam keramaian maupun saat menyendiri."
+                },
+                {
+                    "min_score": 30,
+                    "max_score": 100,
+                    "type": "Introvert Dominan",
+                    "description": "Anda menunjukkan kecenderungan kuat ke arah introversi. Individu **Introvert Dominan** mendapatkan energi dari refleksi internal dan lingkungan yang lebih tenang. Anda cenderung fokus mendalam, mengapresiasi interaksi yang lebih intim, serta membutuhkan waktu sendiri untuk mengolah pikiran dan mengisi ulang sumber daya psikologis."
+                }
+            ]
+        },
+        "sifat_dasar": {
+            "categories": [
+                {"name": "Pemarah", "min_score": 5, "description": "Anda memiliki respons emosional yang intens terhadap frustrasi atau tekanan. Manifestasi kemarahan Anda cenderung ekspresif dan memerlukan pengembangan strategi pengelolaan emosi yang lebih efektif."},
+                {"name": "Periang", "min_score": 10, "description": "Disposisi Anda secara konsisten menunjukkan optimisme dan keceriaan. Kemampuan Anda untuk menyebarkan energi positif dapat menjadi aset berharga dalam dinamika kelompok dan membangun suasana yang menyenangkan."},
+                {"name": "Sabar", "min_score": 10, "description": "Anda memiliki kapasitas yang luar biasa untuk menahan diri dan mempertahankan ketenangan di bawah tekanan. Sifat ini mengindikasikan tingkat ketahanan mental (resiliensi) yang tinggi dan kemampuan untuk menghadapi situasi menantang dengan composure."},
+                {"name": "Sensitif", "min_score": 8, "description": "Anda menunjukkan tingkat kepekaan yang tinggi terhadap nuansa emosi, baik pada diri sendiri maupun orang lain. Kondisi ini dapat meningkatkan kapasitas empati Anda, namun juga berpotensi membuat Anda rentan terhadap stimulasi emosional berlebihan."},
+                {"name": "Fleksibel", "min_score": 10, "description": "Anda menunjukkan adaptabilitas yang signifikan terhadap perubahan dan situasi tak terduga. Kemampuan ini memungkinkan Anda untuk berinovasi, menemukan solusi alternatif, dan menyesuaikan strategi dengan efektif dalam menghadapi dinamika lingkungan."},
+                {"name": "Optimis", "min_score": 8, "description": "Pandangan Anda cenderung positif dalam setiap situasi, serta mampu memotivasi diri sendiri dan orang lain. Ini adalah sumber daya internal yang vital untuk menghadapi tantangan dan meraih keberhasilan."},
+                {"name": "Emosional", "min_score": 7, "description": "Anda merasakan emosi secara mendalam dan menunjukkan ekspresinya dengan jelas. Sifat ini dapat menjadi kekuatan dalam koneksi interpersonal, namun juga memerlukan pengelolaan agar tidak mengaburkan penilaian objektif."},
+                {"name": "Melankolis", "min_score": 5, "description": "Anda cenderung memiliki kecenderungan introspektif dan analitis, dengan potensi untuk merasakan kesedihan secara lebih mendalam. Profil ini seringkali berasosiasi dengan pemikiran filosofis dan apresiasi terhadap detail."},
+                {"name": "Percaya Diri", "min_score": 10, "description": "Keyakinan Anda pada kemampuan diri sendiri sangat kuat, yang mendorong Anda untuk mengambil inisiatif dan menghadapi tantangan tanpa keraguan. Ini adalah fondasi kuat untuk kepemimpinan dan pencapaian."},
+                {"name": "Ambisius", "min_score": 8, "description": "Anda memiliki dorongan intrinsik yang kuat untuk mencapai tujuan dan sering menetapkan standar kinerja yang tinggi untuk diri sendiri. Energi ini memotivasi Anda untuk terus berkembang dan meraih pencapaian signifikan."},
+                {"name": "Pemalu", "min_score": 5, "description": "Anda menunjukkan kecenderungan merasa tidak nyaman atau ragu-ragu dalam sorotan atau situasi sosial yang baru. Hal ini dapat menghambat inisiasi interaksi, namun seringkali diimbangi dengan kemampuan observasi yang tajam."},
+                {"name": "Tenang", "min_score": 10, "description": "Anda menunjukkan ketenangan batin yang konsisten dan jarang menunjukkan kepanikan, bahkan dalam situasi yang paling menegangkan. Kehadiran Anda mampu meredakan ketegangan di lingkungan sekitar."},
+                {"name": "Spontan", "min_score": 7, "description": "Anda memiliki preferensi untuk bertindak berdasarkan intuisi dan dinamika momen, tanpa terikat pada rencana yang kaku. Pendekatan ini membuat hidup Anda penuh dengan kejutan dan adaptasi cepat."},
+                {"name": "Rasional", "min_score": 8, "description": "Anda mengedepankan logika, fakta, dan penalaran objektif dalam setiap proses pengambilan keputusan. Pendekatan ini menjadikan Anda individu yang analitis dan terstruktur."},
+                {"name": "Pemikir Reflektif", "min_score": 8, "description": "Anda cenderung mendalami dan menganalisis pengalaman secara cermat untuk mendapatkan pemahaman yang lebih komprehensif. Proses ini memungkinkan Anda untuk belajar dari masa lalu dan merumuskan strategi masa depan."}
+            ]
+        },
+        "gaya_interaksi": {
+            "categories": [
+                {"name": "Pemimpin Alami", "min_score": 8, "description": "Anda memiliki bakat inheren untuk memimpin, secara proaktif mengambil inisiatif, dan secara efektif mengarahkan kelompok menuju pencapaian tujuan. Kehadiran Anda sering kali memberikan arah dan motivasi."},
+                {"name": "Pendengar Setia", "min_score": 8, "description": "Anda menunjukkan kapasitas empatik yang luar biasa dan kemampuan mendengarkan secara aktif. Ini menjadikan Anda individu yang dapat dipercaya, mampu membangun hubungan yang dalam, dan memberikan dukungan emosional yang substansial."},
+                {"name": "Pemecah Masalah", "min_score": 8, "description": "Pendekatan Anda terhadap tantangan didasarkan pada logika dan analisis yang sistematis, dengan fokus pada identifikasi akar masalah dan perumusan solusi yang paling efisien dan praktis. Anda adalah aset berharga dalam situasi krisis."},
+                {"name": "Sosial", "min_score": 8, "description": "Anda menikmati dan berkembang dalam interaksi sosial. Kemampuan Anda untuk dengan mudah berkenalan, membangun jejaring yang luas, dan menciptakan suasana yang ramah merupakan ciri khas yang menonjol."},
+                {"name": "Analitis", "min_score": 8, "description": "Anda cenderung berpikir secara kritis, dengan fokus pada analisis detail dan pemahaman mendalam tentang setiap komponen suatu masalah. Pendekatan ini memungkinkan Anda untuk mengidentifikasi pola dan hubungan yang mungkin terlewat oleh orang lain."},
+                {"name": "Berani Risiko", "min_score": 7, "description": "Anda menunjukkan kemauan untuk mengambil peluang baru dan menghadapi ketidakpastian. Sifat ini mendorong inovasi dan eksplorasi, meskipun perlu diimbangi dengan penilaian risiko yang cermat."}
+            ]
+        }
+    },
+    "advice": [
+        {"for_type": "Introvert Dominan", "text": "Disarankan untuk terus mengoptimalkan lingkungan yang tenang sebagai sumber revitalisasi energi. Namun, secara proaktif berpartisipasi dalam interaksi yang terstruktur dan bermakna dapat memperluas kapabilitas jejaring profesional dan sosial Anda. Cari kualitas dalam setiap koneksi."},
+        {"for_type": "Ekstrovert Dominan", "text": "Manfaatkan kapasitas energi sosial Anda untuk memotivasi dan membangun koneksi yang luas. Namun, penting untuk sesekali menyisihkan waktu untuk introspeksi mendalam guna memahami kebutuhan internal dan mencegah potensi kelelahan berlebihan akibat stimulasi eksternal terus-menerus."},
+        {"for_type": "Ambivert Seimbang", "text": "Keseimbangan adaptif Anda adalah kekuatan fundamental. Latih kemampuan Anda untuk mengenali dan menyesuaikan diri secara strategis, kapan harus mengarahkan energi ke dalam atau ke luar, sesuai tuntutan situasi. Fleksibilitas ini akan sangat berharga dalam berbagai konteks kehidupan dan profesi."},
+        {"for_type": "Pemarah", "text": "Pengelolaan emosi adalah area krusial. Disarankan untuk mengembangkan strategi manajemen kemarahan yang lebih efektif, seperti teknik pernapasan dalam, jeda singkat sebelum merespons, atau mengidentifikasi pemicu. Refleksi pasca-konflik dapat membantu identifikasi pola respons yang lebih konstruktif."},
+        {"for_type": "Sabar", "text": "Kapasitas kesabaran Anda adalah aset kepemimpinan yang signifikan. Terus latih kemampuan ini untuk memimpin proyek jangka panjang, menyelesaikan konflik dengan bijaksana, dan memberikan dukungan stabil bagi tim."},
+        {"for_type": "Optimis", "text": "Pertahankan pandangan positif Anda sebagai pendorong motivasi. Namun, seimbangkan dengan pemikiran realistis dan analisis potensi tantangan untuk formulasi strategi yang lebih komprehensif."},
+        {"for_type": "Pemimpin Alami", "text": "Terus asah keterampilan kepemimpinan Anda, terutama dalam delegasi tugas dan pemberdayaan tim. Memberikan otonomi lebih pada anggota dapat meningkatkan efisiensi dan kepuasan kolektif."},
+        {"for_type": "Pendengar Setia", "text": "Manfaatkan kemampuan mendengarkan empatik Anda untuk membangun hubungan yang lebih dalam dan memahami kebutuhan esensial orang lain. Kualitas ini sangat berharga dalam peran konsultasi, mentoring, atau negosiasi."},
+        {"for_type": "Fleksibel", "text": "Adaptabilitas adalah kekuatan Anda dalam menghadapi dinamika. Teruslah mencari pengalaman baru dan tantangan yang membutuhkan pendekatan inovatif, namun tetap pertimbangkan prinsip dasar yang konsisten."}
+    ],
+    "critique": [
+        {"for_type": "Introvert Dominan", "text": "Kecenderungan untuk menahan diri dapat menyebabkan Anda melewatkan kesempatan untuk menyuarakan ide-ide berharga di lingkungan yang lebih dinamis. Pertimbangkan untuk melatih asertivitas Anda dalam konteks yang aman dan terstruktur."},
+        {"for_type": "Ekstrovert Dominan", "text": "Antusiasme Anda yang tinggi terkadang dapat mengesampingkan perspektif atau kontribusi orang lain. Penting untuk melatih mendengarkan secara aktif dan memberi ruang bagi partisipasi kolektif demi hasil yang lebih holistik."},
+        {"for_type": "Ambivert Seimbang", "text": "Fleksibilitas Anda, jika tidak diimbangi dengan kejelasan tujuan, kadang dapat diinterpretasikan sebagai inkonsistensi. Pertimbangkan untuk memiliki pendirian yang lebih kokoh dalam isu-isu inti dan mengkomunikasikannya secara asertif."},
+        {"for_type": "Pemalu", "text": "Kecenderungan Anda untuk pemalu mungkin membatasi potensi Anda dalam interaksi sosial atau profesional. Disarankan untuk melatih langkah-langkah kecil secara bertahap untuk keluar dari zona nyaman dan meningkatkan kepercayaan diri di hadapan publik."},
+        {"for_type": "Berani Risiko", "text": "Meskipun keberanian mengambil risiko itu baik untuk inovasi, terkadang hal ini perlu diimbangi dengan analisis risiko yang lebih mendalam dan perencanaan kontingensi untuk memitigasi potensi kerugian yang tidak perlu."},
+        {"for_type": "Emosional", "text": "Respons emosional yang cepat kadang dapat mengganggu penilaian objektif. Latih jeda sejenak sebelum merespons dalam situasi yang sensitif untuk memungkinkan pemikiran yang lebih rasional."},
+        {"for_type": "Analitis", "text": "Fokus berlebihan pada analisis dapat menyebabkan 'paralysis by analysis', di mana keputusan tertunda karena pencarian data yang tak terbatas. Latih keterampilan mengambil keputusan dengan informasi yang terbatas namun memadai."},
+        {"for_type": "Sosial", "text": "Meskipun Anda berkembang dalam interaksi sosial, pastikan Anda juga mengalokasikan waktu untuk refleksi pribadi yang mendalam. Kualitas hubungan lebih penting daripada kuantitas."},
+        {"for_type": "Spontan", "text": "Sifat spontan Anda membawa energi positif, namun kadang dapat menyebabkan kurangnya perencanaan atau konsekuensi tak terduga. Pertimbangkan untuk sedikit mengintegrasikan perencanaan strategis dalam pengambilan keputusan penting."}
+    ],
+    "evaluation": [
+        {"for_type": "Introvert Dominan", "text": "Profil Anda menunjukkan kedalaman pemikiran, kemampuan konsentrasi tinggi, dan refleksi diri yang kuat. Ini adalah aset vital untuk peran yang membutuhkan analisis mendalam, pengembangan strategi yang cermat, dan inovasi yang berakar dari pemikiran internal."},
+        {"for_type": "Ekstrovert Dominan", "text": "Anda adalah komunikator yang dinamis dan motivator alami. Potensi kepemimpinan Anda, kemampuan untuk mempengaruhi orang lain, dan adaptabilitas sosial yang tinggi sangat menonjol. Ini adalah profil ideal untuk peran yang membutuhkan interaksi publik intens dan kemampuan membangun konsensus."},
+        {"for_type": "Ambivert Seimbang", "text": "Keseimbangan adaptif Anda merupakan kekuatan multifungsi. Anda dapat beradaptasi dan memahami berbagai sudut pandang, membuat Anda sangat berharga dalam tim yang dinamis, sebagai fasilitator, atau mediator yang efektif dalam berbagai situasi profesional dan pribadi."},
+        {"for_type": "Rasional", "text": "Anda memiliki kemampuan berpikir logis dan objektif yang kuat, memungkinkan Anda untuk memecahkan masalah kompleks dan membuat keputusan yang tepat berdasarkan fakta dan data. Ini adalah aset krusial dalam lingkungan yang membutuhkan ketepatan dan efisiensi."},
+        {"for_type": "Optimis", "text": "Sifat optimis Anda membantu Anda menghadapi tantangan dengan semangat positif dan memotivasi orang di sekitar Anda. Ini adalah sumber daya berharga untuk ketahanan diri dan kelompok, serta dalam menciptakan lingkungan kerja yang suportif."},
+        {"for_type": "Percaya Diri", "text": "Kepercayaan diri Anda adalah fondasi untuk mengambil inisiatif, menghadapi tantangan, dan menjadi inspirasi bagi orang lain. Manfaatkan aset ini untuk mencapai tujuan yang ambisius dan memimpin dengan integritas."},
+        {"for_type": "Pemecah Masalah", "text": "Kemampuan Anda dalam memecahkan masalah dengan pendekatan logis dan sistematis menjadikan Anda aset tak ternilai dalam setiap tim atau proyek. Anda mampu mengurai kompleksitas dan menemukan solusi yang praktis."},
+        {"for_type": "Tenang", "text": "Sifat tenang Anda adalah kekuatan penyeimbang dalam lingkungan yang penuh tekanan. Anda mampu berpikir jernih dan membuat keputusan rasional saat orang lain mungkin panik, menjadikan Anda andal di masa krisis."}
+    ],
+    "future_steps": [
+        {"for_type": "Introvert Dominan", "text": "Fokus pada pengembangan keahlian spesifik yang membutuhkan fokus dan analisis mendalam. Cari mentor yang dapat membimbing Anda dalam mengkomunikasikan ide-ide kompleks secara efektif. Jangan ragu menyuarakan pemikiran Anda di forum yang tepat."},
+        {"for_type": "Ekstrovert Dominan", "text": "Teruslah berjejaring dan mengambil peran kepemimpinan. Pertimbangkan untuk mentoring orang lain dengan energi positif Anda. Latih juga kemampuan mendengarkan aktif untuk pemahaman yang lebih dalam terhadap kebutuhan kolektif."},
+        {"for_type": "Ambivert Seimbang", "text": "Latih kemampuan Anda untuk beralih secara efektif antara interaksi sosial intens dan refleksi pribadi. Eksplorasi berbagai jenis proyek dan tim untuk menemukan lingkungan di mana fleksibilitas Anda dapat bersinar paling terang, mungkin dalam peran mediasi atau fasilitasi."},
+        {"for_type": "Pemarah", "text": "Lanjutkan praktik mindfulness atau teknik relaksasi. Pertimbangkan pelatihan manajemen konflik untuk mengubah respons impulsif menjadi komunikasi yang asertif dan konstruktif."},
+        {"for_type": "Sabar", "text": "Gunakan kesabaran Anda untuk menjadi fasilitator dalam proyek-proyek yang membutuhkan ketekunan tinggi. Pertimbangkan peran mentorship untuk membantu orang lain mengembangkan kualitas serupa."},
+        {"for_type": "Sensitif", "text": "Terus kembangkan kecerdasan emosional Anda. Belajar mengatur batasan diri (boundaries) akan membantu Anda tetap empatik tanpa merasa kewalahan."},
+        {"for_type": "Spontan", "text": "Pertahankan semangat spontanitas Anda, namun cobalah mengintegrasikan kerangka perencanaan dasar untuk proyek penting. Ini akan membantu menyalurkan kreativitas Anda secara lebih terarah."},
+        {"for_type": "Berani Risiko", "text": "Teruslah mengeksplorasi batas kemampuan Anda, namun selalu selingi dengan analisis risiko yang cermat. Pelajari dari setiap kegagalan sebagai batu loncatan menuju keberhasilan yang lebih besar."}
+    ]
+}

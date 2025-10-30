@@ -1,0 +1,125 @@
+{
+    "roles": {
+        "Werewolf": {
+            "team": "Werewolf",
+            "action_prompt": "Siapa yang ingin kamu bunuh malam ini?",
+            "dm_command": "!bunuh",
+            "can_target_self": false,
+            "emoji": "🐺",
+            "order": 1,
+            "night_action_order": 2,
+            "description": "Tugasmu adalah membunuh para penduduk desa setiap malam hingga jumlahmu sama atau lebih banyak dari mereka.",
+            "goal": "Musnahkan semua penduduk desa!"
+        },
+        "Dokter": {
+            "team": "Village",
+            "action_prompt": "Siapa yang ingin kamu lindungi malam ini?",
+            "dm_command": "!lindungi",
+            "can_target_self": true,
+            "emoji": "⚕️",
+            "order": 2,
+            "night_action_order": 1,
+            "description": "Kamu bisa melindungi satu orang setiap malam agar tidak dibunuh oleh Werewolf.",
+            "goal": "Lindungi penduduk desa dan singkirkan Werewolf!"
+        },
+        "Peramal": {
+            "team": "Village",
+            "action_prompt": "Siapa yang ingin kamu cek perannya malam ini?",
+            "dm_command": "!cek",
+            "can_target_self": true,
+            "emoji": "🔮",
+            "order": 3,
+            "night_action_order": 3,
+            "description": "Setiap malam, kamu bisa memilih satu pemain untuk mengetahui apakah dia Werewolf atau bukan.",
+            "goal": "Temukan Werewolf dan bantu penduduk desa menggantung mereka!"
+        },
+        "Pengawal": {
+            "team": "Village",
+            "action_prompt": "Siapa yang ingin kamu jaga dari hukuman mati siang nanti?",
+            "dm_command": "!jaga",
+            "can_target_self": true,
+            "emoji": "🛡️",
+            "order": 4,
+            "night_action_order": 4,
+            "description": "Kamu bisa melindungi satu pemain dari hukuman gantung di siang hari.",
+            "goal": "Lindungi warga dari keputusan gantung yang salah."
+        },
+        "Pemburu": {
+            "team": "Village",
+            "action_prompt": "Jika kamu mati, siapa yang ingin kamu tembak sebagai balas dendam?",
+            "dm_command": "!tembak",
+            "can_target_self": false,
+            "emoji": "🏹",
+            "order": 5,
+            "night_action_order": null,
+            "description": "Jika kamu dibunuh oleh Werewolf atau digantung oleh desa, kamu bisa memilih satu pemain untuk ditembak mati sebagai balas dendam.",
+            "goal": "Bantu warga menemukan Werewolf, dan bawa satu Werewolf bersamamu jika kamu mati."
+        },
+        "Penyihir": {
+            "team": "Village",
+            "action_prompt": "Pilih ramuanmu: `!racun <nomor_warga>` (bunuh) atau `!penawar <nomor_warga>` (hidupkan)?",
+            "dm_command": "!racun atau !penawar",
+            "can_target_self": true,
+            "emoji": "🧙‍♀️",
+            "order": 6,
+            "night_action_order": 5,
+            "description": "Kamu memiliki satu ramuan racun untuk membunuh siapapun, dan satu ramuan penawar untuk menghidupkan kembali seseorang yang baru saja mati.",
+            "goal": "Gunakan ramuanmu dengan bijak untuk membantu warga menang."
+        },
+        "Alpha Werewolf": {
+            "team": "Werewolf",
+            "action_prompt": "Siapa yang ingin kamu bunuh malam ini? (Kamu adalah pemimpin Werewolf)",
+            "dm_command": "!bunuh",
+            "can_target_self": false,
+            "emoji": "🐺👑",
+            "order": 7,
+            "night_action_order": 2,
+            "description": "Kamu adalah pemimpin Werewolf. Jika kamu mati, Werewolf lain masih bisa beraksi.",
+            "goal": "Pimpin Werewolf untuk memusnahkan semua penduduk desa!"
+        },
+        "Penjaga Malam": {
+            "team": "Village",
+            "action_prompt": "Siapa yang ingin kamu lindungi dari semua aksi peran lain malam ini?",
+            "dm_command": "!jagamalam",
+            "can_target_self": true,
+            "emoji": "👮",
+            "order": 8,
+            "night_action_order": 0,
+            "description": "Kamu bisa melindungi satu orang setiap malam agar tidak menjadi target aksi peran lain (termasuk Werewolf).",
+            "goal": "Jaga keamanan desa di malam hari."
+        },
+        "Ksatria Suci": {
+            "team": "Village",
+            "action_prompt": "Siapa yang ingin kamu lindungi dengan perisaimu malam ini?",
+            "dm_command": "!perisai",
+            "can_target_self": true,
+            "emoji": "⚔️",
+            "order": 9,
+            "night_action_order": 1,
+            "description": "Kamu bisa melindungi satu pemain dari serangan Werewolf. Jika kamu melindungi Werewolf, kamu akan mati.",
+            "goal": "Lindungi warga dari Werewolf, bahkan dengan risiko nyawamu."
+        },
+        "Mata-Mata Werewolf": {
+            "team": "Werewolf",
+            "action_prompt": "Siapa yang ingin kamu intai perannya malam ini?",
+            "dm_command": "!intai",
+            "can_target_self": false,
+            "emoji": "🤫",
+            "order": 10,
+            "night_action_order": 3,
+            "description": "Kamu adalah Werewolf yang bisa mengintai peran satu pemain setiap malam. Kamu tidak bisa membunuh.",
+            "goal": "Dapatkan informasi penting untuk tim Werewolf."
+        },
+        "Warga Polos": {
+            "team": "Village",
+            "action_prompt": null,
+            "dm_command": null,
+            "can_target_self": false,
+            "emoji": "🧑‍🌾",
+            "order": 11,
+            "night_action_order": null,
+            "description": "Kamu adalah penduduk desa biasa. Tujuanmu adalah menemukan Werewolf dan menggantung mereka.",
+            "goal": "Gantung semua Werewolf!"
+        }
+    }
+}

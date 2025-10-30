@@ -1,0 +1,93 @@
+{
+    "badges": [
+        {
+            "name": "Avatar admin",
+            "price": 1500,
+            "description": "Admin edition",
+            "emoji": "🤖",
+            "stock": 0,
+            "image_url": "https://raw.githubusercontent.com/Abogoboga04/OpenAI/main/A8.png"
+        },
+        {
+            "name": "Avatar skuyy",
+            "price": 1250,
+            "description": "Calm edition",
+            "emoji": "✌",
+            "stock": 1,
+            "image_url": "https://raw.githubusercontent.com/Abogoboga04/OpenAI/main/A11.png"
+        },
+        {
+            "name": "Avatar Skuy",
+            "price": 1250,
+            "description": "Avatar calm",
+            "emoji": "💀",
+            "stock": 0,
+            "image_url": "https://raw.githubusercontent.com/Abogoboga04/OpenAI/main/A10.png"
+        },
+        {
+            "name": "England edition",
+            "price": 1250,
+            "description": "England avatar",
+            "emoji": "🥰",
+            "stock": 1,
+            "image_url": "https://raw.githubusercontent.com/Abogoboga04/OpenAI/main/C1.png"
+        },
+        {
+            "name": "Avatar cheeesss",
+            "price": 1500,
+            "description": "Limited edition",
+            "emoji": "🧠",
+            "stock": 1,
+            "image_url": "https://raw.githubusercontent.com/Abogoboga04/OpenAI/main/C2.png"
+        },
+        {
+            "name": "Avatar Japanese",
+            "price": 700,
+            "description": "Uuuhhhhhh",
+            "emoji": "🤪",
+            "stock": 9,
+            "image_url": "https://raw.githubusercontent.com/Abogoboga04/OpenAI/main/C3.png"
+        }
+    ],
+    "exp": [
+        {
+            "name": "EXP Boost x2",
+            "price": 1000,
+            "description": "ngeboost EXP mu x2 dalam pesan dan voice.",
+            "emoji": "⚡",
+            "stock": "unlimited",
+            "image_url": null
+        }
+    ],
+    "roles": [
+        {
+            "name": "VIP Role",
+            "price": 1000,
+            "description": "Akses eksklusif ke channel VIP.",
+            "emoji": "👑",
+            "role_id": 123456789012345678,
+            "stock": 8,
+            "image_url": null
+        }
+    ],
+    "special_items": [
+        {
+            "name": "Perisai Pelindung Astral",
+            "price": 1933,
+            "description": "Item sekali pakai. Saat diaktifkan, melindungimu dari 1 serangan monster yang akan datang.",
+            "type": "protection_shield",
+            "stock": 10,
+            "emoji": "🛡️",
+            "image_url": null
+        },
+        {
+            "name": "Kotak Obat Misterius",
+            "price": 999,
+            "description": "Berisi obat acak untuk menyembuhkan penyakit. Bisa manjur, bisa juga tidak. Berani coba?",
+            "type": "gacha_medicine_box",
+            "stock": "unlimited",
+            "emoji": "💊",
+            "image_url": null
+        }
+    ]
+}
