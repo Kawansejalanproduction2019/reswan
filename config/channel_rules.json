@@ -1,0 +1,20 @@
+{
+    "123456789012345678": {
+        "detect_links": true,
+        "detect_images": true,
+        "detect_bot_messages": false,
+        "detect_bad_words": true
+    },
+    "851069782803742720": {
+        "detect_links": false,
+        "detect_images": false,
+        "detect_bot_messages": true,
+        "detect_bad_words": false
+    },
+    "1379762287740715060": {
+        "detect_links": false,
+        "detect_images": false,
+        "detect_bot_messages": true,
+        "detect_bad_words": false
+    }
+}
