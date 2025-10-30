@@ -450,7 +450,7 @@ async def send_backup_to_webhook(backup_data):
 
 @bot.command()
 @commands.is_owner()
-async def backupnow(ctx):
+async def backup(ctx):
     await ctx.send("Memulai proses backup...")
     backup_data = {}
 
@@ -506,7 +506,7 @@ async def backupnow(ctx):
 
 @bot.command()
 @commands.is_owner()
-async def sendbackup(ctx):
+async def send(ctx):
     if not client:
         await ctx.send("❌ MongoDB client tidak aktif.", ephemeral=True)
         log.error("MongoDB client is None, cannot perform sendbackup.")
