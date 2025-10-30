@@ -1,17 +1,26 @@
 import discord
 from discord.ext import commands
+import discord.ui as ui
 import aiohttp
 import base64
 import logging
 import os
+import sys
 import io
 import asyncio
 import json
 from io import BytesIO
 from pymongo import MongoClient, errors as pymongo_errors
 from dotenv import load_dotenv
-from datetime import datetime
+from datetime import datetime, timezone 
 import zipfile
+
+base_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
+
+
+if base_dir:
+    os.chdir(base_dir)
+
 
 load_dotenv()
 
@@ -44,7 +53,7 @@ class WebhookHandler(logging.Handler):
                 "title": f"🚨 Bot Error: {record.levelname}",
                 "description": f"```python\n{log_entry}\n```",
                 "color": 0xFF0000,
-                "timestamp": datetime.utcnow().isoformat()
+                "timestamp": datetime.now(timezone.utc).isoformat()
             }
             payload = {"embeds": [embed], "username": "Bot Logger"}
             
@@ -117,6 +126,127 @@ except ImportError:
 except Exception as e:
     log.error(f"❌ Error calling keep_alive: {e}", exc_info=True)
 
+class CogBackupView(ui.View):
+    def __init__(self, ctx, files, webhook_url, log_obj):
+        super().__init__(timeout=180)
+        self.ctx = ctx
+        self.files = files
+        self.webhook_url = webhook_url
+        self.log = log_obj
+        self.selected_file = None
+        self.message = None
+        
+        options = [
+            discord.SelectOption(label=file, value=file, description=f"Backup file {file}")
+            for file in files
+        ]
+        
+        if len(options) > 25:
+             options = options[:25]
+             self.log.warning("Lebih dari 25 file .py ditemukan, hanya 25 file pertama yang ditampilkan.")
+
+        self.file_select = ui.Select(
+            placeholder="Pilih file .py untuk di-backup...",
+            options=options,
+            min_values=1,
+            max_values=1
+        )
+        self.file_select.callback = self.select_callback
+        self.add_item(self.file_select)
+        
+        self.process_button = ui.Button(
+            label="Proses Backup", 
+            style=discord.ButtonStyle.green, 
+            disabled=True
+        )
+        self.process_button.callback = self.process_backup_callback
+        self.add_item(self.process_button)
+
+    async def on_timeout(self):
+        if self.message:
+            for item in self.children:
+                item.disabled = True
+            try:
+                await self.message.edit(content="❌ Waktu interaksi habis (3 menit). Backup dibatalkan.", view=self)
+            except:
+                pass
+
+    async def select_callback(self, interaction: discord.Interaction):
+        if interaction.user != self.ctx.author:
+            await interaction.response.send_message("❌ Ini bukan menu untukmu.", ephemeral=True)
+            return
+
+        self.selected_file = interaction.data['values'][0]
+        
+        self.process_button.disabled = False
+        self.file_select.placeholder = f"Dipilih: {self.selected_file}"
+        
+        await interaction.response.edit_message(content=f"Pilih file: **{self.selected_file}**. Klik **Proses Backup** untuk melanjutkan.", view=self)
+
+    async def process_backup_callback(self, interaction: discord.Interaction):
+        if interaction.user != self.ctx.author:
+            await interaction.response.send_message("❌ Ini bukan tombol untukmu.", ephemeral=True)
+            return
+
+        if not self.selected_file:
+            await interaction.response.send_message("❌ Harap pilih file terlebih dahulu.", ephemeral=True)
+            return
+        
+        for item in self.children:
+            item.disabled = True
+        await interaction.response.edit_message(content=f"⚙️ Memproses backup file: **{self.selected_file}**...", view=self)
+        
+        file_path = os.path.join("cogs", self.selected_file)
+        
+        try:
+            with open(file_path, 'rb') as f:
+                file_content = f.read()
+            
+            success = await self.send_file_to_webhook(self.selected_file, file_content)
+            
+            if success:
+                await self.message.edit(content=f"✅ Backup file **{self.selected_file}** berhasil dan telah dikirim ke webhook!", view=self)
+            else:
+                await self.message.edit(content=f"❌ Gagal mengirim backup file **{self.selected_file}** ke webhook. Cek log bot.", view=self)
+                
+        except FileNotFoundError:
+            await self.message.edit(content=f"❌ File **{self.selected_file}** tidak ditemukan di folder `cogs/`.", view=self)
+            self.log.error(f"File {file_path} tidak ditemukan saat backup.")
+        except Exception as e:
+            await self.message.edit(content=f"❌ Terjadi error saat memproses backup: {e}", view=self)
+            self.log.error(f"Error saat backup {file_path}: {e}", exc_info=True)
+            
+        self.stop()
+
+    async def send_file_to_webhook(self, filename, content):
+        if not self.webhook_url:
+            self.log.warning("Variabel BACKUP_WEBHOOK_URL tidak ditemukan. Backup ke webhook dilewati.")
+            return False
+
+        file_obj = discord.File(io.BytesIO(content), filename=filename)
+        
+        embed = discord.Embed(
+            title="💾 Backup File Cog",
+            description=f"File **`{filename}`** berhasil di-backup.",
+            color=discord.Color.blue(),
+            timestamp=datetime.now(timezone.utc)
+        )
+        embed.add_field(name="Diinisiasi oleh", value=f"{self.ctx.author.name} (`{self.ctx.author.id}`)", inline=False)
+        
+        webhook = discord.Webhook.from_url(self.webhook_url, session=self.ctx.bot.session)
+        try:
+            await webhook.send(
+                content="**Backup File Cog (.py)**", 
+                file=file_obj, 
+                embed=embed,
+                username="Cog Backup Notifier"
+            )
+            self.log.info(f"✅ File backup {filename} berhasil dikirim ke webhook.")
+            return True
+        except Exception as e:
+            self.log.error(f"❌ Gagal mengirim file backup ke webhook: {e}", exc_info=True)
+            return False
+
 intents = discord.Intents.default()
 intents.messages = True
 intents.message_content = True
@@ -125,6 +255,17 @@ intents.members = True
 intents.voice_states = True
 
 bot = commands.Bot(command_prefix=("!", "?", "m!"), intents=intents, help_command=None)
+
+# --- EVENT ON_MESSAGE BARU UNTUK MENCEGAH DUPLIKASI COMMAND ---
+@bot.event
+async def on_message(message):
+    # Abaikan pesan dari bot itu sendiri
+    if message.author.bot:
+        return
+
+    # Pastikan command hanya diproses di sini
+    await bot.process_commands(message)
+# -------------------------------------------------------------
 
 @bot.event
 async def on_ready():
@@ -153,7 +294,7 @@ async def on_guild_join(guild):
         title="🎉 Bot Bergabung ke Server Baru!",
         description=f"Bot telah ditambahkan ke server **{guild.name}**.",
         color=0x00FF00,
-        timestamp=datetime.utcnow()
+        timestamp=datetime.now(timezone.utc)
     )
 
     if guild.icon:
@@ -187,7 +328,7 @@ async def on_guild_remove(guild):
         title="💔 Bot Dikeluarkan dari Server",
         description=f"Bot telah dikeluarkan dari server **{guild.name}**.",
         color=0xFF0000, 
-        timestamp=datetime.utcnow()
+        timestamp=datetime.now(timezone.utc)
     )
 
     if guild.icon:
@@ -210,7 +351,8 @@ async def on_guild_remove(guild):
         except Exception as e:
             log.error(f"Terjadi error saat mengirim notifikasi keluar server: {e}")
 
-@bot.command(name="reshelp", aliases=["h"])
+
+@bot.command(name="help", aliases=["h"])
 async def custom_help(ctx, *, command_name: str = None):
     prefix = ctx.prefix
 
@@ -273,10 +415,9 @@ async def send_backup_to_webhook(backup_data):
 
     try:
         payload = {
-            "content": f"✅ Backup database berhasil dikirim pada <t:{int(datetime.now().timestamp())}:F>."
+            "content": f"✅ Backup database berhasil dikirim pada <t:{int(datetime.now(timezone.utc).timestamp())}:F>."
         }
         
-        # Buat file ZIP di memori
         zip_buffer = io.BytesIO()
         with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
             for file_path, content in backup_data.items():
@@ -309,7 +450,7 @@ async def send_backup_to_webhook(backup_data):
 
 @bot.command()
 @commands.is_owner()
-async def backup(ctx):
+async def backupnow(ctx):
     await ctx.send("Memulai proses backup...")
     backup_data = {}
 
@@ -350,7 +491,7 @@ async def backup(ctx):
                 {"_id": "latest_backup"},
                 {"$set": {
                     "backup": backup_data,
-                    "timestamp": datetime.utcnow()
+                    "timestamp": datetime.now(timezone.utc)
                 }},
                 upsert=True
             )
@@ -365,7 +506,7 @@ async def backup(ctx):
 
 @bot.command()
 @commands.is_owner()
-async def send(ctx):
+async def sendbackup(ctx):
     if not client:
         await ctx.send("❌ MongoDB client tidak aktif.", ephemeral=True)
         log.error("MongoDB client is None, cannot perform sendbackup.")
@@ -400,9 +541,57 @@ async def send(ctx):
         await ctx.send(f"❌ Terjadi error saat mengambil data backup: {e}")
         log.error(f"❌ Terjadi error saat mengambil data backup: {e}", exc_info=True)
 
+@bot.command(name="cogbackup")
+@commands.is_owner()
+async def cog_backup(ctx):
+    """
+    Mem-backup file .py dari folder cogs dan mengirimkannya ke webhook dengan UI pilih.
+    """
+    BACKUP_WEBHOOK_URL = os.getenv("BACKUP_WEBHOOK_URL")
+    if not BACKUP_WEBHOOK_URL:
+        await ctx.send("❌ Variabel **BACKUP_WEBHOOK_URL** belum diatur. Backup dibatalkan.", ephemeral=True)
+        log.error("BACKUP_WEBHOOK_URL tidak ditemukan untuk cog backup.")
+        return
+        
+    cogs_dir = "cogs"
+    if not os.path.isdir(cogs_dir):
+        await ctx.send(f"❌ Direktori `{cogs_dir}` tidak ditemukan. Pastikan folder 'cogs' ada di direktori kerja bot.", ephemeral=True)
+        log.error(f"Direktori {cogs_dir} tidak ditemukan.")
+        return
+
+    all_files = os.listdir(cogs_dir)
+    py_files = sorted([f for f in all_files if f.endswith(".py") and os.path.isfile(os.path.join(cogs_dir, f))])
+
+    if not py_files:
+        await ctx.send(f"🤷 Tidak ada file **.py** yang ditemukan di folder `{cogs_dir}`.")
+        return
+    
+    view = CogBackupView(ctx, py_files, BACKUP_WEBHOOK_URL, log)
+    
+    embed = discord.Embed(
+        title="📂 Backup File Cogs",
+        description=f"Ditemukan **{len(py_files)}** file `.py` di folder `cogs/`. Silakan pilih file yang ingin Anda backup menggunakan menu di bawah ini. Waktu interaksi 3 menit.",
+        color=discord.Color.orange()
+    )
+    
+    message = await ctx.send(embed=embed, view=view)
+    view.message = message
+
+@cog_backup.error
+async def cog_backup_error(ctx, error):
+    if isinstance(error, commands.NotOwner):
+        await ctx.send("❌ Command ini hanya bisa digunakan oleh Owner Bot.", ephemeral=True)
+    elif isinstance(error, commands.CommandInvokeError):
+        await ctx.send(f"❌ Terjadi error saat menjalankan backup: {error.original}", ephemeral=True)
+        log.error(f"Error pada !cogbackup: {error.original}", exc_info=True)
+    else:
+        await ctx.send(f"❌ Error yang tidak terduga terjadi: {error}", ephemeral=True)
+        log.error(f"Error tak terduga pada !cogbackup: {error}", exc_info=True)
+
 async def load_cogs():
     initial_extensions = [
-        "cogs.music"
+        "cogs.leveling", "cogs.moderation", "cogs.quotes", "cogs.endgame",
+        "cogs.webhook", "cogs.notif", "cogs.multi", "cogs.info", "cogs.gemini", "cogs.game"
     ]
     for extension in initial_extensions:
         try:
@@ -414,6 +603,7 @@ async def load_cogs():
 @bot.event
 async def setup_hook():
     log.info("🚀 Memulai setup_hook dan memuat cogs...")
+    bot.session = aiohttp.ClientSession()
     await load_cogs()
     log.info("✅ setup_hook selesai.")
 
