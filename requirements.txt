@@ -10,3 +10,4 @@ requests
 PyNaCl
 google-api-python-client
 lyricsgenius
+spotipy
