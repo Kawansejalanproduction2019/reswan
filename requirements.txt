@@ -5,7 +5,7 @@ Pillow
 pymongo>=4.0.0
 pytz
 google-generativeai
-yt-dlp>=2025.10.22
+yt-dlp==2025.9.27
 requests
 PyNaCl
 google-api-python-client
