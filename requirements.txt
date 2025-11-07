@@ -5,9 +5,10 @@ Pillow
 pymongo>=4.0.0
 pytz
 google-generativeai
-yt-dlp
+yt-dlp>=2025.10.22
 requests
 PyNaCl
 google-api-python-client
 lyricsgenius
 spotipy
+spotify
