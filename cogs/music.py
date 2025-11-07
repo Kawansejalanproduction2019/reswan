@@ -78,17 +78,17 @@ def load_guild_config():
 def save_guild_config(data):
     save_json_file(GUILD_CONFIG_FILE, data)
     
-# --- Updated YTDL Options for Opus and FFMPEG Options for Stability ---
 ytdl_opts = {
-    'format': 'bestaudio[ext=opus]/bestaudio[ext=m4a]/bestaudio/best',
+    # 1. Prioritaskan Opus (codec Discord) atau m4a (biasanya lebih stabil)
+    'format': 'bestaudio[ext=opus]/bestaudio[ext=m4a]/bestaudio/best', 
     'cookiefile': 'cookies.txt',
     'quiet': True,
     'default_search': 'ytsearch',
     'outtmpl': 'downloads/%(title)s.%(ext)s',
     'noplaylist': True,
-    }],
+    # 2. HAPUS postprocessors: Biarkan streaming langsung, jangan diproses ulang.
+    # 'postprocessors': [...], 
 }
-
 FFMPEG_OPTIONS = {
     'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
     'options': '-vn -b:a 128k -bufsize 1024K -probesize 10M -analyzeduration 10M -fflags +discardcorrupt -flags +global_header -af "afftdn,equalizer=f=80:width=80:g=4,equalizer=f=10000:width=2000:g=4,loudnorm"'
