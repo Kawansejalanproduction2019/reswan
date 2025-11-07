@@ -254,7 +254,7 @@ intents.guilds = True
 intents.members = True
 intents.voice_states = True
 
-bot = commands.Bot(command_prefix=("!", "?", "m!"), intents=intents, help_command=None)
+bot = commands.Bot(command_prefix=("!", "?"), intents=intents, help_command=None)
 
 # --- EVENT ON_MESSAGE BARU UNTUK MENCEGAH DUPLIKASI COMMAND ---
 @bot.event
