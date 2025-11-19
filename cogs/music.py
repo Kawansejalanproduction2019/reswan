@@ -91,7 +91,7 @@ ytdl_opts = {
 }
 
 FFMPEG_OPTIONS = {
-    'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 -http_persistent 1',
+    'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 -http_persistent 1 -nostats -loglevel quiet',
     'options': '-vn -b:a 128k -bufsize 512k -probesize 32M -analyzeduration 32M -fflags +discardcorrupt -flags +global_header -af "loudnorm=I=-16:TP=-1.5:LRA=11"'
 }
 
@@ -1061,15 +1061,9 @@ class Music(commands.Cog):
         queue = self.get_queue(guild_id)
         
         if self.loop_status.get(guild_id, False) and ctx.voice_client and ctx.voice_client.source:
-            current_song_url = ctx.voice_client.source.data.get('webpage_url')
+            current_song_url = self.now_playing_info[guild_id]['webpage_url']
             if current_song_url:
                 queue.insert(0, current_song_url)
-        
-        if not queue:
-            vc = ctx.voice_client
-            if vc and len([member for member in vc.channel.members if not member.bot]) > 0:
-                await self.refill_queue_for_random(ctx)
-                queue = self.get_queue(guild_id)
         
         if not queue:
             await self.cleanup_after_playback(ctx)
@@ -1084,10 +1078,12 @@ class Music(commands.Cog):
                 await asyncio.sleep(1)
                 return await self.play_next(ctx)
             
-            self.add_song_to_history(ctx.author.id, song_info_from_ytdl)
-            song_info_from_ytdl['requester'] = ctx.author.mention
+            requester = self.now_playing_info.get(guild_id, {}).get('requester', ctx.author.mention)
+            song_info_from_ytdl['requester'] = requester
             
-            source = await YTDLSource.from_url(url, loop=self.bot.loop, stream=True, retry_count=2)
+            self.add_song_to_history(ctx.author.id, song_info_from_ytdl)
+            
+            source = await YTDLSource.from_url(url, loop=self.bot.loop, stream=True, retry_count=3)
             
             if ctx.voice_client.is_playing() or ctx.voice_client.is_paused():
                 ctx.voice_client.stop()
@@ -1124,6 +1120,15 @@ class Music(commands.Cog):
                     await target_channel.send(f"Terjadi error saat memutar: {error}")
                 else:
                     await ctx.send(f"Terjadi error saat memutar: {error}")
+            
+            if guild_id in self.now_playing_info:
+                 current_url = self.now_playing_info[guild_id].get('webpage_url')
+                 if current_url:
+                     queue = self.get_queue(guild_id)
+                     if not self.loop_status.get(guild_id, False):
+                         queue.insert(0, current_url) 
+                         log.info(f"Inserted current song back to queue for retry due to error.")
+        
         await asyncio.sleep(1)
         if ctx.voice_client and ctx.voice_client.is_connected():
             await self.play_next(ctx)
@@ -1144,39 +1149,6 @@ class Music(commands.Cog):
                     pass
                 finally:
                     self.current_music_message_info.pop(guild_id, None)
-
-    async def refill_queue_for_random(self, ctx, num_songs=10):
-        user_id_str = str(ctx.author.id)
-        new_urls = []
-        
-        user_history = self.listening_history.get(user_id_str, [])
-        
-        if not isinstance(user_history, list):
-            user_history = []
-        
-        if user_history:
-            filtered_history_urls = [s['webpage_url'] for s in user_history if 'webpage_url' in s]
-            
-            if filtered_history_urls:
-                random.shuffle(filtered_history_urls)
-                urls_from_history = filtered_history_urls[:num_songs]
-                new_urls.extend(urls_from_history)
-
-        if len(new_urls) < num_songs:
-            search_query = "trending music"
-            try:
-                info = await asyncio.to_thread(lambda: ytdl.extract_info(search_query, download=False, process=True))
-                if 'entries' in info and isinstance(info.get('entries'), list):
-                    filtered_entries_urls = [entry['webpage_url'] for entry in info['entries'] if 'webpage_url' in entry]
-                    
-                    if filtered_entries_urls:
-                        random.shuffle(filtered_entries_urls)
-                        urls_from_search = filtered_entries_urls[:num_songs - len(new_urls)]
-                        new_urls.extend(urls_from_search)
-            except Exception as e:
-                pass
-                
-        self.get_queue(ctx.guild.id).extend(new_urls)
 
     async def _update_music_message_from_ctx(self, ctx):
         guild_id = ctx.guild.id
@@ -1272,47 +1244,75 @@ class Music(commands.Cog):
             if not ctx.voice_client:
                 return await ctx.send("Gagal bergabung ke voice channel.")
         await ctx.defer()
-        urls = []
+        
+        urls_to_queue = []
+        first_song_info = None
         is_spotify_request = False
-        spotify_track_info = None
-        if self.spotify and ("http" in query and ("open.spotify.com/track/" in query or "open.spotify.com/playlist/" in query or "open.spotify.com/album/" in query) or "spotify:" in query):
+        
+        # Penanganan Spotify (Playlist, Album, Track)
+        if self.spotify and ("http" in query and ("spotify.com" in query) or "spotify:" in query):
             is_spotify_request = True
+            search_queries = []
+            
             try:
                 if "track" in query:
-                    track = self.spotify.track(query)
-                    spotify_track_info = {
+                    track_id = query.split('/')[-1].split('?')[0] if 'http' in query else query
+                    track = self.spotify.track(track_id)
+                    search_queries.append(f"{track['name']} {track['artists'][0]['name']}")
+                    first_song_info = {
                         'title': track['name'],
                         'artist': track['artists'][0]['name'],
                         'webpage_url': track['external_urls']['spotify'],
                         'requester': ctx.author.mention
                     }
-                    urls.append(f"{track['name']} {track['artists'][0]['name']}")
                 elif "playlist" in query:
+                    await ctx.send(f"🎧 Mengambil lagu dari playlist Spotify...", ephemeral=True)
                     results = self.spotify.playlist_tracks(query)
-                    for item in results['items']:
-                        track = item['track']
-                        if track:
-                            urls.append(f"{track['name']} {track['artists'][0]['name']}")
+                    tracks_list = [item['track'] for item in results['items'] if item['track']]
+                    search_queries.extend([f"{track['name']} {track['artists'][0]['name']}" for track in tracks_list])
                 elif "album" in query:
+                    await ctx.send(f"🎧 Mengambil lagu dari album Spotify...", ephemeral=True)
                     results = self.spotify.album_tracks(query)
-                    for item in results['items']:
-                        track = item
-                        if track:
-                            urls.append(f"{track['name']} {track['artists'][0]['name']}")
+                    tracks_list = [item for item in results['items']]
+                    album_info = self.spotify.album(query)
+                    album_artist = album_info['artists'][0]['name'] if album_info['artists'] else 'Unknown Artist'
+                    search_queries.extend([f"{track['name']} {album_artist}" for track in tracks_list])
+                    
             except Exception as e:
-                await ctx.send(f"Terjadi kesalahan saat memproses link Spotify: {e}", ephemeral=True)
+                await ctx.send(f"❌ Terjadi kesalahan saat memproses link Spotify: {e}", ephemeral=True)
                 return
-        if not is_spotify_request:
-            urls.append(query)
+
+            # Mengkonversi query Spotify ke URL YouTube
+            if search_queries:
+                await ctx.send(f"Mencari {len(search_queries)} lagu di YouTube...", ephemeral=True)
+                for query_item in search_queries:
+                    try:
+                        info = await asyncio.to_thread(lambda: ytdl.extract_info(query_item, download=False, process=True))
+                        if 'entries' in info and isinstance(info.get('entries'), list) and info['entries']:
+                            urls_to_queue.append(info['entries'][0]['webpage_url'])
+                    except Exception:
+                        log.warning(f"Failed to find YouTube URL for query: {query_item}")
+                        continue
+        
+        # Penanganan YouTube/Query Langsung
+        else:
+            urls_to_queue.append(query)
+
         queue = self.get_queue(ctx.guild.id)
+
+        if not urls_to_queue:
+             return await ctx.send("❌ Gagal menemukan lagu atau playlist untuk diputar.", ephemeral=True)
+
         if not ctx.voice_client.is_playing() and not ctx.voice_client.is_paused() and not queue:
-            first_url = urls.pop(0)
-            queue.extend(urls)
+            first_url = urls_to_queue.pop(0)
+            queue.extend(urls_to_queue)
+            
             try:
                 source = await YTDLSource.from_url(first_url, loop=self.bot.loop, stream=True)
-                ctx.voice_client.play(source, after=lambda e: asyncio.run_coroutine_threadsafe(self._after_play_handler(ctx, e), self.bot.loop))
-                if is_spotify_request and spotify_track_info:
-                    self.now_playing_info[ctx.guild.id] = spotify_track_info
+                
+                if is_spotify_request and first_song_info:
+                    self.now_playing_info[ctx.guild.id] = first_song_info
+                    self.now_playing_info[ctx.guild.id]['webpage_url'] = source.webpage_url # Ganti URL Spotify dengan URL YouTube
                 else:
                     song_info_from_ytdl = await self.get_song_info_from_url(first_url)
                     self.now_playing_info[ctx.guild.id] = {
@@ -1321,7 +1321,11 @@ class Music(commands.Cog):
                         'webpage_url': song_info_from_ytdl['webpage_url'],
                         'requester': ctx.author.mention
                     }
+                
                 self.add_song_to_history(ctx.author.id, self.now_playing_info[ctx.guild.id])
+                
+                ctx.voice_client.play(source, after=lambda e: asyncio.run_coroutine_threadsafe(self._after_play_handler(ctx, e), self.bot.loop))
+                
                 embed = discord.Embed(
                     title="🎶 Sedang Memutar",
                     description=f"**[{self.now_playing_info[ctx.guild.id]['title']}]({self.now_playing_info[ctx.guild.id]['webpage_url']})**",
@@ -1364,11 +1368,11 @@ class Music(commands.Cog):
                 return
         else:
             if is_spotify_request:
-                await ctx.send(f"Ditambahkan ke antrian: **{len(urls)} lagu**.", ephemeral=True)
+                await ctx.send(f"Ditambahkan ke antrean: **{len(urls_to_queue)} lagu** dari Spotify.", ephemeral=True)
             else:
-                song_info = await self.get_song_info_from_url(urls[0])
+                song_info = await self.get_song_info_from_url(urls_to_queue[0])
                 await ctx.send(f"Ditambahkan ke antrean: **{song_info['title']}**.", ephemeral=True)
-            queue.extend(urls)
+            queue.extend(urls_to_queue)
             if ctx.guild.id in self.current_music_message_info:
                 await self._update_music_message_from_ctx(ctx)
 
@@ -1508,61 +1512,8 @@ class Music(commands.Cog):
     
     @commands.command(name="resprandom")
     async def personal_random(self, ctx, *urls):
-        if not ctx.voice_client:
-            await ctx.invoke(self.join)
-            if not ctx.voice_client:
-                return await ctx.send("Gagal bergabung ke voice channel.", ephemeral=True)
-        await ctx.defer()
-        is_spotify_request = False
-        if urls and self.spotify and ("open.spotify.com" in urls[0] or "spotify:" in urls[0]):
-            is_spotify_request = True
-            await ctx.send(f"🎧 Mengambil lagu dari {len(urls)} playlist/album Spotify...", ephemeral=True)
-            search_queries = []
-            for url in urls:
-                try:
-                    if "track" in url:
-                        track = self.spotify.track(url)
-                        search_queries.append(f"{track['name']} {track['artists'][0]['name']}")
-                    elif "playlist" in url:
-                        results = self.spotify.playlist_tracks(url)
-                        for item in results['items']:
-                            track = item['track']
-                            if track:
-                                search_queries.append(f"{track['name']} {track['artists'][0]['name']}")
-                    elif "album" in url:
-                        results = self.spotify.album_tracks(url)
-                        for item in results['items']:
-                            track = item
-                            if track:
-                                search_queries.append(f"{track['name']} {track['artists'][0]['name']}")
-                except Exception:
-                    continue
-            new_urls = []
-            for query in search_queries:
-                try:
-                    info = await asyncio.to_thread(lambda: ytdl.extract_info(query, download=False, process=True))
-                    if 'entries' in info and isinstance(info.get('entries'), list):
-                        new_urls.append(info['entries'][0]['webpage_url'])
-                except Exception:
-                    pass
-            queue = self.get_queue(ctx.guild.id)
-            queue.extend(new_urls)
-            await ctx.send(f"🎧 Menambahkan {len(new_urls)} lagu dari Spotify ke antrean.", ephemeral=True)
-            if not ctx.voice_client.is_playing() and not ctx.voice_client.is_paused():
-                await self.play_next(ctx)
-            else:
-                await self._update_music_message_from_ctx(ctx)
-            return
-        await self.refill_queue_for_random(ctx, num_songs=10)
-        queue = self.get_queue(ctx.guild.id)
-        if not queue:
-            return await ctx.send("❌ Tidak dapat menemukan lagu untuk dimainkan. Pastikan riwayat Anda tidak kosong, atau coba lagi nanti.", ephemeral=True)
-        if not ctx.voice_client.is_playing() and not ctx.voice_client.is_paused():
-            await ctx.send("🎧 Memulai mode acak pribadi. Menambahkan 10 lagu ke antrean.", ephemeral=True)
-            await self.play_next(ctx)
-        else:
-            await ctx.send(f"🎧 Menambahkan 10 lagu acak ke antrean.", ephemeral=True)
-            
+        await ctx.send("❌ Fitur random playback pribadi telah dihapus untuk stabilitas, silakan gunakan `!resp <query>`.", ephemeral=True)
+
     @commands.command(name="settriger", help="[ADMIN] Mengatur saluran suara pemicu untuk server ini.")
     @commands.has_permissions(administrator=True)
     async def set_trigger_channel(self, ctx, channel_id: int):
