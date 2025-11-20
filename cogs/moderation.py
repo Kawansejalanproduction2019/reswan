@@ -1342,7 +1342,8 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
                 ]
                 if not self.spam_history[user_id_str]:
                     del self.spam_history[user_id_str]
-
+        
+        if not message.author.guild_permissions.kick_members and not is_whitelisted:
             if self.detect_suspicious_links(message.content):
                 try:
                     await message.delete()
