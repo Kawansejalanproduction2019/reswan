@@ -16,6 +16,8 @@ WIB = timezone(timedelta(hours=7))
 def load_data(file_path):
     try:
         if not os.path.exists(file_path):
+            if not os.path.exists(os.path.dirname(file_path)):
+                os.makedirs(os.path.dirname(file_path))
             return {}
         with open(file_path, 'r', encoding='utf-8') as f:
             content = f.read()
@@ -492,12 +494,15 @@ class UniversalMembershipVerificationButton(discord.ui.Button):
         
         if is_member:
             confirm_message = guild_settings.get("membership_confirm_message", "🎉 Anda sudah menjadi anggota! Anda adalah anggota tier: **{tier_name}**.")
+            
             final_message = confirm_message.format(tier_name=tier_name, member=member.mention)
             await interaction.followup.send(embed=self.cog._create_embed(description=final_message, color=self.cog.color_success), ephemeral=True)
             
         else:
             invite_message = guild_settings.get("membership_invite_message", "🥺 Anda belum menjadi anggota channel YouTube. Silakan berlangganan untuk mendapatkan role eksklusif! [LINK MEMBERSHIP]")
+            
             final_message = invite_message.format(member=member.mention) 
+            
             await interaction.followup.send(embed=self.cog._create_embed(description=final_message, color=self.cog.color_warning), ephemeral=True)
 
 class UniversalMembershipView(discord.ui.View):
@@ -521,8 +526,11 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
         self.status_file = "data/status.json"
         self.mod_panel_message_id = None
         self.mod_panel_channel_id = None
+        
         self.spam_messages = {}
         self.spam_history = {}
+        self.cross_channel_spam_history = {} # Tambahan dari file 2
+        
         self.reminder_channel_id = 1379762287149187162
         self.male_role_id = 1385246612288311326
         self.female_role_id = 1379461360873898017
@@ -530,7 +538,7 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
         self.common_prefixes = ('!', '.', '?', '-', '$', '%', '&', '#', '+', '=')
         self.url_regex = re.compile(r'https?://[^\s/$.?#].[^\s]*')
         
-        self.color_success = 0xFFE000
+        self.color_success = 0xFFE000 
         self.color_error = 0xFFE000
         self.color_info = 0xFFE000
         self.color_warning = 0xF1C40F
@@ -539,16 +547,14 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
         self.color_announce = 0xFFE000
         self.color_booster = 0xFFE000
         
-        self.media_spam_cooldown = commands.CooldownMapping.from_cooldown(3, 30.0, commands.BucketType.user)
-        self.media_spam_rapid_cooldown = commands.CooldownMapping.from_cooldown(5, 10.0, commands.BucketType.user)
-        self.media_spam_heavy_cooldown = commands.CooldownMapping.from_cooldown(8, 60.0, commands.BucketType.user)
-        self.link_spam_cooldown = commands.CooldownMapping.from_cooldown(2, 60.0, commands.BucketType.user)
-        self.fast_spam_cooldown = commands.CooldownMapping.from_cooldown(5, 10.0, commands.BucketType.user)
-        self.global_spam_cooldown = commands.CooldownMapping.from_cooldown(8, 15.0, commands.BucketType.user)
+        # COOLDOWN MAPPINGS (Gabungan dari kedua file)
+        self.media_spam_cooldown = commands.CooldownMapping.from_cooldown(3, 30.0, commands.BucketType.user) # Disesuaikan ke file 2
+        self.media_spam_rapid_cooldown = commands.CooldownMapping.from_cooldown(5, 10.0, commands.BucketType.user) # Tambahan dari file 2
+        self.media_spam_heavy_cooldown = commands.CooldownMapping.from_cooldown(8, 60.0, commands.BucketType.user) # Tambahan dari file 2
+        self.link_spam_cooldown = commands.CooldownMapping.from_cooldown(2, 60.0, commands.BucketType.user) # Dari file 1 (dipertahankan)
+        self.fast_spam_cooldown = commands.CooldownMapping.from_cooldown(5, 10.0, commands.BucketType.user) # Dari file 1 dan 2
+        self.global_spam_cooldown = commands.CooldownMapping.from_cooldown(8, 15.0, commands.BucketType.user) # Tambahan dari file 2
         
-        self.cross_channel_spam_history = {}
-        self.spam_messages = {}
-
         self.settings = load_data(self.settings_file)
         self.filters = load_data(self.filters_file)
         self.warnings = load_data(self.warnings_file)
@@ -563,6 +569,7 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
             self.status["status"] = "online"
             save_data(self.status_file, self.status)
         
+        # Tambahkan semua persistent views
         for guild_id_str, settings in self.settings.items():
             if 'verification_button_label' in settings:
                 try:
@@ -571,14 +578,15 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
                     pass
 
         self.update_panel_task.start()
-        self.cleanup_spam_history.start()
+        self.cleanup_spam_history.start() # Tambahan dari file 2
         
     def cog_unload(self):
         self.update_panel_task.cancel()
-        self.cleanup_spam_history.cancel()
+        self.cleanup_spam_history.cancel() # Tambahan dari file 2
 
     def get_guild_settings(self, guild_id: int):
         guild_id_str = str(guild_id)
+        # INISIALISASI SETELAN BARU
         if guild_id_str not in self.settings:
             self.settings[guild_id_str] = {
                 "auto_role_id": None, 
@@ -646,6 +654,9 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
             self.settings[guild_id_str]["verification_button_label"] = "Verifikasi Membership" 
         if "spam_whitelist_roles" not in self.settings[guild_id_str]:
             self.settings[guild_id_str]["spam_whitelist_roles"] = []
+        if "panel_role_stats" not in self.settings[guild_id_str]:
+            self.settings[guild_id_str]["panel_role_stats"] = []
+
 
         save_data(self.settings_file, self.settings)
         return self.settings[guild_id_str]
@@ -687,7 +698,10 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
             embed = self._create_embed(title=title, color=color, timestamp=datetime.now(WIB))
             for name, value in fields.items():
                 embed.add_field(name=name, value=value, inline=False)
-            await log_channel.send(embed=embed)
+            try:
+                await log_channel.send(embed=embed)
+            except discord.Forbidden:
+                pass
         else:
             pass
 
@@ -721,17 +735,22 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
         except discord.Forbidden:
             raise
 
+    # --- FUNGSI BANTUAN MEMBERSHIP ---
     async def check_membership_status(self, member: discord.Member) -> tuple[bool, Optional[str]]:
+        """Cek apakah anggota memiliki role pengecekan utama. Jika ya, tentukan tier terbaik."""
         guild_settings = self.get_guild_settings(member.guild.id)
         main_role_id = guild_settings.get("main_membership_role_id")
         
+        # 1. Cek Main Role
         if not main_role_id:
+            # Mengembalikan string error yang akan ditangani di callback tombol
             return False, "ERROR: Main Role Belum Diatur" 
 
         main_role = member.guild.get_role(main_role_id)
         if not main_role or main_role not in member.roles:
-            return False, None
+            return False, None # Belum punya main role (Gagal Verifikasi)
 
+        # 2. Jika punya main role, tentukan Tier Membership tertinggi
         membership_roles_data = guild_settings.get("membership_roles", {})
         
         tier_roles_in_guild = []
@@ -739,14 +758,18 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
             if role := member.guild.get_role(int(role_id_str)):
                 tier_roles_in_guild.append((role.position, role.id, data['tier_name']))
 
+        # Urutkan berdasarkan posisi role (semakin tinggi posisi, semakin baik tier)
         tier_roles_in_guild.sort(key=lambda x: x[0], reverse=True)
 
         for position, role_id, tier_name in tier_roles_in_guild:
             if role_id in [r.id for r in member.roles]:
+                # Ditemukan tier tertinggi yang dimiliki member
                 return True, tier_name
         
+        # Jika punya main role tapi tidak punya role tier yang terdaftar (mungkin hanya tier base)
         return True, "Base Tier / Tier Role Belum Didaftarkan"
 
+    # --- FUNGSI BANTUAN ANTI-SPAM (Dari File 2) ---
     def detect_suspicious_links(self, content: str) -> bool:
         suspicious_patterns = [
             r'discord\.gift', r'discord\.com\/gifts', r'discordapp\.com\/gifts',
@@ -793,9 +816,12 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
             if not self.cross_channel_spam_history[user_id]:
                 del self.cross_channel_spam_history[user_id]
 
+    # --- COMMAND MEMBERSHIP (Sama di kedua file) ---
+    
     @commands.command(name="setmainmembershiprole", aliases=["smr"])
     @commands.has_permissions(manage_guild=True)
     async def set_main_membership_role(self, ctx: commands.Context, role: discord.Role):
+        """Mengatur satu Role utama yang harus dimiliki semua anggota YouTube."""
         guild_settings = self.get_guild_settings(ctx.guild.id)
         guild_settings["main_membership_role_id"] = role.id
         self.save_settings()
@@ -803,9 +829,11 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
         await ctx.send(embed=self._create_embed(description=f"✅ Role **Pengecekan Utama Membership** berhasil diatur ke {role.mention}. Semua pengecekan akan berpatokan pada role ini.", color=self.color_success))
         await self.log_action(ctx.guild, "🔑 Role Utama Membership Diatur", {"Role": role.mention, "Moderator": ctx.author.mention}, self.color_info)
 
+
     @commands.command(name="addmembershiprole", aliases=["amr"])
     @commands.has_permissions(manage_roles=True)
     async def add_membership_role(self, ctx: commands.Context, role: discord.Role, *, tier_name: str):
+        """Menambahkan role ke daftar role tier membership YouTube (via JSON) untuk menentukan TIER NAME."""
         guild_settings = self.get_guild_settings(ctx.guild.id)
         role_id_str = str(role.id)
         main_role_id = guild_settings.get("main_membership_role_id")
@@ -834,6 +862,7 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
     @commands.command(name="removemembershiprole", aliases=["rmr"])
     @commands.has_permissions(manage_roles=True)
     async def remove_membership_role(self, ctx: commands.Context, role: discord.Role):
+        """Menghapus role dari daftar role tier membership YouTube."""
         guild_settings = self.get_guild_settings(ctx.guild.id)
         role_id_str = str(role.id)
 
@@ -850,6 +879,7 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
     @commands.command(name="setmembershipmessage", aliases=["smm"])
     @commands.has_permissions(manage_guild=True)
     async def set_membership_message(self, ctx: commands.Context, type: Literal['invite', 'confirm', 'button_label'], *, message_content: str):
+        """Mengatur pesan ajakan (invite), konfirmasi (confirm), atau label tombol (button_label). Gunakan {tier_name} dan {member}."""
         guild_settings = self.get_guild_settings(ctx.guild.id)
 
         if type == 'invite':
@@ -876,6 +906,7 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
     @commands.command(name="sendverificationbutton", aliases=["svb"])
     @commands.has_permissions(manage_guild=True)
     async def send_verification_button(self, ctx: commands.Context, *, button_label: Optional[str] = None):
+        """Mengirimkan satu tombol universal untuk memverifikasi status membership YouTube."""
         guild_settings = self.get_guild_settings(ctx.guild.id)
         
         final_label = button_label or guild_settings.get("verification_button_label", "Verifikasi Membership")
@@ -887,6 +918,7 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
             await ctx.send(embed=self._create_embed(description="❌ **Role Pengecekan Utama** belum diatur. Harap atur dengan `!setmainmembershiprole <@role>` terlebih dahulu.", color=self.color_error))
             return
 
+        # Kumpulkan daftar tier untuk deskripsi
         tier_list = []
         for role_id_str, data in guild_settings.get("membership_roles", {}).items():
             role = ctx.guild.get_role(int(role_id_str))
@@ -911,8 +943,10 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
         view = UniversalMembershipView(self, final_label)
         await ctx.send(embed=embed, view=view)
 
+    # --- LISTENER & EVENT (Gabungan Penuh) ---
     @commands.Cog.listener()
     async def on_guild_update(self, before: discord.Guild, after: discord.Guild):
+        # Membandingkan jumlah total boost
         if after.premium_subscription_count > before.premium_subscription_count:
             
             guild_settings = self.get_guild_settings(after.id)
@@ -929,6 +963,7 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
             boost_sender_name = guild_settings.get("boost_sender_name", "Tim Server")
             boost_image_url = guild_settings.get("boost_image_url")
             
+            # Cek Level Up
             level_change_message = ""
             if after.premium_tier > before.premium_tier:
                 level_change_message = f"\n\n**Server Level UP!** Kami mencapai Level {after.premium_tier}!"
@@ -1011,12 +1046,14 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
                 embed.set_image(url=member.display_avatar.url)
             embed.set_footer(text=f"Anggota tersisa {member.guild.member_count}.")
             
+            
             try:
                 await channel.send(embed=embed)
             except discord.Forbidden:
                 pass
             except Exception:
                 pass
+
 
         guild_id_str = str(member.guild.id)
         member_id_str = str(member.id)
@@ -1043,6 +1080,7 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
         )
 
         await self.update_panel(member.guild)
+    
     
     @commands.Cog.listener()
     async def on_command_error(self, ctx: commands.Context, error: commands.CommandError):
@@ -1158,9 +1196,11 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
                 {"Anggota": after.mention, "Channel Target": boost_channel.mention},
                 self.color_warning
             )
+        
     
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
+        # Abaikan pesan dari Bot sendiri atau di luar Guild
         if not message.guild or message.author.id == self.bot.user.id or message.author.bot: 
             return
 
@@ -1168,11 +1208,20 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
         whitelist_roles = guild_settings.get("spam_whitelist_roles", [])
         is_whitelisted = any(r.id in whitelist_roles for r in message.author.roles)
         user_id_str = str(message.author.id)
-        current_time = time.time()
-        media_count = len(message.attachments) if message.attachments else 0
-        total_size = sum(att.size for att in message.attachments) if message.attachments else 0
+        current_time = time.time() # Diperlukan untuk logika spam file 2
+        
+        # Inisialisasi awal message.content untuk menghindari error jika pesan hanya media
+        message_content_lower = message.content.lower()
 
-        if not message.author.guild_permissions.kick_members and not is_whitelisted:
+        # Cek apakah pesan adalah command bot, jika ya, segera keluar setelah ini
+        is_command = message.content.startswith(tuple(await self.bot.get_prefix(message)))
+
+        # =================================================================
+        # 1. GLOBAL SPAM CHECK (Volume Pesan Teks & Lintas Channel) (Prioritas Tertinggi)
+        # =================================================================
+        if not message.author.guild_permissions.kick_members and not is_whitelisted and not is_command:
+            
+            # --- Anti-Spam Lintas Channel (File 2) ---
             if user_id_str not in self.cross_channel_spam_history:
                 self.cross_channel_spam_history[user_id_str] = []
             
@@ -1183,6 +1232,7 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
                 'content': message.content[:100]
             })
             
+            # Bersihkan riwayat yang lebih dari 30 detik
             self.cross_channel_spam_history[user_id_str] = [
                 entry for entry in self.cross_channel_spam_history[user_id_str]
                 if current_time - entry['timestamp'] <= 30
@@ -1191,7 +1241,7 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
             global_bucket = self.global_spam_cooldown.get_bucket(message)
             global_retry_after = global_bucket.update_rate_limit()
             
-            if global_retry_after:
+            if global_retry_after: # Pemicu jika mengirim 8+ pesan dalam 15 detik
                 messages_to_delete = self.cross_channel_spam_history.pop(user_id_str, [])
                 
                 delete_tasks = []
@@ -1199,19 +1249,20 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
                     try:
                         channel = message.guild.get_channel(entry['channel_id'])
                         if channel and channel.permissions_for(message.guild.me).manage_messages:
-                            msg = await channel.fetch_message(entry['message_id'])
-                            delete_tasks.append(msg.delete(reason="Global Cross-Channel Spam"))
-                    except (discord.NotFound, discord.Forbidden, discord.HTTPException):
+                            # Menggunakan delete messages massal (discord.Object) seperti di file 1
+                            tasks.append(channel.delete_messages([discord.Object(id=entry['message_id'])], reason="Global Cross-Channel Spam Detected"))
+                    except Exception:
                         continue
                 
-                if delete_tasks:
+                if tasks:
                     try:
-                        await asyncio.gather(*delete_tasks, return_exceptions=True)
-                    except Exception:
-                        pass
+                        await asyncio.gather(*tasks, return_exceptions=True)
+                    except discord.Forbidden:
+                        await self.log_action(message.guild, "❌ PENGHAPUSAN SPAM LINTAS CHANNEL GAGAL", 
+                            {"Member": message.author.mention, "Channel Pemicu": message.channel.mention, "Error": "Gagal menghapus beberapa pesan (Forbidden/Izin)."}, self.color_error)
 
                 if not message.author.is_timed_out():
-                    duration = timedelta(minutes=30)
+                    duration = timedelta(minutes=30) # Waktu yang lebih lama karena lintas channel
                     reason = "Global Cross-Channel Spam Detection (Auto-Timeout 30m)"
                     
                     try:
@@ -1248,14 +1299,80 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
                             self.color_error
                         )
                 
-                return
+                return # Hentikan pemrosesan karena sudah disanksi
+            
+            # --- Anti-Spam Teks Biasa (Fast Spam - File 1) ---
+            self.spam_history.setdefault(user_id_str, []).append({
+                'channel_id': message.channel.id, 
+                'message_id': message.id, 
+                'timestamp': current_time
+            })
 
-        if not message.author.guild_permissions.kick_members and not is_whitelisted:
+            bucket = self.fast_spam_cooldown.get_bucket(message)
+            retry_after = bucket.update_rate_limit()
+
+            if retry_after: # Pemicu jika mengirim 5+ pesan dalam 10 detik
+                
+                messages_to_delete = self.spam_history.pop(user_id_str, [])
+                
+                tasks = []
+                for entry in messages_to_delete:
+                    try:
+                        channel = message.guild.get_channel(entry['channel_id'])
+                        if channel and channel.permissions_for(message.guild.me).manage_messages:
+                            tasks.append(channel.delete_messages([discord.Object(id=entry['message_id'])], reason="Global Spam Detected"))
+                    except Exception:
+                        pass
+                
+                if tasks:
+                    try:
+                        await asyncio.gather(*tasks, return_exceptions=True)
+                    except discord.Forbidden:
+                       await self.log_action(message.guild, "❌ PENGHAPUSAN SPAM GAGAL", 
+                           {"Member": message.author.mention, "Channel Pemicu": message.channel.mention, "Error": "Gagal menghapus beberapa pesan (Forbidden/Izin)."}, self.color_error)
+
+
+                if not message.author.is_timed_out():
+                    duration = timedelta(minutes=10) 
+                    reason = "Global Fast Spam: >5 messages in 10 seconds (Auto-Timeout 10m)."
+                    
+                    try:
+                        await message.author.timeout(duration, reason=reason)
+                        
+                        await message.channel.send(
+                            embed=self._create_embed(
+                                description=f"🚫 {message.author.mention} telah di-**TIMEOUT** selama 10 menit karena **Spam Massal**.",
+                                color=self.color_error
+                            ),
+                            delete_after=10
+                        )
+                        await self.log_action(message.guild, "🚫 Global Spam Detected (Fast Spam)", 
+                            {"Member": message.author.mention, "Channel Pemicu": message.channel.mention, "Aksi": "Timeout (10m)"}, 
+                            self.color_error)
+                    except discord.Forbidden:
+                        await self.log_action(message.guild, "🚫 Global Spam Detected (Fast Spam)", 
+                            {"Member": message.author.mention, "Channel Pemicu": message.channel.mention, "Aksi": "Gagal Timeout (Izin Kurang)"}, 
+                            self.color_error)
+                    
+                return 
+
+            # --- Bersihkan riwayat pesan lama ---
+            cooldown_duration = self.fast_spam_cooldown._cooldown.per 
+            
+            if user_id_str in self.spam_history:
+                self.spam_history[user_id_str] = [
+                    entry for entry in self.spam_history[user_id_str] 
+                    if current_time - entry['timestamp'] <= cooldown_duration
+                ]
+                if not self.spam_history[user_id_str]:
+                    del self.spam_history[user_id_str]
+            
+            # --- Anti-Phishing/Suspicious Link (File 2) ---
             if self.detect_suspicious_links(message.content):
                 try:
                     await message.delete()
                     
-                    warning_msg = await message.channel.send(
+                    await message.channel.send(
                         embed=self._create_embed(
                             description=f"🛡️ {message.author.mention}, pesan Anda dihapus karena mengandung link mencurigakan yang berpotensi phising.",
                             color=self.color_warning
@@ -1289,7 +1406,14 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
                 
                 return
 
+        # =================================================================
+        # 2. FILTER MEDIA & FILE (Logika dari File 2)
+        # =================================================================
         if message.attachments and not message.author.guild_permissions.kick_members and not is_whitelisted:
+            total_size = sum(att.size for att in message.attachments)
+            media_count = len(message.attachments)
+
+            # Cek tipe file yang tidak diizinkan
             for attachment in message.attachments:
                 if not self.is_allowed_file_type(attachment.filename):
                     try:
@@ -1304,17 +1428,14 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
                         return
                     except discord.Forbidden:
                         pass
-                    break
+                    return # Keluar dari on_message setelah menghapus
 
-            total_size = sum(att.size for att in message.attachments)
-            media_count = len(message.attachments)
-            bucket_key = f"{message.author.id}_media"
-            
+            # Cek kuota media cepat (5+ media dalam 10 detik)
             rapid_bucket = self.media_spam_rapid_cooldown.get_bucket(message)
             rapid_retry_after = rapid_bucket.update_rate_limit()
 
-            if media_count >= 5:
-                rapid_retry_after = 1.0
+            if media_count >= 5: # Force trigger jika 5+ media dalam satu pesan
+                rapid_retry_after = 1.0 
             
             if rapid_retry_after:
                 try:
@@ -1322,7 +1443,7 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
                     if not message.author.is_timed_out():
                         await message.author.timeout(
                             timedelta(minutes=15),
-                            reason="Rapid media spam (5+ media in 10 seconds)"
+                            reason="Rapid media spam (5+ media in 10 seconds or single message)"
                         )
                         await message.channel.send(
                             embed=self._create_embed(
@@ -1334,10 +1455,11 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
                     return
                 except discord.Forbidden:
                     pass
-            
+
+            # Cek kuota media dasar (3 media dalam 30 detik)
             basic_bucket = self.media_spam_cooldown.get_bucket(message)
             basic_retry_after = basic_bucket.update_rate_limit()
-            
+
             if basic_retry_after:
                 try:
                     await message.delete()
@@ -1351,38 +1473,8 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
                     return
                 except discord.Forbidden:
                     pass
-            
-            heavy_bucket = self.media_spam_heavy_cooldown.get_bucket(message)
-            heavy_retry_after = heavy_bucket.update_rate_limit()
 
-        if media_count >= 3:
-            basic_retry_after = 1.0  # Force trigger untuk 3+ media
-        
-        if basic_retry_after:
-            try:
-                await message.delete()
-                await message.channel.send(
-                    embed=self._create_embed(
-                        description=f"🖼️ {message.author.mention}, terlalu banyak media ({media_count} files) dalam satu pesan. Maksimal 2 media.",
-                        color=self.color_warning
-                    ),
-                    delete_after=10
-                )
-                
-                await self.log_action(
-                    message.guild,
-                    "🖼️ Media Spam Detected",
-                    {
-                        "Member": message.author.mention,
-                        "Media Count": media_count,
-                        "Action": "Message Deleted + Warning"
-                    },
-                    self.color_warning
-                )
-                return
-            except discord.Forbidden:
-                pass
-
+            # Cek kuota media berat (8+ media dalam 60 detik)
             heavy_bucket = self.media_spam_heavy_cooldown.get_bucket(message)
             heavy_retry_after = heavy_bucket.update_rate_limit()
             
@@ -1404,7 +1496,9 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
                     return
                 except discord.Forbidden:
                     pass
-            
+
+            # Cek batas ukuran file (dihapus karena bentrok dengan trigger cooldown sebelumnya)
+            # Logika di file 2 menyebutkan >5 file atau >50MB. Kita bisa menggunakan batasan ini sebagai hard limit terakhir.
             if len(message.attachments) > 5 or total_size > 50 * 1024 * 1024:
                 try:
                     await message.delete()
@@ -1418,79 +1512,28 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
                     return
                 except discord.Forbidden:
                     pass
-
-        if not message.author.guild_permissions.kick_members and not is_whitelisted:
-            self.spam_history.setdefault(user_id_str, []).append({
-                'channel_id': message.channel.id, 
-                'message_id': message.id, 
-                'timestamp': time.time()
-            })
-
-            bucket = self.fast_spam_cooldown.get_bucket(message)
-            retry_after = bucket.update_rate_limit()
-
-            if retry_after:
-                messages_to_delete = self.spam_history.pop(user_id_str, [])
-                
-                tasks = []
-                for entry in messages_to_delete:
-                    try:
-                        channel = message.guild.get_channel(entry['channel_id'])
-                        if channel and channel.permissions_for(message.guild.me).manage_messages:
-                            tasks.append(channel.delete_messages([discord.Object(id=entry['message_id'])], reason="Global Spam Detected"))
-                    except Exception:
-                        pass
-                
-                if tasks:
-                    try:
-                        await asyncio.gather(*tasks, return_exceptions=True)
-                    except discord.Forbidden:
-                       await self.log_action(message.guild, "❌ PENGHAPUSAN SPAM GAGAL", 
-                           {"Member": message.author.mention, "Channel Pemicu": message.channel.mention, "Error": "Gagal menghapus beberapa pesan (Forbidden/Izin)."}, self.color_error)
-
-                if not message.author.is_timed_out():
-                    duration = timedelta(minutes=10) 
-                    reason = "Global Fast Spam: >5 messages in 10 seconds (Auto-Timeout 10m)."
-                    
-                    try:
-                        await message.author.timeout(duration, reason=reason)
-                        
-                        await message.channel.send(
-                            embed=self._create_embed(
-                                description=f"🚫 {message.author.mention} telah di-**TIMEOUT** selama 10 menit karena **Spam Massal**.",
-                                color=self.color_error
-                            ),
-                            delete_after=10
-                        )
-                        await self.log_action(message.guild, "🚫 Global Spam Detected", 
-                            {"Member": message.author.mention, "Channel Pemicu": message.channel.mention, "Aksi": "Timeout (10m)"}, 
-                            self.color_error)
-                    except discord.Forbidden:
-                        await self.log_action(message.guild, "🚫 Global Spam Detected", 
-                            {"Member": message.author.mention, "Channel Pemicu": message.channel.mention, "Aksi": "Gagal Timeout (Izin Kurang)"}, 
-                            self.color_error)
-                    
-                return
-
-        current_time = time.time()
-        cooldown_duration = self.fast_spam_cooldown._cooldown.per 
         
-        if user_id_str in self.spam_history:
-            self.spam_history[user_id_str] = [
-                entry for entry in self.spam_history[user_id_str] 
-                if current_time - entry['timestamp'] <= cooldown_duration
-            ]
-            if not self.spam_history[user_id_str]:
-                del self.spam_history[user_id_str]
-
+        # =================================================================
+        # 3. CHANNEL RULES & FILTER KONTEN (Teks Biasa)
+        # =================================================================
+        
+        # Lanjutkan ke pemrosesan command jika pesan adalah command
+        if is_command:
+            # Tidak memanggil process_commands karena bot akan melakukannya setelah on_message selesai.
+            return 
+        
+        # Pindahkan logika rules filtering di sini:
         rules = self.get_channel_rules(message.guild.id, message.channel.id)
 
+        # Filter Auto-Delete
         if (delay := rules.get("auto_delete_seconds", 0)) > 0:
             try:
                 await message.delete(delay=delay)
             except discord.NotFound:
                 pass
 
+        # Filter Pesan Bot
+        # Diabaikan di awal, tapi kita tetap harus mengecek jika rule channel aktif
         if rules.get("disallow_bots") and message.author.bot:
             try:
                 await message.delete()
@@ -1498,6 +1541,7 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
                 pass
             return
 
+        # Filter Media/File
         if rules.get("disallow_media") and message.attachments:
             try:
                 await message.delete()
@@ -1509,6 +1553,7 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
             )
             return
 
+        # Filter Link/URL
         if rules.get("disallow_url") and self.url_regex.search(message.content):
             try:
                 await message.delete()
@@ -1520,14 +1565,19 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
             )
             return
 
-        if rules.get("disallow_prefix") and message.content.startswith(self.bot.command_prefix):
+        # Filter Prefix/Commands (hanya untuk perintah yang tidak valid/dilarang)
+        if rules.get("disallow_prefix") and message.content.startswith(self.common_prefixes):
             command_prefixes = await self.bot.get_prefix(message)
             if not isinstance(command_prefixes, list):
                 command_prefixes = [command_prefixes]
+            
+            # Cek apakah ini adalah command yang valid
             is_actual_command = any(
                 message.content.startswith(prefix) and self.bot.get_command(message.content[len(prefix):].split(' ')[0])
                 for prefix in command_prefixes
             )
+            
+            # Jika disallow_prefix AKTIF dan ini BUKAN command bot yang dikenali
             if not is_actual_command:
                 try:
                     await message.delete()
@@ -1539,10 +1589,10 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
                 )
                 return
 
+        # Filter Kata Kasar (Bad Words)
         guild_filters = self.get_guild_filters(message.guild.id)
-        content_lower = message.content.lower()
         for bad_word in guild_filters.get("bad_words", []):
-            if bad_word.lower() in content_lower:
+            if bad_word.lower() in message_content_lower:
                 try:
                     await message.delete()
                 except discord.Forbidden:
@@ -1602,9 +1652,12 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
         else:
             pass
 
+    # --- COMMAND MODERASI & SETUP (Sama di kedua file) ---
     @commands.command(name="testboost")
     @commands.is_owner()
     async def test_boost_message(self, ctx, member: Optional[discord.Member] = None):
+        """[DEV ONLY] Menguji pengiriman pesan Server Booster dengan data dummy."""
+        
         member_to_use = member or ctx.author
         
         guild_settings = self.get_guild_settings(ctx.guild.id)
@@ -1617,11 +1670,13 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
         if not boost_channel or not boost_channel.permissions_for(ctx.guild.me).send_messages:
             return await ctx.send(embed=self._create_embed(description="❌ Bot tidak bisa mengirim pesan di Boost Channel. Cek izin.", color=self.color_error))
 
+        # --- Logika Simulasi Pengiriman Pesan ---
         boost_message_content = guild_settings.get("boost_message", "Selamat! {user} baru saja boost {guild_name}!")
         boost_embed_title = guild_settings.get("boost_embed_title", "TERIMA KASIH SERVER BOOSTER!")
         boost_sender_name = guild_settings.get("boost_sender_name", "Tim Server")
         boost_image_url = guild_settings.get("boost_image_url")
 
+        # Format pesan dengan data member simulasi
         formatted_content = boost_message_content.format(user=member_to_use.mention, guild_name=ctx.guild.name)
 
         embed = discord.Embed(
@@ -1636,8 +1691,10 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
         if boost_image_url:
             embed.set_image(url=boost_image_url) 
         else:
+            # Gunakan avatar member yang di-test
             embed.set_image(url=member_to_use.display_avatar.url)
         
+        # Tambahkan indikator simulasi
         footer_text = f"[SIMULASI] Diuji oleh {ctx.author.display_name}"
         embed.set_footer(text=footer_text)
 
@@ -1687,7 +1744,6 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
             await ctx.send(embed=self._create_embed(description="❌ Bot does not have sufficient permissions to ban this member. Ensure the bot's role is higher.", color=self.color_error))
         except Exception as e:
             await ctx.send(embed=self._create_embed(description=f"❌ An error occurred while banning the member: {e}", color=self.color_error))
-
 
     @commands.command(name="unban")
     @commands.has_permissions(ban_members=True)
@@ -1812,9 +1868,11 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
             
         await ctx.send(embed=embed)
 
+
     @commands.command(name="setgoodbye", aliases=["sbm"])
     @commands.has_permissions(manage_guild=True)
     async def set_goodbye_message(self, ctx, *, message_content: str):
+        
         guild_settings = self.get_guild_settings(ctx.guild.id)
         
         if len(message_content) > 4000:
@@ -1830,6 +1888,7 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
         await ctx.send(embed=embed)
         await self.log_action(ctx.guild, "💬 Pesan Selamat Tinggal Diatur", {"Moderator": ctx.author.mention, "Isi Pesan": message_content}, self.color_info)
 
+
     @commands.command(name="timeout", aliases=["mute"])
     @commands.has_permissions(moderate_members=True)
     async def timeout(self, ctx, member: discord.Member, duration: str, *, reason: Optional[str] = "No reason provided."):
@@ -1841,6 +1900,7 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
             await ctx.send(embed=self._create_embed(description="❌ You cannot timeout this bot itself.", color=self.color_error)); return
         if member.top_role >= ctx.guild.me.top_role:
             await ctx.send(embed=self._create_embed(description="❌ Bot tidak dapat memberi timeout anggota ini karena peran mereka sama atau lebih tinggi dari peran bot.", color=self.color_error)); return
+
 
         delta = parse_duration(duration)
         if not delta: await ctx.send(embed=self._create_embed(description="❌ Invalid duration format. Use `s` (seconds), `m` (minutes), `h` (hours), `d` (days). Example: `10m`.", color=self.color_error)); return
@@ -2465,6 +2525,7 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
             guild_settings['mod_panel_message_id'] = None
             self.save_settings()
             
+            # Otomatis membuat ulang panel jika terhapus
             await self.create_mod_panel_if_needed(guild)
             return
         
@@ -2586,6 +2647,7 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
     @commands.command(name="addpanelrole", aliases=["apr"])
     @commands.has_permissions(manage_guild=True)
     async def add_panel_role(self, ctx: commands.Context, role: discord.Role):
+        """Menambahkan Role ke daftar yang akan ditampilkan jumlah anggotanya di Mod Panel."""
         guild_settings = self.get_guild_settings(ctx.guild.id)
         role_list = guild_settings.get("panel_role_stats", [])
 
@@ -2605,6 +2667,7 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
     @commands.command(name="removepanelrole", aliases=["rpr"])
     @commands.has_permissions(manage_guild=True)
     async def remove_panel_role(self, ctx: commands.Context, role: discord.Role):
+        """Menghapus Role dari daftar statistik di Mod Panel."""
         guild_settings = self.get_guild_settings(ctx.guild.id)
         role_list = guild_settings.get("panel_role_stats", [])
 
@@ -3192,6 +3255,8 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
             modal = self.cog.UnlockModal(self.cog)
             await interaction.response.send_modal(modal)
     
+    # --- Metode Pembantu untuk Modal (Sama di kedua file) ---
+
     async def warn_from_modal(self, interaction, member, reason):
         timestamp = int(time.time())
         warning_data = {
@@ -3229,7 +3294,7 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
         except discord.Forbidden:
             await interaction.followup.send(embed=self._create_embed(description="❌ Bot does not have sufficient permissions to timeout this member. Ensure the bot's role is higher.", color=self.color_error), ephemeral=True)
         except Exception as e:
-            await interaction.followup.send(embed=self.cog._create_embed(description=f"❌ An error occurred while timing out: {e}", color=self.cog.color_error), ephemeral=True)
+            await interaction.followup.send(embed=self._create_embed(description=f"❌ An error occurred while timing out: {e}", color=self.color_error), ephemeral=True)
             
     async def kick_from_modal(self, interaction, member, reason):
         try:
@@ -3239,7 +3304,7 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
         except discord.Forbidden:
             await interaction.followup.send(embed=self._create_embed(description="❌ Bot does not have sufficient permissions to kick this member. Ensure the bot's role is higher.", color=self.color_error), ephemeral=True)
         except Exception as e:
-            await interaction.followup.send(embed=self.cog._create_embed(description=f"❌ An error occurred while kicking the member: {e}", color=self.cog.color_error), ephemeral=True)
+            await interaction.followup.send(embed=self._create_embed(description=f"❌ An error occurred while kicking the member: {e}", color=self.color_error), ephemeral=True)
             
     async def ban_from_modal(self, interaction, member, reason):
         try:
@@ -3249,7 +3314,7 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
         except discord.Forbidden:
             await interaction.followup.send(embed=self._create_embed(description="❌ Bot does not have sufficient permissions to ban this member. Ensure the bot's role is higher.", color=self.color_error), ephemeral=True)
         except Exception as e:
-            await interaction.followup.send(embed=self.cog._create_embed(description=f"❌ An error occurred while banning the member: {e}", color=self.cog.color_error), ephemeral=True)
+            await interaction.followup.send(embed=self._create_embed(description=f"❌ An error occurred while banning the member: {e}", color=self.color_error), ephemeral=True)
             
     async def unban_from_modal(self, interaction, user, reason):
         try:
@@ -3257,11 +3322,11 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
             await interaction.followup.send(embed=self._create_embed(description=f"✅ Ban for **{user}** has been lifted.", color=self.color_success), ephemeral=True)
             await self.log_action(interaction.guild, "🤝 Ban Lifted", {"User": f"{user} ({user.id})", "Moderator": interaction.user.mention, "Reason": reason}, self.color_success)
         except discord.Forbidden:
-            await interaction.followup.send(embed=self.cog._create_embed(description="❌ Bot does not have sufficient permissions to unban this member.", color=self.cog.color_error), ephemeral=True)
+            await interaction.followup.send(embed=self._create_embed(description="❌ Bot does not have sufficient permissions to unban this member.", color=self.color_error), ephemeral=True)
         except discord.NotFound:
-            await interaction.followup.send(embed=self.cog._create_embed(description=f"❌ User `{user}` not found in ban list.", color=self.cog.color_error), ephemeral=True)
+            await interaction.followup.send(embed=self._create_embed(description=f"❌ User `{user}` not found in ban list.", color=self.color_error), ephemeral=True)
         except Exception as e:
-            await interaction.followup.send(embed=self.cog._create_embed(description=f"❌ An error occurred while unbanning: {e}", color=self.cog.color_error), ephemeral=True)
+            await interaction.followup.send(embed=self._create_embed(description=f"❌ An error occurred while unbanning: {e}", color=self.color_error), ephemeral=True)
 
     async def unwarn_from_modal(self, interaction, member, warning_index, reason):
         guild_id_str = str(interaction.guild.id)
@@ -3270,17 +3335,17 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
         user_warnings = self.warnings.get(guild_id_str, {}).get(member_id_str, [])
         
         if not user_warnings:
-            await interaction.followup.send(embed=self._create_embed(description=f"❌ **{member.display_name}** has no warnings.", color=self.cog.color_error), ephemeral=True)
+            await interaction.followup.send(embed=self._create_embed(description=f"❌ **{member.display_name}** has no warnings.", color=self.color_error), ephemeral=True)
             return
 
         if not (0 < warning_index <= len(user_warnings)):
-            await interaction.followup.send(embed=self._create_embed(description=f"❌ Invalid warning index. Use `!warnings {member.display_name}` to see the warning list.", color=self.cog.color_error), ephemeral=True)
+            await interaction.followup.send(embed=self._create_embed(description=f"❌ Invalid warning index. Use `!warnings {member.display_name}` to see the warning list.", color=self.color_error), ephemeral=True)
             return
         
         removed_warning = self.warnings[guild_id_str][member_id_str].pop(warning_index - 1)
         self.save_warnings()
         
-        await interaction.followup.send(embed=self._create_embed(description=f"✅ Warning #{warning_index} for **{member.display_name}** has been removed.", color=self.cog.color_success), ephemeral=True)
+        await interaction.followup.send(embed=self._create_embed(description=f"✅ Warning #{warning_index} for **{member.display_name}** has been removed.", color=self.color_success), ephemeral=True)
         
         log_fields = {
             "Member": f"{member} ({member.id})",
@@ -3302,7 +3367,8 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
         except discord.Forbidden:
             await interaction.followup.send(embed=self._create_embed(description="❌ Bot does not have sufficient permissions to remove timeout for this member. Ensure the bot's role is higher.", color=self.color_error), ephemeral=True)
         except Exception as e:
-            await interaction.followup.send(embed=self.cog._create_embed(description=f"❌ An error occurred while removing timeout: {e}", color=self.color_error), ephemeral=True)
+            await interaction.followup.send(embed=self._create_embed(description=f"❌ An error occurred while removing timeout: {e}", color=self.color_error), ephemeral=True)
+
 
     async def clear_from_modal(self, interaction, target_channel, deleted_count):
         embed = self._create_embed(description=f"🗑️ Successfully deleted **{deleted_count}** messages from {target_channel.mention}.", color=self.color_success)
