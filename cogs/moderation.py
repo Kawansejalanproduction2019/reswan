@@ -1305,9 +1305,14 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
                     break
 
             total_size = sum(att.size for att in message.attachments)
+            media_count = len(message.attachments)
+            bucket_key = f"{message.author.id}_media"
             
             rapid_bucket = self.media_spam_rapid_cooldown.get_bucket(message)
             rapid_retry_after = rapid_bucket.update_rate_limit()
+
+            if media_count >= 5:
+                rapid_retry_after = 1.0
             
             if rapid_retry_after:
                 try:
@@ -1345,6 +1350,37 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
                 except discord.Forbidden:
                     pass
             
+            heavy_bucket = self.media_spam_heavy_cooldown.get_bucket(message)
+            heavy_retry_after = heavy_bucket.update_rate_limit()
+
+        if media_count >= 3:
+            basic_retry_after = 1.0  # Force trigger untuk 3+ media
+        
+        if basic_retry_after:
+            try:
+                await message.delete()
+                await message.channel.send(
+                    embed=self._create_embed(
+                        description=f"🖼️ {message.author.mention}, terlalu banyak media ({media_count} files) dalam satu pesan. Maksimal 2 media.",
+                        color=self.color_warning
+                    ),
+                    delete_after=10
+                )
+                
+                await self.log_action(
+                    message.guild,
+                    "🖼️ Media Spam Detected",
+                    {
+                        "Member": message.author.mention,
+                        "Media Count": media_count,
+                        "Action": "Message Deleted + Warning"
+                    },
+                    self.color_warning
+                )
+                return
+            except discord.Forbidden:
+                pass
+
             heavy_bucket = self.media_spam_heavy_cooldown.get_bucket(message)
             heavy_retry_after = heavy_bucket.update_rate_limit()
             
@@ -1650,21 +1686,6 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
         except Exception as e:
             await ctx.send(embed=self._create_embed(description=f"❌ An error occurred while banning the member: {e}", color=self.color_error))
 
-    @commands.command(name="setmedialimit")
-    @commands.has_permissions(manage_guild=True)
-    async def set_media_limit(self, ctx, limit_type: str, value: int):
-    """Atur batas media spam"""
-       guild_settings = self.get_guild_settings(ctx.guild.id)
-    
-       if limit_type == "normal":
-           guild_settings["media_normal_limit"] = value
-       elif limit_type == "rapid":
-           guild_settings["media_rapid_limit"] = value
-       elif limit_type == "heavy":
-           guild_settings["media_heavy_limit"] = value
-    
-       self.save_settings()
-       await ctx.send(f"✅ Batas media `{limit_type}` diatur ke {value}")
 
     @commands.command(name="unban")
     @commands.has_permissions(ban_members=True)
