@@ -1169,6 +1169,8 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
         is_whitelisted = any(r.id in whitelist_roles for r in message.author.roles)
         user_id_str = str(message.author.id)
         current_time = time.time()
+        media_count = len(message.attachments) if message.attachments else 0
+        total_size = sum(att.size for att in message.attachments) if message.attachments else 0
 
         if not message.author.guild_permissions.kick_members and not is_whitelisted:
             if user_id_str not in self.cross_channel_spam_history:
