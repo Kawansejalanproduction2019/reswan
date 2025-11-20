@@ -1650,6 +1650,22 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
         except Exception as e:
             await ctx.send(embed=self._create_embed(description=f"❌ An error occurred while banning the member: {e}", color=self.color_error))
 
+    @commands.command(name="setmedialimit")
+    @commands.has_permissions(manage_guild=True)
+    async def set_media_limit(self, ctx, limit_type: str, value: int):
+    """Atur batas media spam"""
+       guild_settings = self.get_guild_settings(ctx.guild.id)
+    
+       if limit_type == "normal":
+           guild_settings["media_normal_limit"] = value
+       elif limit_type == "rapid":
+           guild_settings["media_rapid_limit"] = value
+       elif limit_type == "heavy":
+           guild_settings["media_heavy_limit"] = value
+    
+       self.save_settings()
+       await ctx.send(f"✅ Batas media `{limit_type}` diatur ke {value}")
+
     @commands.command(name="unban")
     @commands.has_permissions(ban_members=True)
     async def unban(self, ctx, *, user_identifier: str, reason: Optional[str] = "No reason provided."):
