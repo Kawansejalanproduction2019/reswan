@@ -10,13 +10,48 @@ import functools
 import uuid
 import aiohttp
 
-# Helper function to get YouTube video ID from URL
 def _get_youtube_video_id(url):
-    youtube_regex = r'(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.*&v=))([a-zA-Z0-9_-]{11})'
-    match = re.search(youtube_regex, url)
-    return match.group(1) if match else None
+    youtube_regex = (
+        r'(?:https?:\/\/)?'
+        r'(?:www\.)?'
+        r'(?:'
+        r'youtube\.com\/watch\?v=([a-zA-Z0-9_-]{11})'
+        r'|youtube\.com\/embed\/([a-zA-Z0-9_-]{11})'
+        r'|youtube\.com\/v\/([a-zA-Z0-9_-]{11})'
+        r'|youtube\.com\/shorts\/([a-zA-Z0-9_-]{11})'
+        r'|youtu\.be\/([a-zA-Z0-9_-]{11})'
+        r'|youtube\.com\/live\/([a-zA-Z0-9_-]{11})'
+        r'|youtube\.com\/watch\?.*&v=([a-zA-Z0-9_-]{11})'
+        r')'
+    )
+    
+    match = re.search(youtube_regex, url, re.IGNORECASE)
+    if match:
+        for group in match.groups():
+            if group:
+                return group
+    return None
 
-# Helper function to extract YouTube video info
+def _get_tiktok_video_id(url):
+    tiktok_regex = (
+        r'(?:https?:\/\/)?'
+        r'(?:www\.|vt\.|vm\.)?'
+        r'tiktok\.com\/'
+        r'(?:'
+        r'@[^\/]+\/video\/(\d+)'
+        r'|t\/\w+\/(\d+)'
+        r'|embed\/v2\?id=(\d+)'
+        r'|v\/(\d+)'
+        r')'
+    )
+    
+    match = re.search(tiktok_regex, url, re.IGNORECASE)
+    if match:
+        for group in match.groups():
+            if group:
+                return group
+    return None
+
 def _extract_youtube_info(url):
     ydl_opts = {
         'quiet': True,
@@ -54,7 +89,6 @@ def _extract_youtube_info(url):
             
         return None, None, None
 
-# Helper function to get config paths
 def get_config_path(cog, path_id, type_key, field_key=None):
     path_data = cog.config["notification_paths"].get(path_id)
     if not path_data: return None
@@ -62,7 +96,6 @@ def get_config_path(cog, path_id, type_key, field_key=None):
     path = path_data["custom_messages"][type_key]
     return path.get(field_key, "") if field_key else path
 
-# UI Modal for text input (Content, Title, Description)
 class TextModal(discord.ui.Modal):
     def __init__(self, title, label, default_value, parent_view, type_key, field_key, path_id):
         super().__init__(title=title)
@@ -84,7 +117,6 @@ class TextModal(discord.ui.Modal):
         self.parent_view.cog.save_config()
         await interaction.response.edit_message(embed=self.parent_view.build_embed(), view=self.parent_view)
 
-# UI Modal for button label input
 class ButtonLabelModal(discord.ui.Modal, title="Atur Tombol Notifikasi"):
     def __init__(self, parent_view, type_key, path_id):
         super().__init__()
@@ -105,7 +137,6 @@ class ButtonLabelModal(discord.ui.Modal, title="Atur Tombol Notifikasi"):
         self.parent_view.cog.save_config()
         await interaction.response.edit_message(embed=self.parent_view.build_embed(), view=self.parent_view.build_color_view())
 
-# UI View for selecting button/embed color
 class ButtonColorView(discord.ui.View):
     def __init__(self, parent_view, type_key, path_id):
         super().__init__(timeout=180)
@@ -141,7 +172,6 @@ class ButtonColorView(discord.ui.View):
         await interaction.response.edit_message(embed=self.parent_view.build_embed(), view=self.parent_view)
         self.stop()
 
-# Main UI View for message configuration
 class MessageConfigView(discord.ui.View):
     def __init__(self, cog, type_key, path_id):
         super().__init__(timeout=180)
@@ -241,7 +271,6 @@ class MessageConfigView(discord.ui.View):
         await interaction.response.send_message("✅ Pengaturan pesan berhasil disimpan!", ephemeral=True, delete_after=5)
         self.stop()
 
-# UI View for selecting a notification path
 class PathSelectView(discord.ui.View):
     def __init__(self, cog, guild_id):
         super().__init__(timeout=180)
@@ -288,7 +317,6 @@ class PathSelectView(discord.ui.View):
         path_select.callback = callback
         self.add_item(path_select)
 
-# UI View for selecting the message type (live, upload, etc.)
 class TypeSelectView(discord.ui.View):
     def __init__(self, cog, guild_id, path_id):
         super().__init__(timeout=180)
@@ -322,57 +350,66 @@ class TypeSelectView(discord.ui.View):
         back_button.callback = back_callback
         self.add_item(back_button)
 
-# The main Cog class
 class Notif(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.config_file = "data/notif.json"
         self.default_messages = self._get_default_messages() 
         self.config = self._load_config()
+        self.cleanup_task = self.bot.loop.create_task(self.auto_cleanup())
+
+    async def auto_cleanup(self):
+        await self.bot.wait_until_ready()
+        while not self.bot.is_closed():
+            try:
+                await asyncio.sleep(3600)
+                self.cleanup_old_cache()
+            except Exception as e:
+                print(f"Auto cleanup error: {e}")
+
+    def cleanup_old_cache(self):
+        if "recent_video_ids" in self.config:
+            if len(self.config["recent_video_ids"]) > 30:
+                self.config["recent_video_ids"] = self.config["recent_video_ids"][-30:]
+                self.save_config()
 
     async def _get_link_from_url(self, message):
-        # Pola Regex untuk klasifikasi final
-        youtube_regex = r'(?:https?:\/\/)?(?:www\.)?(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.*&v=))([a-zA-Z0-9_-]{11})'
-        tiktok_video_regex = r'tiktok\.com\/.*\/video\/(\d+)'
-
-        # Pola Regex untuk deteksi awal yang lebih luas
-        general_url_pattern = re.compile(r'https?:\/\/[^\s]+')
+        youtube_regex = r'(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:watch\?v=|embed\/|v\/|shorts\/|live\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})'
+        tiktok_regex = r'(?:https?:\/\/)?(?:www\.|vt\.|vm\.)?tiktok\.com\/(?:@[^\/]+\/video\/|t\/\w+\/|embed\/v2\?id=|v\/)(\d+)'
         
-        message_content = message.content
-        match = general_url_pattern.search(message_content)
+        general_url_pattern = re.compile(r'https?:\/\/[^\s]+')
+        match = general_url_pattern.search(message.content)
 
         if not match:
             return None, None
             
         link_for_send = match.group(0)
 
-        # Jika link mengandung "tiktok.com", selalu coba resolve untuk mendapatkan URL asli.
-        # Ini akan menangani vt.tiktok.com, vm.tiktok.com, tiktok.com/t/, dll.
         if "tiktok.com" in link_for_send:
-            if not re.search(tiktok_video_regex, link_for_send):
+            if not re.search(tiktok_regex, link_for_send):
                 try:
-                    timeout = aiohttp.ClientTimeout(total=10) # Timeout 10 detik
+                    timeout = aiohttp.ClientTimeout(total=10)
                     async with aiohttp.ClientSession(timeout=timeout) as session:
                         async with session.get(link_for_send, allow_redirects=True) as response:
                             link_for_send = str(response.url)
-                            print(f"Resolved TikTok link to: {link_for_send}")
                 except Exception as e:
                     print(f"Could not resolve TikTok link '{link_for_send}': {e}")
                     return None, None
 
-        # Sekarang, klasifikasikan link yang sudah final
         link_type = None
-        if re.search(youtube_regex, link_for_send):
-            link_type = "upload" # Default
-            if "premier" in message_content.lower():
+        if re.search(youtube_regex, link_for_send, re.IGNORECASE):
+            if "premier" in message.content.lower() or "premiere" in message.content.lower():
                 link_type = "premier"
-            elif "live" in message_content.lower():
+            elif "live" in message.content.lower() or "/live/" in link_for_send.lower():
                 link_type = "live"
+            else:
+                link_type = "upload"
         
-        elif re.search(tiktok_video_regex, link_for_send):
+        elif re.search(tiktok_regex, link_for_send, re.IGNORECASE):
             link_type = "default"
-            if "www." not in link_for_send:
-                 link_for_send = link_for_send.replace("tiktok.com/", "www.tiktok.com/")
+            if "www." not in link_for_send and not link_for_send.startswith("https://tiktok.com"):
+                link_for_send = link_for_send.replace("https://", "https://www.")
+                link_for_send = link_for_send.replace("tiktok.com", "www.tiktok.com")
         
         else:
             return None, None
@@ -380,16 +417,13 @@ class Notif(commands.Cog):
         return link_type, link_for_send
     
     def _get_unique_video_id(self, url):
-        youtube_regex = r'(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.*&v=))([a-zA-Z0-9_-]{11})'
-        tiktok_regex = r'(?:tiktok\.com\/.*\/video\/(\d+))'
+        youtube_id = _get_youtube_video_id(url)
+        if youtube_id:
+            return f"yt_{youtube_id}"
 
-        match = re.search(youtube_regex, url)
-        if match:
-            return f"yt_{match.group(1)}"
-
-        match = re.search(tiktok_regex, url)
-        if match:
-            return f"tk_{match.group(1)}"
+        tiktok_id = _get_tiktok_video_id(url)
+        if tiktok_id:
+            return f"tk_{tiktok_id}"
 
         return None
 
@@ -546,10 +580,11 @@ class Notif(commands.Cog):
 
         unique_id = self._get_unique_video_id(link_for_send)
         if unique_id:
-            if unique_id in self.config.get("recent_video_ids", []):
-                print(f"Duplicate video ID detected, skipping: {unique_id}")
-                return
+            self.cleanup_old_cache()
             
+            if unique_id in self.config.get("recent_video_ids", []):
+                return
+        
         paths_to_send = [data for data in self.config["notification_paths"].values() if data["source_id"] == message.channel.id]
         if not paths_to_send:
             return
@@ -558,8 +593,6 @@ class Notif(commands.Cog):
             if "recent_video_ids" not in self.config:
                 self.config["recent_video_ids"] = []
             self.config["recent_video_ids"].append(unique_id)
-            if len(self.config["recent_video_ids"]) > 50:
-                self.config["recent_video_ids"].pop(0)
             self.save_config()
 
         youtube_title, youtube_description, youtube_thumbnail = None, None, None
@@ -586,16 +619,16 @@ class Notif(commands.Cog):
                 if final_content and youtube_title:
                     final_content = final_content.replace("{judul}", youtube_title)
                 
-                if final_embed_title and youtube_title:
-                    final_embed_title = final_embed_title.replace("{judul}", youtube_title)
-                elif not final_embed_title and youtube_title:
+                if not final_embed_title and youtube_title:
                     final_embed_title = youtube_title
+                elif final_embed_title and youtube_title:
+                    final_embed_title = final_embed_title.replace("{judul}", youtube_title)
 
-                if final_embed_description and youtube_description:
+                if not final_embed_description and youtube_description:
+                    final_embed_description = youtube_description[:1900] + ('...' if len(youtube_description) > 1900 else '')
+                elif final_embed_description and youtube_description:
                     desc_sub = youtube_description[:1900] + ('...' if len(youtube_description) > 1900 else '')
                     final_embed_description = final_embed_description.replace("{deskripsi}", desc_sub)
-                elif not final_embed_description and youtube_description:
-                    final_embed_description = youtube_description[:1900] + ('...' if len(youtube_description) > 1900 else '')
 
                 message_content = final_content if use_embed else link_for_send
                 if not use_embed and final_content:
@@ -607,10 +640,22 @@ class Notif(commands.Cog):
                     try: embed_color = discord.Color(int(embed_color_hex.strip("#"), 16))
                     except: embed_color = discord.Color.blue()
                     
-                    embed = discord.Embed(title=final_embed_title, description=final_embed_description, color=embed_color)
+                    embed = discord.Embed(
+                        title=final_embed_title[:256] if final_embed_title else None,
+                        description=final_embed_description[:4096] if final_embed_description else None,
+                        color=embed_color,
+                        url=link_for_send
+                    )
                     
                     if config_msg.get('embed_thumbnail', True) and youtube_thumbnail:
                         embed.set_image(url=youtube_thumbnail)
+                    
+                    embed.set_author(
+                        name=message.author.display_name,
+                        icon_url=message.author.display_avatar.url
+                    )
+                    
+                    embed.timestamp = message.created_at
 
                 button_label = config_msg.get('button_label', 'Tonton Konten')
                 button_style_value = config_msg.get('button_style', discord.ButtonStyle.primary.value)
@@ -624,7 +669,6 @@ class Notif(commands.Cog):
             except Exception as e:
                 print(f"Error sending notification for path {path_data}: {e}")
 
-# Setup function to load the cog
 async def setup(bot):
     os.makedirs('data', exist_ok=True)
     await bot.add_cog(Notif(bot))
