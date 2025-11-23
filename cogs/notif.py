@@ -437,73 +437,45 @@ class Notif(commands.Cog, name="🔔 Notification"):
 
     async def _get_link_from_url(self, message):
         youtube_regex = r'(?:https?:\/\/)?(?:www\.)?(?:youtube(?:-nocookie)?\.com\/(?:[^\/\n\s]+\/\S+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=|watch\?.*&v=|live\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})'
-        
-        # Regex TikTok yang lebih komprehensif
-        tiktok_patterns = [
-            r'tiktok\.com/(?:@[\w.-]+/)?(?:video/|t/)?(\d+)',  # Standard: tiktok.com/@user/video/123456789
-            r'vm\.tiktok\.com/([\w]+)',                       # Short link: vm.tiktok.com/ABC123/
-            r'vt\.tiktok\.com/([\w]+)',                       # Alternative short: vt.tiktok.com/XYZ789
-            r'tiktok\.com/t/([\w]+)',                         # T format: tiktok.com/t/ABC123
-            r'tiktok\.com/embed/videos/(\d+)'                 # Embed format
-        ]
+        tiktok_video_regex = r'(?:https?:\/\/)?(?:www\.|vm\.|vt\.)?tiktok\.com\/(?:@[\w.-]+\/)?(?:video\/|t\/|embed\/videos\/)?(\d+)(?:\?.*)?(?:\/)?'
 
-        # Pertama, coba ekstrak URL dari hyperlink markdown
+        general_url_pattern = re.compile(r'https?:\/\/[^\s]+')
+        
+        message_content = message.content
+        match = general_url_pattern.search(message_content)
         markdown_url_pattern = r'\[.*?\]\((https?://[^\)]+)\)'
         markdown_match = re.search(markdown_url_pattern, message.content)
-        
-        if markdown_match:
-            # Jika ada hyperlink markdown, gunakan URL dari dalam tanda kurung
-            link_for_send = markdown_match.group(1)
-        else:
-            # Jika tidak, cari URL biasa
-            general_url_pattern = re.compile(r'https?://[^\s<>"]+|www\.[^\s<>"]+')
-            match = general_url_pattern.search(message.content)
-            if not match:
-                return None, None
-            link_for_send = match.group(0).rstrip(').,!')
 
-        # Deteksi TikTok dengan pattern yang lebih komprehensif
-        is_tiktok = False
-        for pattern in tiktok_patterns:
-            if re.search(pattern, link_for_send, re.IGNORECASE):
-                is_tiktok = True
-                break
-
-        if is_tiktok:
-            # Normalisasi URL TikTok
-            original_url = link_for_send
+        if not match:
+            return None, None
             
-            try:
-                # Coba resolve short URL untuk mendapatkan video ID
-                timeout = aiohttp.ClientTimeout(total=10)
-                async with aiohttp.ClientSession(timeout=timeout) as session:
-                    async with session.get(link_for_send, allow_redirects=True) as response:
-                        final_url = str(response.url)
-                        if "tiktok.com" in final_url:
-                            link_for_send = final_url
-            except Exception as e:
-                print(f"Error resolving TikTok URL: {e}")
-                # Tetap gunakan URL asli
+        link_for_send = match.group(0).rstrip(').,!')
 
-            # Standarisasi format TikTok
-            if "vm.tiktok.com" in original_url or "vt.tiktok.com" in original_url:
-                # Short links - kita sudah resolve di atas
-                link_type = "default"
-            elif "www.tiktok.com" not in link_for_send and "tiktok.com" in link_for_send:
-                # Tambahkan www jika tidak ada
-                link_for_send = link_for_send.replace("tiktok.com", "www.tiktok.com")
-                link_type = "default"
-            else:
-                link_type = "default"
+        if "tiktok.com" in link_for_send:
+            if not re.search(tiktok_video_regex, link_for_send):
+                try:
+                    timeout = aiohttp.ClientTimeout(total=10)
+                    async with aiohttp.ClientSession(timeout=timeout) as session:
+                        async with session.get(link_for_send, allow_redirects=True) as response:
+                            link_for_send = str(response.url)
+                except Exception as e:
+                    print(f"Error resolving TikTok short URL: {e}")
+                    return None, None
 
-        # Deteksi YouTube
-        elif re.search(youtube_regex, link_for_send):
-            if "live" in message.content.lower() or "/live/" in link_for_send or "youtube.com/live/" in link_for_send:
+        link_type = None
+        
+        if re.search(youtube_regex, link_for_send):
+            if "live" in message_content.lower() or "/live/" in link_for_send or "youtube.com/live/" in link_for_send:
                 link_type = "live"
-            elif "premier" in message.content.lower() or "premiere" in message.content.lower():
+            elif "premier" in message_content.lower() or "premiere" in message_content.lower():
                 link_type = "premier"
             else:
                 link_type = "upload"
+        
+        elif re.search(tiktok_video_regex, link_for_send):
+            link_type = "default"
+            if "www." not in link_for_send:
+                link_for_send = link_for_send.replace("tiktok.com/", "www.tiktok.com/")
         
         else:
             return None, None
