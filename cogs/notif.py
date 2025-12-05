@@ -435,64 +435,97 @@ class Notif(commands.Cog, name="🔔 Notification"):
     def cog_unload(self):
         self.daily_reset_task.cancel()
 
-    async def _get_link_from_url(self, message):
-        youtube_regex = r'(?:https?:\/\/)?(?:www\.)?(?:youtube(?:-nocookie)?\.com\/(?:[^\/\n\s]+\/\S+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=|watch\?.*&v=|live\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})'
-        tiktok_video_regex = r'(?:https?:\/\/)?(?:www\.|vm\.|vt\.)?tiktok\.com\/(?:@[\w.-]+\/)?(?:video\/|t\/|embed\/videos\/)?(\d+)(?:\?.*)?(?:\/)?'
-
-        general_url_pattern = re.compile(r'https?:\/\/[^\s]+')
-        
-        message_content = message.content
-        match = general_url_pattern.search(message_content)
+    async def _extract_url_from_message(self, message):
         markdown_url_pattern = r'\[.*?\]\((https?://[^\)]+)\)'
         markdown_match = re.search(markdown_url_pattern, message.content)
-
-        if not match:
-            return None, None
-            
-        link_for_send = match.group(0).rstrip(').,!')
-
-        if "tiktok.com" in link_for_send:
-            if not re.search(tiktok_video_regex, link_for_send):
-                try:
-                    timeout = aiohttp.ClientTimeout(total=10)
-                    async with aiohttp.ClientSession(timeout=timeout) as session:
-                        async with session.get(link_for_send, allow_redirects=True) as response:
-                            link_for_send = str(response.url)
-                except Exception as e:
-                    print(f"Error resolving TikTok short URL: {e}")
-                    return None, None
-
-        link_type = None
         
-        if re.search(youtube_regex, link_for_send):
-            if "live" in message_content.lower() or "/live/" in link_for_send or "youtube.com/live/" in link_for_send:
-                link_type = "live"
+        if markdown_match:
+            return markdown_match.group(1)
+        
+        general_url_pattern = re.compile(r'https?://[^\s<>"]+|www\.[^\s<>"]+')
+        match = general_url_pattern.search(message.content)
+        
+        if match:
+            return match.group(0).rstrip(').,!')
+        
+        return None
+
+    async def _detect_youtube_link(self, url, message_content):
+        youtube_regex = r'(?:https?:\/\/)?(?:www\.)?(?:youtube(?:-nocookie)?\.com\/(?:[^\/\n\s]+\/\S+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=|watch\?.*&v=|live\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})'
+        
+        if re.search(youtube_regex, url):
+            if "live" in message_content.lower() or "/live/" in url or "youtube.com/live/" in url:
+                return "live", url
             elif "premier" in message_content.lower() or "premiere" in message_content.lower():
-                link_type = "premier"
+                return "premier", url
             else:
-                link_type = "upload"
+                return "upload", url
         
-        elif re.search(tiktok_video_regex, link_for_send):
-            link_type = "default"
-            if "www." not in link_for_send:
-                link_for_send = link_for_send.replace("tiktok.com/", "www.tiktok.com/")
-        
-        else:
-            return None, None
+        return None, url
 
-        return link_type, link_for_send
+    async def _detect_tiktok_link(self, url):
+        tiktok_patterns = [
+            r'tiktok\.com/(?:@[\w.-]+/)?video/(\d+)',
+            r'tiktok\.com/(?:@[\w.-]+/)?t/(\w+)',
+            r'vm\.tiktok\.com/(\w+)',
+            r'vt\.tiktok\.com/(\w+)',
+        ]
+
+        original_url = url
+        
+        for pattern in tiktok_patterns:
+            if re.search(pattern, url, re.IGNORECASE):
+                if "vm.tiktok.com" in url or "vt.tiktok.com" in url:
+                    try:
+                        timeout = aiohttp.ClientTimeout(total=10)
+                        async with aiohttp.ClientSession(timeout=timeout) as session:
+                            async with session.get(url, allow_redirects=True) as response:
+                                final_url = str(response.url)
+                                if "tiktok.com" in final_url:
+                                    url = final_url
+                    except Exception as e:
+                        print(f"Error resolving TikTok URL: {e}")
+                
+                if "www.tiktok.com" not in url and "tiktok.com" in url:
+                    url = url.replace("tiktok.com", "www.tiktok.com")
+                
+                return "tiktok", url
+        
+        return None, original_url
+
+    async def _get_link_from_url(self, message):
+        url = await self._extract_url_from_message(message)
+        if not url:
+            return None, None
+        
+        link_type, final_url = await self._detect_youtube_link(url, message.content)
+        if link_type:
+            return link_type, final_url
+        
+        link_type, final_url = await self._detect_tiktok_link(url)
+        if link_type:
+            return link_type, final_url
+        
+        return None, None
     
     def _get_unique_video_id(self, url):
         youtube_regex = r'(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.*&v=|live\/|shorts\/))([a-zA-Z0-9_-]{11})'
-        tiktok_regex = r'(?:https?:\/\/)?(?:www\.|vm\.|vt\.)?tiktok\.com\/(?:@[\w.-]+\/)?(?:video\/|t\/|embed\/videos\/)?(\d+)(?:\?.*)?(?:\/)?'
-
         match = re.search(youtube_regex, url)
         if match:
             return f"yt_{match.group(1)}"
 
-        match = re.search(tiktok_regex, url)
-        if match:
-            return f"tk_{match.group(1)}"
+        tiktok_patterns = [
+            r'tiktok\.com/(?:@[\w.-]+/)?video/(\d+)',
+            r'tiktok\.com/(?:@[\w.-]+/)?t/(\w+)',
+            r'vm\.tiktok\.com/(\w+)',
+            r'vt\.tiktok\.com/(\w+)',
+        ]
+        
+        for pattern in tiktok_patterns:
+            match = re.search(pattern, url, re.IGNORECASE)
+            if match:
+                video_id = match.group(1)
+                return f"tk_{video_id}"
 
         return None
 
@@ -531,14 +564,14 @@ class Notif(commands.Cog, name="🔔 Notification"):
                 "use_embed": True,
                 "embed_thumbnail": True
             },
-            "default": {
-                "title": "[{judul}]({url})",
-                "description": "{url}",
-                "content": None,
-                "button_label": "Tonton Konten",
+            "tiktok": {
+                "title": "[📱 {judul}]({url})",
+                "description": "Cek video TikTok terbaru!\n\n{url}",
+                "content": "Ada video TikTok baru nih!",
+                "button_label": "Tonton di TikTok",
                 "button_style": discord.ButtonStyle.primary.value,
-                "button_color": "#5865f2",
-                "embed_color": "#3498db",
+                "button_color": "#000000",
+                "embed_color": "#000000",
                 "use_embed": True,
                 "embed_thumbnail": True
             }
@@ -563,6 +596,12 @@ class Notif(commands.Cog, name="🔔 Notification"):
         
         if "mirrored_users" in final_config:
             del final_config["mirrored_users"]
+        
+        for path_id, path_data in final_config["notification_paths"].items():
+            if "custom_messages" in path_data:
+                for message_type in self.default_messages.keys():
+                    if message_type not in path_data["custom_messages"]:
+                        path_data["custom_messages"][message_type] = self.default_messages[message_type].copy()
         
         os.makedirs(os.path.dirname(self.config_file), exist_ok=True)
         with open(self.config_file, "w") as f:
@@ -745,7 +784,7 @@ class Notif(commands.Cog, name="🔔 Notification"):
 
         youtube_title, youtube_description, youtube_thumbnail, video_url = None, None, None, link_for_send
         
-        if link_type in ["live", "upload", "premier", "default"]: 
+        if link_type in ["live", "upload", "premier"]: 
             loop = self.bot.loop
             
             cookie_path = None
@@ -781,7 +820,6 @@ class Notif(commands.Cog, name="🔔 Notification"):
                 if temp_file_name and os.path.exists(temp_file_name):
                     os.unlink(temp_file_name)
 
-
         for path_data in paths_to_send:
             target_channel_id = path_data["target_id"]
             config_msg = path_data["custom_messages"].get(link_type, self.default_messages.get(link_type))
@@ -796,32 +834,66 @@ class Notif(commands.Cog, name="🔔 Notification"):
                 final_embed_description = config_msg.get('description')
                 use_embed = config_msg.get('use_embed', True)
 
-                if final_content and youtube_title:
-                    final_content = final_content.replace("{judul}", youtube_title)
-                    if video_url and self._is_valid_url(video_url):
-                        final_content = final_content.replace("{url}", video_url)
-                
-                if final_embed_title and youtube_title:
-                    final_embed_title = final_embed_title.replace("{judul}", youtube_title)
-                    if video_url and self._is_valid_url(video_url):
-                        final_embed_title = final_embed_title.replace("{url}", video_url)
-                elif not final_embed_title and youtube_title and use_embed:
-                    if video_url and self._is_valid_url(video_url):
-                        final_embed_title = f"[{youtube_title}]({video_url})"
-                    else:
-                        final_embed_title = youtube_title
+                if link_type in ["live", "upload", "premier"]:
+                    clean_title = youtube_title
+                    if youtube_title:
+                        date_patterns = [
+                            r'\d{4}-\d{2}-\d{2}',
+                            r'\d{2}:\d{2}',
+                            r'\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}'
+                        ]
+                        for pattern in date_patterns:
+                            clean_title = re.sub(pattern, '', clean_title).strip()
+                    
+                    if final_content and youtube_title:
+                        final_content = final_content.replace("{judul}", clean_title)
+                        if video_url and self._is_valid_url(video_url):
+                            final_content = final_content.replace("{url}", video_url)
+                    
+                    if final_embed_title and youtube_title:
+                        final_embed_title = final_embed_title.replace("{judul}", clean_title)
+                        if video_url and self._is_valid_url(video_url):
+                            final_embed_title = final_embed_title.replace("{url}", video_url)
+                    elif not final_embed_title and youtube_title and use_embed:
+                        if video_url and self._is_valid_url(video_url):
+                            final_embed_title = f"[{clean_title}]({video_url})"
+                        else:
+                            final_embed_title = clean_title
 
-                if final_embed_description and youtube_description:
-                    desc_sub = youtube_description[:1900] + ('...' if len(youtube_description) > 1900 else '')
-                    final_embed_description = final_embed_description.replace("{deskripsi}", desc_sub)
-                else:
-                    final_embed_description = final_embed_description.replace("{deskripsi}", "")
-                    if video_url and self._is_valid_url(video_url):
-                        final_embed_description = final_embed_description.replace("{url}", video_url)
-                if not final_embed_description and youtube_description and use_embed:
-                    final_embed_description = youtube_description[:1900] + ('...' if len(youtube_description) > 1900 else '')
-                    if video_url and self._is_valid_url(video_url):
-                        final_embed_description = final_embed_description.replace("{url}", video_url)
+                    if final_embed_description and youtube_description:
+                        desc_sub = youtube_description[:1900] + ('...' if len(youtube_description) > 1900 else '')
+                        final_embed_description = final_embed_description.replace("{deskripsi}", desc_sub)
+                    else:
+                        final_embed_description = final_embed_description.replace("{deskripsi}", "")
+                        if video_url and self._is_valid_url(video_url):
+                            final_embed_description = final_embed_description.replace("{url}", video_url)
+                    if not final_embed_description and youtube_description and use_embed:
+                        final_embed_description = youtube_description[:1900] + ('...' if len(youtube_description) > 1900 else '')
+                        if video_url and self._is_valid_url(video_url):
+                            final_embed_description = final_embed_description.replace("{url}", video_url)
+                
+                elif link_type == "tiktok":
+                    if final_content:
+                        final_content = final_content.replace("{judul}", "Video TikTok")
+                        if self._is_valid_url(link_for_send):
+                            final_content = final_content.replace("{url}", link_for_send)
+                    
+                    if final_embed_title:
+                        final_embed_title = final_embed_title.replace("{judul}", "Video TikTok")
+                        if self._is_valid_url(link_for_send):
+                            final_embed_title = final_embed_title.replace("{url}", link_for_send)
+                    elif not final_embed_title and use_embed:
+                        if self._is_valid_url(link_for_send):
+                            final_embed_title = f"[📱 Video TikTok]({link_for_send})"
+                        else:
+                            final_embed_title = "📱 Video TikTok"
+
+                    if final_embed_description:
+                        final_embed_description = final_embed_description.replace("{deskripsi}", "")
+                        if self._is_valid_url(link_for_send):
+                            final_embed_description = final_embed_description.replace("{url}", link_for_send)
+                    elif not final_embed_description and use_embed:
+                        final_embed_description = link_for_send
 
                 message_content = final_content
                 if not use_embed:
@@ -841,7 +913,7 @@ class Notif(commands.Cog, name="🔔 Notification"):
                     if final_embed_title or final_embed_description:
                          embed = discord.Embed(title=final_embed_title, description=final_embed_description, color=embed_color)
                          
-                         if config_msg.get('embed_thumbnail', True) and youtube_thumbnail:
+                         if link_type in ["live", "upload", "premier"] and config_msg.get('embed_thumbnail', True) and youtube_thumbnail:
                               embed.set_image(url=youtube_thumbnail)
                          
                          if message_content is None: 
