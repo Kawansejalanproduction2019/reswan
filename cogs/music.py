@@ -20,93 +20,7 @@ import traceback
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 log = logging.getLogger(__name__)
 
-def find_ffmpeg_path():
-    possible_paths = [
-        'ffmpeg',
-        '/usr/bin/ffmpeg',
-        '/usr/local/bin/ffmpeg',
-        '/app/.apt/usr/bin/ffmpeg',
-        '/bin/ffmpeg',
-        '/opt/homebrew/bin/ffmpeg',
-        '/usr/share/ffmpeg/ffmpeg',
-        '/opt/ffmpeg/bin/ffmpeg',
-        '/home/ec2-user/ffmpeg/bin/ffmpeg',
-        '/home/ubuntu/ffmpeg/bin/ffmpeg',
-        '/var/task/ffmpeg',
-        '/tmp/ffmpeg'
-    ]
-    
-    try:
-        result = subprocess.run(
-            ['which', 'ffmpeg'],
-            capture_output=True,
-            text=True,
-            timeout=2
-        )
-        if result.returncode == 0 and result.stdout.strip():
-            path = result.stdout.strip()
-            log.info(f"FFmpeg found via 'which': {path}")
-            return path
-    except:
-        pass
-    
-    for path in possible_paths:
-        if os.path.exists(path):
-            log.info(f"FFmpeg found at: {path}")
-            return path
-        
-        try:
-            result = subprocess.run(
-                [path, '-version'],
-                capture_output=True,
-                text=True,
-                timeout=2
-            )
-            if result.returncode == 0:
-                log.info(f"FFmpeg executable at: {path}")
-                return path
-        except:
-            continue
-    
-    try:
-        result = subprocess.run(
-            ['find', '/', '-name', 'ffmpeg', '-type', 'f', '-executable', '2>/dev/null', '|', 'head', '-1'],
-            capture_output=True,
-            text=True,
-            timeout=5,
-            shell=True
-        )
-        if result.returncode == 0 and result.stdout.strip():
-            path = result.stdout.strip()
-            log.info(f"FFmpeg found via find: {path}")
-            return path
-    except:
-        pass
-    
-    log.warning("FFmpeg not found in common locations, using 'ffmpeg'")
-    return 'ffmpeg'
-
-FFMPEG_EXECUTABLE = find_ffmpeg_path()
-
-try:
-    result = subprocess.run(
-        [FFMPEG_EXECUTABLE, '-version'],
-        capture_output=True,
-        text=True,
-        timeout=5
-    )
-    if result.returncode == 0:
-        version_line = result.stdout.split('\n')[0]
-        log.info(f"FFmpeg version: {version_line}")
-        
-        if 'libopus' in result.stdout:
-            log.info("Opus codec support: YES")
-        else:
-            log.warning("Opus codec support: NOT FOUND")
-    else:
-        log.error(f"FFmpeg test failed: {result.stderr[:200]}")
-except Exception as e:
-    log.error(f"FFmpeg test error: {e}")
+FFMPEG_EXECUTABLE = '/usr/bin/ffmpeg'
 
 TEMP_CHANNELS_FILE = 'data/temp_voice_channels.json'
 LISTENING_HISTORY_FILE = 'data/listening_history.json'
@@ -413,7 +327,7 @@ class MusicControlView(discord.ui.View):
                     old_channel = interaction.guild.get_channel(old_message_info['channel_id']) or await interaction.guild.fetch_channel(old_message_info['channel_id'])
                     if old_channel:
                         old_message = await old_channel.fetch_message(old_message_info['message_id'])
-                        await old_message.delete()
+                            await old_message.delete()
                 except (discord.NotFound, discord.HTTPException) as e:
                     pass
                 finally:
@@ -1211,8 +1125,7 @@ class Music(commands.Cog):
         if not queue:
             vc = ctx.voice_client
             if vc and vc.is_connected() and len([member for member in vc.channel.members if not member.bot]) > 0:
-                await self.refill_queue_for_random(ctx)
-                queue = self.get_queue(guild_id)
+                pass
         
         if not queue:
             vc = ctx.voice_client
@@ -1322,40 +1235,6 @@ class Music(commands.Cog):
         except Exception as e:
             log.error(f"Error in _after_play_handler cleanup: {e}")
 
-    async def refill_queue_for_random(self, ctx, num_songs=10):
-        user_id_str = str(ctx.author.id)
-        new_urls = []
-        
-        user_history = self.listening_history.get(user_id_str, [])
-        
-        if not isinstance(user_history, list):
-            user_history = []
-        
-        if user_history:
-            filtered_history_urls = [s['webpage_url'] for s in user_history if 'webpage_url' in s]
-            
-            if filtered_history_urls:
-                random.shuffle(filtered_history_urls)
-                urls_from_history = filtered_history_urls[:num_songs]
-                new_urls.extend(urls_from_history)
-
-        if len(new_urls) < num_songs:
-            search_query = "trending music"
-            try:
-                info = await asyncio.to_thread(lambda: ytdl.extract_info(search_query, download=False, process=True))
-                if 'entries' in info and isinstance(info.get('entries'), list):
-                    filtered_entries_urls = [entry['webpage_url'] for entry in info['entries'] if 'webpage_url' in entry]
-                    
-                    if filtered_entries_urls:
-                        random.shuffle(filtered_entries_urls)
-                        urls_from_search = filtered_entries_urls[:num_songs - len(new_urls)]
-                        new_urls.extend(urls_from_search)
-            except Exception as e:
-                log.error(f"Error refilling queue: {e}")
-                pass
-                
-        self.get_queue(ctx.guild.id).extend(new_urls)
-
     async def _update_music_message_from_ctx(self, ctx):
         try:
             guild_id = ctx.guild.id
@@ -1439,6 +1318,94 @@ class Music(commands.Cog):
         except discord.Forbidden:
             pass
 
+    async def process_spotify_url(self, query, ctx):
+        try:
+            urls = []
+            spotify_track_info = None
+            
+            if "track" in query:
+                track = self.spotify.track(query)
+                spotify_track_info = {
+                    'title': track['name'],
+                    'artist': track['artists'][0]['name'],
+                    'webpage_url': track['external_urls']['spotify'],
+                    'requester': ctx.author.mention
+                }
+                search_query = f"{track['name']} {track['artists'][0]['name']} audio"
+                info = await asyncio.to_thread(lambda: ytdl.extract_info(search_query, download=False, process=True))
+                if 'entries' in info and isinstance(info.get('entries'), list) and len(info['entries']) > 0:
+                    urls.append(info['entries'][0]['webpage_url'])
+                else:
+                    raise Exception(f"Tidak dapat menemukan audio untuk track Spotify: {track['name']}")
+            elif "playlist" in query:
+                results = self.spotify.playlist_tracks(query)
+                for item in results['items']:
+                    track = item['track']
+                    if track:
+                        search_query = f"{track['name']} {track['artists'][0]['name']} audio"
+                        try:
+                            info = await asyncio.to_thread(lambda: ytdl.extract_info(search_query, download=False, process=True))
+                            if 'entries' in info and isinstance(info.get('entries'), list) and len(info['entries']) > 0:
+                                urls.append(info['entries'][0]['webpage_url'])
+                        except Exception:
+                            continue
+            elif "album" in query:
+                results = self.spotify.album_tracks(query)
+                for item in results['items']:
+                    track = item
+                    if track:
+                        search_query = f"{track['name']} {track['artists'][0]['name']} audio"
+                        try:
+                            info = await asyncio.to_thread(lambda: ytdl.extract_info(search_query, download=False, process=True))
+                            if 'entries' in info and isinstance(info.get('entries'), list) and len(info['entries']) > 0:
+                                urls.append(info['entries'][0]['webpage_url'])
+                        except Exception:
+                            continue
+            
+            return urls, spotify_track_info
+        except Exception as e:
+            log.error(f"Error processing Spotify URL: {e}")
+            raise Exception(f"Gagal memproses link Spotify. Coba gunakan link Deezer atau SoundCloud sebagai alternatif. Error: {str(e)[:100]}")
+
+    async def process_deezer_url(self, query, ctx):
+        try:
+            search_query = ""
+            if "deezer.com" in query:
+                if "track" in query:
+                    search_query = query
+                elif "playlist" in query or "album" in query:
+                    search_query = query
+            
+            if not search_query:
+                return [], None
+            
+            info = await asyncio.to_thread(lambda: ytdl.extract_info(search_query, download=False, process=True))
+            if 'entries' in info and isinstance(info.get('entries'), list):
+                urls = [entry['webpage_url'] for entry in info['entries']]
+                return urls, None
+            elif 'webpage_url' in info:
+                return [info['webpage_url']], None
+            else:
+                raise Exception("Tidak dapat memproses link Deezer")
+        except Exception as e:
+            log.error(f"Error processing Deezer URL: {e}")
+            raise Exception(f"Gagal memproses link Deezer. Error: {str(e)[:100]}")
+
+    async def process_soundcloud_url(self, query, ctx):
+        try:
+            search_query = query
+            info = await asyncio.to_thread(lambda: ytdl.extract_info(search_query, download=False, process=True))
+            if 'entries' in info and isinstance(info.get('entries'), list):
+                urls = [entry['webpage_url'] for entry in info['entries']]
+                return urls, None
+            elif 'webpage_url' in info:
+                return [info['webpage_url']], None
+            else:
+                raise Exception("Tidak dapat memproses link SoundCloud")
+        except Exception as e:
+            log.error(f"Error processing SoundCloud URL: {e}")
+            raise Exception(f"Gagal memproses link SoundCloud. Error: {str(e)[:100]}")
+
     @commands.command(name="testaudio")
     async def test_audio(self, ctx):
         import subprocess
@@ -1446,7 +1413,7 @@ class Music(commands.Cog):
         
         tests = []
         
-        ffmpeg_path = '/usr/local/bin/ffmpeg'
+        ffmpeg_path = '/usr/bin/ffmpeg'
         if os.path.exists(ffmpeg_path):
             try:
                 result = subprocess.run(
@@ -1485,118 +1452,13 @@ class Music(commands.Cog):
             tests.append("🔇 **Voice status**: Not connected")
         
         embed = discord.Embed(
-            title="🔊 Audio System Test - Amazon Linux",
+            title="🔊 Audio System Test",
             description="\n".join(tests),
             color=discord.Color.blue()
         )
         
         await ctx.send(embed=embed)
 
-    @commands.command(name="findffmpeg", help="Mencari lokasi FFmpeg di sistem")
-    async def find_ffmpeg_cmd(self, ctx):
-        await ctx.defer()
-        
-        embed = discord.Embed(
-            title="🔍 Mencari FFmpeg...",
-            description="Memindai sistem untuk lokasi FFmpeg...",
-            color=discord.Color.blue()
-        )
-        
-        await ctx.send(embed=embed)
-        
-        possible_paths = [
-            'ffmpeg',
-            '/usr/bin/ffmpeg',
-            '/usr/local/bin/ffmpeg',
-            '/app/.apt/usr/bin/ffmpeg',
-            '/bin/ffmpeg',
-            '/opt/homebrew/bin/ffmpeg',
-            '/usr/share/ffmpeg/ffmpeg',
-            '/opt/ffmpeg/bin/ffmpeg',
-            '/home/ec2-user/ffmpeg/bin/ffmpeg',
-            '/home/ubuntu/ffmpeg/bin/ffmpeg',
-            '/var/task/ffmpeg',
-            '/tmp/ffmpeg',
-            '/usr/local/ffmpeg/bin/ffmpeg',
-            '/opt/local/bin/ffmpeg',
-            '/snap/bin/ffmpeg'
-        ]
-        
-        found_paths = []
-        
-        for path in possible_paths:
-            try:
-                result = subprocess.run(
-                    ['which', path] if not os.path.isabs(path) else ['ls', '-la', path],
-                    capture_output=True,
-                    text=True,
-                    timeout=2
-                )
-                if result.returncode == 0:
-                    found_paths.append(f"✅ **{path}** - Found")
-                    try:
-                        version_result = subprocess.run(
-                            [path, '-version'],
-                            capture_output=True,
-                            text=True,
-                            timeout=2
-                        )
-                        if version_result.returncode == 0:
-                            version_line = version_result.stdout.split('\n')[0]
-                            found_paths.append(f"   ↳ Version: {version_line[:50]}")
-                            if 'libopus' in version_result.stdout:
-                                found_paths.append("   ↳ Opus support: ✅ Yes")
-                            else:
-                                found_paths.append("   ↳ Opus support: ❌ No")
-                    except:
-                        found_paths.append("   ↳ Version check failed")
-                else:
-                    found_paths.append(f"❌ **{path}** - Not found")
-            except Exception as e:
-                found_paths.append(f"❌ **{path}** - Error: {str(e)[:50]}")
-        
-        try:
-            which_result = subprocess.run(
-                ['which', 'ffmpeg'],
-                capture_output=True,
-                text=True,
-                timeout=3
-            )
-            if which_result.returncode == 0:
-                which_path = which_result.stdout.strip()
-                found_paths.append(f"\n🎯 **'which ffmpeg' result**: {which_path}")
-        except:
-            pass
-        
-        try:
-            find_result = subprocess.run(
-                "find /usr -name ffmpeg -type f 2>/dev/null | head -5",
-                shell=True,
-                capture_output=True,
-                text=True,
-                timeout=5
-            )
-            if find_result.returncode == 0 and find_result.stdout.strip():
-                paths = find_result.stdout.strip().split('\n')
-                found_paths.append("\n🔎 **Find results (first 5):**")
-                for p in paths:
-                    if p:
-                        found_paths.append(f"   • {p}")
-        except:
-            pass
-        
-        current_ffmpeg = FFMPEG_EXECUTABLE
-        found_paths.append(f"\n⚙️ **Current FFMPEG_EXECUTABLE**: {current_ffmpeg}")
-        
-        result_embed = discord.Embed(
-            title="🔍 Hasil Pencarian FFmpeg",
-            description="\n".join(found_paths),
-            color=discord.Color.green()
-        )
-        result_embed.set_footer(text=f"Total paths checked: {len(possible_paths)}")
-        
-        await ctx.send(embed=result_embed)
-    
     @commands.command(name="resjoin")
     async def join(self, ctx):
         if ctx.author.voice is None or ctx.author.voice.channel is None:
@@ -1644,37 +1506,41 @@ class Music(commands.Cog):
             await ctx.defer()
             urls = []
             is_spotify_request = False
+            is_deezer_request = False
+            is_soundcloud_request = False
             spotify_track_info = None
             
-            if self.spotify and ("http" in query and ("open.spotify.com/track/" in query or "open.spotify.com/playlist/" in query or "open.spotify.com/album/" in query) or "spotify:" in query):
+            if "open.spotify.com" in query or "spotify:" in query:
                 is_spotify_request = True
                 try:
-                    if "track" in query:
-                        track = self.spotify.track(query)
-                        spotify_track_info = {
-                            'title': track['name'],
-                            'artist': track['artists'][0]['name'],
-                            'webpage_url': track['external_urls']['spotify'],
-                            'requester': ctx.author.mention
-                        }
-                        urls.append(f"{track['name']} {track['artists'][0]['name']}")
-                    elif "playlist" in query:
-                        results = self.spotify.playlist_tracks(query)
-                        for item in results['items']:
-                            track = item['track']
-                            if track:
-                                urls.append(f"{track['name']} {track['artists'][0]['name']}")
-                    elif "album" in query:
-                        results = self.spotify.album_tracks(query)
-                        for item in results['items']:
-                            track = item
-                            if track:
-                                urls.append(f"{track['name']} {track['artists'][0]['name']}")
+                    urls, spotify_track_info = await self.process_spotify_url(query, ctx)
+                    if not urls:
+                        await ctx.send("⚠️ Link Spotify saat ini sedang mengalami masalah hak cipta. Coba gunakan link Deezer atau SoundCloud sebagai alternatif.", ephemeral=True)
+                        return
                 except Exception as e:
-                    await ctx.send(f"Terjadi kesalahan saat memproses link Spotify: {e}", ephemeral=True)
+                    await ctx.send(f"⚠️ {str(e)}", ephemeral=True)
                     return
-            
-            if not is_spotify_request:
+            elif "deezer.com" in query:
+                is_deezer_request = True
+                try:
+                    urls, _ = await self.process_deezer_url(query, ctx)
+                    if not urls:
+                        await ctx.send("❌ Gagal memproses link Deezer.", ephemeral=True)
+                        return
+                except Exception as e:
+                    await ctx.send(f"❌ {str(e)}", ephemeral=True)
+                    return
+            elif "soundcloud.com" in query:
+                is_soundcloud_request = True
+                try:
+                    urls, _ = await self.process_soundcloud_url(query, ctx)
+                    if not urls:
+                        await ctx.send("❌ Gagal memproses link SoundCloud.", ephemeral=True)
+                        return
+                except Exception as e:
+                    await ctx.send(f"❌ {str(e)}", ephemeral=True)
+                    return
+            else:
                 urls.append(query)
             
             queue = self.get_queue(ctx.guild.id)
@@ -1756,7 +1622,11 @@ class Music(commands.Cog):
                     return
             else:
                 if is_spotify_request:
-                    await ctx.send(f"Ditambahkan ke antrian: **{len(urls)} lagu**.", ephemeral=True)
+                    await ctx.send(f"Ditambahkan ke antrian: **{len(urls)} lagu dari Spotify**.", ephemeral=True)
+                elif is_deezer_request:
+                    await ctx.send(f"Ditambahkan ke antrian: **{len(urls)} lagu dari Deezer**.", ephemeral=True)
+                elif is_soundcloud_request:
+                    await ctx.send(f"Ditambahkan ke antrian: **{len(urls)} lagu dari SoundCloud**.", ephemeral=True)
                 else:
                     song_info = await self.get_song_info_from_url(urls[0])
                     await ctx.send(f"Ditambahkan ke antrean: **{song_info['title']}**.", ephemeral=True)
@@ -1981,77 +1851,6 @@ class Music(commands.Cog):
             log.error(f"Error in clear_queue_cmd: {e}")
             await ctx.send(f"Terjadi kesalahan: {e}", ephemeral=True)
     
-    @commands.command(name="resprandom")
-    async def personal_random(self, ctx, *urls):
-        try:
-            if not ctx.voice_client or not ctx.voice_client.is_connected():
-                await ctx.invoke(self.join)
-                if not ctx.voice_client or not ctx.voice_client.is_connected():
-                    return await ctx.send("Gagal bergabung ke voice channel.", ephemeral=True)
-            
-            await ctx.defer()
-            is_spotify_request = False
-            
-            if urls and self.spotify and ("open.spotify.com" in urls[0] or "spotify:" in urls[0]):
-                is_spotify_request = True
-                await ctx.send(f"🎧 Mengambil lagu dari {len(urls)} playlist/album Spotify...", ephemeral=True)
-                search_queries = []
-                
-                for url in urls:
-                    try:
-                        if "track" in url:
-                            track = self.spotify.track(url)
-                            search_queries.append(f"{track['name']} {track['artists'][0]['name']}")
-                        elif "playlist" in url:
-                            results = self.spotify.playlist_tracks(url)
-                            for item in results['items']:
-                                track = item['track']
-                                if track:
-                                    search_queries.append(f"{track['name']} {track['artists'][0]['name']}")
-                        elif "album" in url:
-                            results = self.spotify.album_tracks(url)
-                            for item in results['items']:
-                                track = item
-                                if track:
-                                    search_queries.append(f"{track['name']} {track['artists'][0]['name']}")
-                    except Exception:
-                        continue
-                
-                new_urls = []
-                for query in search_queries:
-                    try:
-                        info = await asyncio.to_thread(lambda: ytdl.extract_info(query, download=False, process=True))
-                        if 'entries' in info and isinstance(info.get('entries'), list):
-                            new_urls.append(info['entries'][0]['webpage_url'])
-                    except Exception:
-                        pass
-                
-                queue = self.get_queue(ctx.guild.id)
-                queue.extend(new_urls)
-                await ctx.send(f"🎧 Menambahkan {len(new_urls)} lagu dari Spotify ke antrean.", ephemeral=True)
-                
-                if not ctx.voice_client.is_playing() and not ctx.voice_client.is_paused():
-                    await self.play_next(ctx)
-                else:
-                    await self._update_music_message_from_ctx(ctx)
-                return
-            
-            await self.refill_queue_for_random(ctx, num_songs=10)
-            queue = self.get_queue(ctx.guild.id)
-            
-            if not queue:
-                return await ctx.send("❌ Tidak dapat menemukan lagu untuk dimainkan. Pastikan riwayat Anda tidak kosong, atau coba lagi nanti.", ephemeral=True)
-            
-            if not ctx.voice_client.is_playing() and not ctx.voice_client.is_paused():
-                await ctx.send("🎧 Memulai mode acak pribadi. Menambahkan 10 lagu ke antrean.", ephemeral=True)
-                await self.play_next(ctx)
-            else:
-                await ctx.send(f"🎧 Menambahkan 10 lagu acak ke antrean.", ephemeral=True)
-        
-        except Exception as e:
-            log.error(f"Error in personal_random: {e}")
-            await ctx.send(f"Terjadi kesalahan: {e}", ephemeral=True)
-            
     @commands.command(name="settriger", help="[ADMIN] Mengatur saluran suara pemicu untuk server ini.")
     @commands.has_permissions(administrator=True)
     async def set_trigger_channel(self, ctx, channel_id: int):
