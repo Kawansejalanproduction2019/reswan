@@ -13,23 +13,103 @@ import logging
 import json
 import random
 from datetime import datetime, timedelta
+import subprocess
+import sys
 
-# Konfigurasi logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 log = logging.getLogger(__name__)
 
-# --- FILE DATA UNTUK MELACAK RIWAYAT DAN CHANNEL SEMENTARA (Persisten antar restart bot) ---
+def find_ffmpeg_path():
+    possible_paths = [
+        'ffmpeg',
+        '/usr/bin/ffmpeg',
+        '/usr/local/bin/ffmpeg',
+        '/app/.apt/usr/bin/ffmpeg',
+        '/bin/ffmpeg',
+        '/opt/homebrew/bin/ffmpeg',
+    ]
+    
+    try:
+        result = subprocess.run(
+            ['which', 'ffmpeg'],
+            capture_output=True,
+            text=True,
+            timeout=2
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            path = result.stdout.strip()
+            log.info(f"FFmpeg found via 'which': {path}")
+            return path
+    except:
+        pass
+    
+    for path in possible_paths:
+        if os.path.exists(path):
+            log.info(f"FFmpeg found at: {path}")
+            return path
+        
+        try:
+            result = subprocess.run(
+                [path, '-version'],
+                capture_output=True,
+                text=True,
+                timeout=2
+            )
+            if result.returncode == 0:
+                log.info(f"FFmpeg executable at: {path}")
+                return path
+        except:
+            continue
+    
+    try:
+        result = subprocess.run(
+            ['find', '/', '-name', 'ffmpeg', '-type', 'f', '-executable', '2>/dev/null', '|', 'head', '-1'],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            shell=True
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            path = result.stdout.strip()
+            log.info(f"FFmpeg found via find: {path}")
+            return path
+    except:
+        pass
+    
+    log.warning("FFmpeg not found in common locations, using 'ffmpeg'")
+    return 'ffmpeg'
+
+FFMPEG_EXECUTABLE = find_ffmpeg_path()
+
+try:
+    result = subprocess.run(
+        [FFMPEG_EXECUTABLE, '-version'],
+        capture_output=True,
+        text=True,
+        timeout=5
+    )
+    if result.returncode == 0:
+        version_line = result.stdout.split('\n')[0]
+        log.info(f"FFmpeg version: {version_line}")
+        
+        if 'libopus' in result.stdout:
+            log.info("Opus codec support: YES")
+        else:
+            log.warning("Opus codec support: NOT FOUND")
+    else:
+        log.error(f"FFmpeg test failed: {result.stderr[:200]}")
+except Exception as e:
+    log.error(f"FFmpeg test error: {e}")
+
 TEMP_CHANNELS_FILE = 'data/temp_voice_channels.json'
 LISTENING_HISTORY_FILE = 'data/listening_history.json'
 GUILD_CONFIG_FILE = 'data/guild_config.json'
 
-# --- KONFIGURASI PENGATURAN TEMPOVICE BARU ---
 ENABLE_SCHEDULED_CREATION = False
 CREATION_START_TIME = (20, 0)
 CREATION_END_TIME = (6, 0)
 
-# KONSTANTA TAMBAHAN UNTUK TEMPOVICE
-TARGET_REGION = 'singapore' 
+TARGET_REGION = 'singapore'
 
 def load_json_file(file_path, default_data={}):
     os.makedirs(os.path.dirname(file_path), exist_ok=True)
@@ -78,7 +158,6 @@ def load_guild_config():
 def save_guild_config(data):
     save_json_file(GUILD_CONFIG_FILE, data)
 
-# --- Updated YTDL Options for Opus and FFMPEG Options for Stability ---
 ytdl_opts = {
     'format': 'bestaudio[ext=opus]/bestaudio[ext=m4a]/bestaudio/best',
     'cookiefile': 'cookies.txt',
@@ -98,7 +177,7 @@ ytdl_opts = {
 }
 
 FFMPEG_OPTIONS = {
-    'executable': '/usr/local/bin/ffmpeg',
+    'executable': FFMPEG_EXECUTABLE,
     'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 -nostdin',
     'options': '-vn -b:a 128k -bufsize 1024K'
 }
@@ -125,7 +204,6 @@ class YTDLSource(discord.PCMVolumeTransformer):
             data = data['entries'][0]
         filename = data['url'] if stream else ytdl.prepare_filename(data)
         
-        # Gunakan FFmpegPCMAudio dengan executable yang spesifik
         source = discord.FFmpegPCMAudio(
             filename,
             **FFMPEG_OPTIONS
@@ -795,8 +873,6 @@ class Music(commands.Cog):
                     )
                 }
                 
-                # --- Implementasi Bitrate Dinamis ---
-                # Mengambil batas bitrate maksimum yang diizinkan oleh Level Boost Server
                 dynamic_bitrate = guild.bitrate_limit
                 bitrate_to_set = dynamic_bitrate
                 bitrate_kbps = bitrate_to_set // 1000 
@@ -1094,23 +1170,19 @@ class Music(commands.Cog):
         user_id_str = str(ctx.author.id)
         new_urls = []
         
-        # 1. Ambil URL dari riwayat putar pengguna
         user_history = self.listening_history.get(user_id_str, [])
         
         if not isinstance(user_history, list):
             user_history = []
         
         if user_history:
-            # Menggunakan set untuk menghindari duplikat dalam riwayat
             filtered_history_urls = [s['webpage_url'] for s in user_history if 'webpage_url' in s]
             
-            # Acak dan ambil yang paling atas
             if filtered_history_urls:
                 random.shuffle(filtered_history_urls)
                 urls_from_history = filtered_history_urls[:num_songs]
                 new_urls.extend(urls_from_history)
 
-        # 2. Jika masih kurang, ambil dari trending music umum
         if len(new_urls) < num_songs:
             search_query = "trending music"
             try:
@@ -1204,7 +1276,6 @@ class Music(commands.Cog):
 
     @commands.command(name="testaudio")
     async def test_audio(self, ctx):
-        """Test audio system"""
         import subprocess
         import os
         
@@ -1267,7 +1338,6 @@ class Music(commands.Cog):
             await ctx.voice_client.disconnect()
         
         try:
-            # Gunakan timeout yang lebih lama untuk EC2
             vc = await ctx.author.voice.channel.connect(
                 timeout=60.0,
                 reconnect=True,
@@ -1275,7 +1345,6 @@ class Music(commands.Cog):
             )
             await ctx.send(f"✅ Bergabung ke **{ctx.author.voice.channel.name}**")
             
-            # Tunggu sedikit sebelum mulai play
             await asyncio.sleep(1)
             
         except asyncio.TimeoutError:
@@ -1288,11 +1357,10 @@ class Music(commands.Cog):
     @commands.command(name="resp", aliases=["p", "play"])
     async def play(self, ctx, *, query):
         if not ctx.voice_client:
-            # Coba connect dengan retry logic
             try:
                 vc = await ctx.author.voice.channel.connect(timeout=60.0, reconnect=True)
                 await ctx.send(f"✅ Bergabung ke **{ctx.author.voice.channel.name}**")
-                await asyncio.sleep(1)  # Tunggu stabil
+                await asyncio.sleep(1)
             except Exception as e:
                 await ctx.send(f"❌ Gagal bergabung ke voice channel: {e}")
                 return
