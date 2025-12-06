@@ -88,19 +88,27 @@ def load_status_config():
         "statuses": [
             {
                 "type": "playing",
-                "text": "!resp untuk play musik"
+                "name": "!resp untuk play musik",
+                "details": "ResWan Music Bot",
+                "state": "Type !reshelp untuk bantuan"
             },
             {
                 "type": "listening",
-                "text": "Perintah !reshelp"
+                "name": "Perintah !reshelp",
+                "details": "Music Bot Commands",
+                "state": "Ready to play music"
             },
             {
                 "type": "watching",
-                "text": "Kamu di voice channel"
+                "name": "Kamu di voice channel",
+                "details": "Music Bot Presence",
+                "state": "Monitoring voice channels"
             },
             {
                 "type": "competing",
-                "text": "Music Battle"
+                "name": "Music Battle",
+                "details": "Music Competition",
+                "state": "vs Other Music Bots"
             }
         ]
     }
@@ -835,7 +843,9 @@ class Music(commands.Cog):
             
             status = statuses[self.current_status_index]
             status_type = status.get("type", "playing").lower()
-            status_text = status.get("text", "Music Bot")
+            status_name = status.get("name", "Music Bot")
+            status_details = status.get("details", "")
+            status_state = status.get("state", "")
             
             activity_type_map = {
                 "playing": discord.ActivityType.playing,
@@ -850,9 +860,9 @@ class Music(commands.Cog):
             
             activity = discord.Activity(
                 type=activity_type,
-                name=status_text[:128],
-                details="ResWan Music Bot",
-                state=f"Status #{self.current_status_index + 1}"
+                name=status_name[:128],
+                details=status_details[:128] if status_details else None,
+                state=status_state[:128] if status_state else None
             )
             
             await self.bot.change_presence(
@@ -1540,17 +1550,18 @@ class Music(commands.Cog):
                 self.current_song_title = song_title
                 self.manual_status_active = False
                 
+                # Set activity status (listening to music)
                 activity = discord.Activity(
                     type=discord.ActivityType.listening,
-                    name=f"{song_title[:100]}...",
+                    name=f"{song_title[:100]}",
                     details="🎵 Playing Music",
-                    state="In voice channel"
+                    state="Type !reshelp for commands"
                 )
                 await self.bot.change_presence(
                     activity=activity,
                     status=discord.Status.online
                 )
-                log.info(f"🎵 Status musik: {song_title[:30]}...")
+                log.info(f"🎵 Activity status: Listening to {song_title[:30]}...")
             else:
                 self.is_playing_music = False
                 self.current_song_title = None
@@ -1562,16 +1573,19 @@ class Music(commands.Cog):
                     activity = discord.Activity(
                         type=discord.ActivityType.playing,
                         name="Music Bot",
-                        details="Status rotation disabled"
+                        details="Ready to play music",
+                        state="Type !reshelp"
                     )
                     await self.bot.change_presence(activity=activity)
                 
         except Exception as e:
             log.error(f"Error update_music_status: {e}")
 
-    async def set_manual_status(self, status_type, status_text):
+    async def set_manual_activity(self, activity_type, name, details=None, state=None):
         try:
             self.manual_status_active = True
+            self.is_playing_music = False
+            self.current_song_title = None
             self.status_rotation_task.stop()
             
             activity_type_map = {
@@ -1583,11 +1597,13 @@ class Music(commands.Cog):
                 "custom": discord.ActivityType.custom
             }
             
-            activity_type = activity_type_map.get(status_type.lower(), discord.ActivityType.playing)
+            activity_type_enum = activity_type_map.get(activity_type.lower(), discord.ActivityType.playing)
             
             activity = discord.Activity(
-                type=activity_type,
-                name=status_text[:128]
+                type=activity_type_enum,
+                name=name[:128],
+                details=details[:128] if details else None,
+                state=state[:128] if state else None
             )
             
             await self.bot.change_presence(
@@ -1595,11 +1611,11 @@ class Music(commands.Cog):
                 status=discord.Status.online
             )
             
-            log.info(f"✅ Status manual diatur: {status_type} - {status_text}")
+            log.info(f"✅ Manual activity set: {activity_type} - {name}")
             return True
             
         except Exception as e:
-            log.error(f"Error set_manual_status: {e}")
+            log.error(f"Error set_manual_activity: {e}")
             return False
 
     async def reset_to_auto_status(self):
@@ -1617,7 +1633,8 @@ class Music(commands.Cog):
                 activity = discord.Activity(
                     type=discord.ActivityType.playing,
                     name="Music Bot",
-                    details="Status rotation disabled"
+                    details="Ready to play music",
+                    state="Type !reshelp"
                 )
                 await self.bot.change_presence(activity=activity)
                 
@@ -2215,18 +2232,21 @@ class Music(commands.Cog):
                     embed.add_field(
                         name=f"{type_emoji} Status #{i+1}",
                         value=f"**Type:** {status.get('type', 'playing')}\n"
-                              f"**Text:** {status.get('text', 'N/A')}",
+                              f"**Name:** {status.get('name', 'N/A')}\n"
+                              f"**Details:** {status.get('details', 'N/A')}\n"
+                              f"**State:** {status.get('state', 'N/A')}",
                         inline=False
                     )
             
             embed.add_field(
                 name="📖 Perintah",
-                value="`!resstatus add <type> <text>` - Tambah status baru\n"
+                value="`!resstatus add <type> <name> | <details> | <state>` - Tambah status baru\n"
                       "`!resstatus remove <number>` - Hapus status\n"
-                      "`!resstatus edit <number> <type> <text>` - Edit status\n"
+                      "`!resstatus edit <number> <type> <name> | <details> | <state>` - Edit status\n"
                       "`!resstatus on/off` - Enable/disable rotasi\n"
                       "`!resstatus interval <detik>` - Ubah interval\n"
-                      "`!resstatus list` - Lihat daftar status",
+                      "`!resstatus list` - Lihat daftar status\n\n"
+                      "**Contoh:** `!resstatus add playing Roblox | Playing with friends | Level 99`",
                 inline=False
             )
             
@@ -2274,14 +2294,23 @@ class Music(commands.Cog):
                 
         elif action == "add":
             if not args:
-                return await ctx.send("❌ Gunakan: `!resstatus add <type> <text>`\n"
-                                    "Contoh: `!resstatus add playing dengan musik`", ephemeral=True)
+                return await ctx.send("❌ Gunakan: `!resstatus add <type> <name> | <details> | <state>`\n"
+                                    "Contoh: `!resstatus add playing Roblox | Playing with friends | Level 99`", ephemeral=True)
             
-            parts = args.split(" ", 1)
-            if len(parts) < 2:
-                return await ctx.send("❌ Format salah! Gunakan: `!resstatus add <type> <text>`", ephemeral=True)
+            # Parse arguments with | separator
+            parts = args.split("|", 2)
+            if len(parts) < 1:
+                return await ctx.send("❌ Format salah! Gunakan: `!resstatus add <type> <name> | <details> | <state>`", ephemeral=True)
             
-            status_type, status_text = parts[0].lower(), parts[1]
+            first_part = parts[0].strip()
+            type_parts = first_part.split(" ", 1)
+            if len(type_parts) < 2:
+                return await ctx.send("❌ Format salah! Gunakan: `!resstatus add <type> <name> | <details> | <state>`", ephemeral=True)
+            
+            status_type = type_parts[0].lower()
+            status_name = type_parts[1].strip()
+            status_details = parts[1].strip() if len(parts) > 1 else ""
+            status_state = parts[2].strip() if len(parts) > 2 else ""
             
             valid_types = ["playing", "listening", "watching", "competing", "streaming", "custom"]
             if status_type not in valid_types:
@@ -2292,13 +2321,17 @@ class Music(commands.Cog):
             
             self.status_config["statuses"].append({
                 "type": status_type,
-                "text": status_text[:100]
+                "name": status_name[:100],
+                "details": status_details[:100],
+                "state": status_state[:100]
             })
             
             save_status_config(self.status_config)
             await ctx.send(f"✅ **Status berhasil ditambahkan!**\n"
                           f"Type: `{status_type}`\n"
-                          f"Text: `{status_text[:50]}`", ephemeral=True)
+                          f"Name: `{status_name[:50]}`\n"
+                          f"Details: `{status_details[:50] if status_details else 'N/A'}`\n"
+                          f"State: `{status_state[:50] if status_state else 'N/A'}`", ephemeral=True)
             
         elif action == "remove":
             try:
@@ -2320,23 +2353,31 @@ class Music(commands.Cog):
                 
                 await ctx.send(f"✅ **Status #{index+1} dihapus:**\n"
                               f"Type: `{removed.get('type')}`\n"
-                              f"Text: `{removed.get('text', 'N/A')}`", ephemeral=True)
+                              f"Name: `{removed.get('name', 'N/A')}`", ephemeral=True)
                 
             except ValueError:
                 await ctx.send("❌ Nomor harus angka!", ephemeral=True)
                 
         elif action == "edit":
             if not args:
-                return await ctx.send("❌ Gunakan: `!resstatus edit <nomor> <type> <text>`", ephemeral=True)
+                return await ctx.send("❌ Gunakan: `!resstatus edit <nomor> <type> <name> | <details> | <state>`", ephemeral=True)
             
-            parts = args.split(" ", 2)
-            if len(parts) < 3:
-                return await ctx.send("❌ Format salah! Gunakan: `!resstatus edit <nomor> <type> <text>`", ephemeral=True)
+            # Parse arguments with | separator
+            parts = args.split("|", 2)
+            if len(parts) < 1:
+                return await ctx.send("❌ Format salah! Gunakan: `!resstatus edit <nomor> <type> <name> | <details> | <state>`", ephemeral=True)
+            
+            first_part = parts[0].strip()
+            first_parts = first_part.split(" ", 2)
+            if len(first_parts) < 3:
+                return await ctx.send("❌ Format salah! Gunakan: `!resstatus edit <nomor> <type> <name> | <details> | <state>`", ephemeral=True)
             
             try:
-                index = int(parts[0]) - 1
-                status_type = parts[1].lower()
-                status_text = parts[2]
+                index = int(first_parts[0]) - 1
+                status_type = first_parts[1].lower()
+                status_name = first_parts[2].strip()
+                status_details = parts[1].strip() if len(parts) > 1 else ""
+                status_state = parts[2].strip() if len(parts) > 2 else ""
                 
                 statuses = self.status_config.get("statuses", [])
                 if index < 0 or index >= len(statuses):
@@ -2349,14 +2390,16 @@ class Music(commands.Cog):
                 old_status = statuses[index]
                 statuses[index] = {
                     "type": status_type,
-                    "text": status_text[:100]
+                    "name": status_name[:100],
+                    "details": status_details[:100],
+                    "state": status_state[:100]
                 }
                 self.status_config["statuses"] = statuses
                 save_status_config(self.status_config)
                 
                 await ctx.send(f"✅ **Status #{index+1} diedit:**\n"
-                              f"**Dari:** `{old_status.get('type')}` - `{old_status.get('text', 'N/A')}`\n"
-                              f"**Menjadi:** `{status_type}` - `{status_text[:50]}`", ephemeral=True)
+                              f"**Dari:** `{old_status.get('type')}` - `{old_status.get('name', 'N/A')}`\n"
+                              f"**Menjadi:** `{status_type}` - `{status_name[:50]}`", ephemeral=True)
                 
             except ValueError:
                 await ctx.send("❌ Nomor harus angka!", ephemeral=True)
@@ -2383,8 +2426,9 @@ class Music(commands.Cog):
                 }.get(status.get("type", "playing"), "🎮")
                 
                 embed.add_field(
-                    name=f"#{i+1} {type_emoji} {status.get('type', 'playing').title()}",
-                    value=status.get("text", "N/A"),
+                    name=f"#{i+1} {type_emoji} {status.get('type', 'playing').title()} - {status.get('name', 'N/A')}",
+                    value=f"**Details:** {status.get('details', 'N/A')}\n"
+                          f"**State:** {status.get('state', 'N/A')}",
                     inline=False
                 )
             
@@ -2393,39 +2437,59 @@ class Music(commands.Cog):
         else:
             await ctx.send("❌ Action tidak dikenali! Gunakan `!resstatus` untuk melihat bantuan.", ephemeral=True)
 
-    @commands.command(name="setstatus", help="[ADMIN] Set status bot secara manual")
+    @commands.command(name="setactivity", help="[ADMIN] Set activity status bot secara manual")
     @commands.has_permissions(administrator=True)
-    async def set_status_manual(self, ctx, status_type: str, *, status_text: str):
+    async def set_activity_manual(self, ctx, activity_type: str, name: str, *, details_and_state: str = None):
         valid_types = ["playing", "listening", "watching", "competing", "streaming", "custom"]
         
-        if status_type.lower() not in valid_types:
-            await ctx.send(f"❌ Type status tidak valid! Pilih dari: {', '.join(valid_types)}", ephemeral=True)
+        if activity_type.lower() not in valid_types:
+            await ctx.send(f"❌ Type activity tidak valid! Pilih dari: {', '.join(valid_types)}", ephemeral=True)
             return
         
-        success = await self.set_manual_status(status_type.lower(), status_text)
+        details = None
+        state = None
+        
+        if details_and_state:
+            parts = details_and_state.split("|", 1)
+            if len(parts) == 2:
+                details = parts[0].strip()
+                state = parts[1].strip()
+            else:
+                details = details_and_state.strip()
+        
+        success = await self.set_manual_activity(
+            activity_type.lower(), 
+            name, 
+            details, 
+            state
+        )
         
         if success:
-            await ctx.send(f"✅ **Status manual diatur:**\n"
-                          f"Type: `{status_type}`\n"
-                          f"Text: `{status_text[:50]}`\n\n"
-                          f"Status ini akan aktif sampai bot mulai memutar musik atau Anda menggunakan `!resetstatus`.", ephemeral=True)
+            message = f"✅ **Activity manual diatur:**\nType: `{activity_type}`\nName: `{name}`"
+            if details:
+                message += f"\nDetails: `{details}`"
+            if state:
+                message += f"\nState: `{state}`"
+            message += "\n\nActivity ini akan aktif sampai bot mulai memutar musik atau Anda menggunakan `!resetactivity`."
+            
+            await ctx.send(message, ephemeral=True)
         else:
-            await ctx.send("❌ Gagal mengatur status manual.", ephemeral=True)
+            await ctx.send("❌ Gagal mengatur activity manual.", ephemeral=True)
 
-    @commands.command(name="resetstatus", help="[ADMIN] Reset status ke mode otomatis")
+    @commands.command(name="resetactivity", help="[ADMIN] Reset activity ke mode otomatis")
     @commands.has_permissions(administrator=True)
-    async def reset_status(self, ctx):
+    async def reset_activity(self, ctx):
         success = await self.reset_to_auto_status()
         
         if success:
             if self.is_playing_music and self.current_song_title:
-                await ctx.send("✅ **Status direset ke mode musik** (karena sedang memutar musik).", ephemeral=True)
+                await ctx.send("✅ **Activity direset ke mode musik** (karena sedang memutar musik).", ephemeral=True)
             elif self.status_config.get("enabled", True):
-                await ctx.send("✅ **Status direset ke mode rotasi otomatis**.", ephemeral=True)
+                await ctx.send("✅ **Activity direset ke mode rotasi otomatis**.", ephemeral=True)
             else:
-                await ctx.send("✅ **Status direset ke default** (rotasi dinonaktifkan).", ephemeral=True)
+                await ctx.send("✅ **Activity direset ke default**.", ephemeral=True)
         else:
-            await ctx.send("❌ Gagal mereset status.", ephemeral=True)
+            await ctx.send("❌ Gagal mereset activity.", ephemeral=True)
 
     @commands.command(name="settriger", help="[ADMIN] Mengatur saluran suara pemicu untuk server ini.")
     @commands.has_permissions(administrator=True)
