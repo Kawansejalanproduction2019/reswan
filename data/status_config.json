@@ -1,1 +1,6 @@
-{}
+{
+  "type": "playing",
+  "name": "Roblox",          // Nama utama (yang muncul besar)
+  "details": "Playing with friends",  // Detail (baris kedua)
+  "state": "Level 99"        // State (baris ketiga)
+}
