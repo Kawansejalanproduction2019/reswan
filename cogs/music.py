@@ -327,7 +327,7 @@ class MusicControlView(discord.ui.View):
                     old_channel = interaction.guild.get_channel(old_message_info['channel_id']) or await interaction.guild.fetch_channel(old_message_info['channel_id'])
                     if old_channel:
                         old_message = await old_channel.fetch_message(old_message_info['message_id'])
-                            await old_message.delete()
+                        await old_message.delete()
                 except (discord.NotFound, discord.HTTPException) as e:
                     pass
                 finally:
