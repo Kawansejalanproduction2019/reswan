@@ -25,6 +25,7 @@ FFMPEG_EXECUTABLE = '/usr/bin/ffmpeg'
 TEMP_CHANNELS_FILE = 'data/temp_voice_channels.json'
 LISTENING_HISTORY_FILE = 'data/listening_history.json'
 GUILD_CONFIG_FILE = 'data/guild_config.json'
+STATUS_CONFIG_FILE = 'data/status_config.json'
 
 ENABLE_SCHEDULED_CREATION = False
 CREATION_START_TIME = (20, 0)
@@ -72,12 +73,51 @@ def load_listening_history():
 
 def save_listening_history(data):
     save_json_file(LISTENING_HISTORY_FILE, data)
-    
+
 def load_guild_config():
     return load_json_file(GUILD_CONFIG_FILE)
 
 def save_guild_config(data):
     save_json_file(GUILD_CONFIG_FILE, data)
+
+def load_status_config():
+    os.makedirs(os.path.dirname(STATUS_CONFIG_FILE), exist_ok=True)
+    default_config = {
+        "enabled": True,
+        "interval": 30,
+        "statuses": [
+            {
+                "type": "playing",
+                "text": "!resp untuk play musik"
+            },
+            {
+                "type": "listening",
+                "text": "Perintah !reshelp"
+            },
+            {
+                "type": "watching",
+                "text": "Kamu di voice channel"
+            },
+            {
+                "type": "competing",
+                "text": "Music Battle"
+            }
+        ]
+    }
+    
+    if not os.path.exists(STATUS_CONFIG_FILE):
+        with open(STATUS_CONFIG_FILE, 'w', encoding='utf-8') as f:
+            json.dump(default_config, f, indent=4)
+        return default_config
+    
+    try:
+        with open(STATUS_CONFIG_FILE, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except:
+        return default_config
+
+def save_status_config(config):
+    save_json_file(STATUS_CONFIG_FILE, config)
 
 ytdl_opts = {
     'format': 'bestaudio[ext=opus]/bestaudio[ext=m4a]/bestaudio/best',
@@ -725,6 +765,10 @@ class Music(commands.Cog):
         self.now_playing_info = {}
         self.listening_history = load_listening_history()
         self.guild_config = load_guild_config()
+        self.status_config = load_status_config()
+        self.current_status_index = 0
+        self.is_playing_music = False
+        self.current_song_title = None
 
         GENIUS_API_TOKEN = os.getenv("GENIUS_API")
         self.genius = None
@@ -754,12 +798,67 @@ class Music(commands.Cog):
         self.bot.add_view(VCControlView(self))
         self.active_temp_channels = load_temp_channels()
         
+        self.status_rotation_task.start()
         self.cleanup_task.start()
         self.idle_check_task.start()
         
     def cog_unload(self):
+        self.status_rotation_task.cancel()
         self.cleanup_task.cancel()
         self.idle_check_task.cancel()
+
+    @tasks.loop(seconds=30)
+    async def status_rotation_task(self):
+        try:
+            if not self.status_config.get("enabled", True):
+                return
+            
+            if self.is_playing_music and self.current_song_title:
+                return
+            
+            interval = self.status_config.get("interval", 30)
+            self.status_rotation_task.change_interval(seconds=interval)
+            
+            statuses = self.status_config.get("statuses", [])
+            if not statuses:
+                return
+            
+            status = statuses[self.current_status_index]
+            status_type = status.get("type", "playing").lower()
+            status_text = status.get("text", "Music Bot")
+            
+            activity_type_map = {
+                "playing": discord.ActivityType.playing,
+                "listening": discord.ActivityType.listening,
+                "watching": discord.ActivityType.watching,
+                "competing": discord.ActivityType.competing,
+                "streaming": discord.ActivityType.streaming,
+                "custom": discord.ActivityType.custom
+            }
+            
+            activity_type = activity_type_map.get(status_type, discord.ActivityType.playing)
+            
+            activity = discord.Activity(
+                type=activity_type,
+                name=status_text[:128],
+                details="ResWan Music Bot",
+                state=f"Status #{self.current_status_index + 1}"
+            )
+            
+            await self.bot.change_presence(
+                activity=activity,
+                status=discord.Status.online
+            )
+            
+            self.current_status_index = (self.current_status_index + 1) % len(statuses)
+            
+        except Exception as e:
+            log.error(f"Error in status_rotation_task: {e}")
+
+    @status_rotation_task.before_loop
+    async def before_status_rotation(self):
+        await self.bot.wait_until_ready()
+        await self.update_music_status()
 
     @tasks.loop(seconds=10)
     async def cleanup_task(self):
@@ -1162,6 +1261,11 @@ class Music(commands.Cog):
             ctx.voice_client.play(source, after=lambda e: asyncio.run_coroutine_threadsafe(self._after_play_handler(ctx, e), self.bot.loop))
             self.now_playing_info[guild_id] = song_info_from_ytdl
             
+            await self.update_music_status(
+                song_title=song_info_from_ytdl['title'],
+                is_playing=True
+            )
+            
             embed = discord.Embed(
                 title="🎶 Sedang Memutar",
                 description=f"**[{self.now_playing_info[guild_id]['title']}]({self.now_playing_info[guild_id]['webpage_url']})**",
@@ -1214,6 +1318,8 @@ class Music(commands.Cog):
             if ctx.voice_client and ctx.voice_client.is_connected():
                 await self.play_next(ctx)
             else:
+                await self.update_music_status(is_playing=False)
+                
                 guild_id = ctx.guild.id
                 self.queues.pop(guild_id, None)
                 self.loop_status.pop(guild_id, None)
@@ -1406,6 +1512,43 @@ class Music(commands.Cog):
             log.error(f"Error processing SoundCloud URL: {e}")
             raise Exception(f"Gagal memproses link SoundCloud. Error: {str(e)[:100]}")
 
+    async def auto_deafen_bot(self, voice_channel):
+        try:
+            await asyncio.sleep(1)
+            
+            bot_member = voice_channel.guild.get_member(self.bot.user.id)
+            if bot_member and bot_member.voice:
+                await bot_member.edit(deafen=True)
+                log.info(f"✅ Bot auto-deafen di {voice_channel.name}")
+        except Exception as e:
+            log.error(f"Error auto-deafen: {e}")
+
+    async def update_music_status(self, song_title=None, is_playing=False):
+        try:
+            self.is_playing_music = is_playing
+            self.current_song_title = song_title
+            
+            if is_playing and song_title:
+                activity = discord.Activity(
+                    type=discord.ActivityType.listening,
+                    name=f"{song_title[:100]}...",
+                    details="🎵 Playing Music",
+                    state="In voice channel"
+                )
+                await self.bot.change_presence(
+                    activity=activity,
+                    status=discord.Status.online
+                )
+                log.info(f"🎵 Status musik: {song_title[:30]}...")
+            else:
+                self.is_playing_music = False
+                self.current_song_title = None
+                
+                self.status_rotation_task.restart()
+                
+        except Exception as e:
+            log.error(f"Error update_music_status: {e}")
+
     @commands.command(name="testaudio")
     async def test_audio(self, ctx):
         import subprocess
@@ -1476,7 +1619,10 @@ class Music(commands.Cog):
                 reconnect=True,
                 self_deaf=True
             )
-            await ctx.send(f"✅ Bergabung ke **{ctx.author.voice.channel.name}**")
+            
+            await self.auto_deafen_bot(vc)
+            
+            await ctx.send(f"✅ Bergabung ke **{ctx.author.voice.channel.name}** (Auto-Deafen)")
             await asyncio.sleep(1)
             
         except asyncio.TimeoutError:
@@ -1560,6 +1706,7 @@ class Music(commands.Cog):
                     
                     if is_spotify_request and spotify_track_info:
                         self.now_playing_info[ctx.guild.id] = spotify_track_info
+                        song_title = spotify_track_info['title']
                     else:
                         song_info_from_ytdl = await self.get_song_info_from_url(first_url)
                         self.now_playing_info[ctx.guild.id] = {
@@ -1568,6 +1715,12 @@ class Music(commands.Cog):
                             'webpage_url': song_info_from_ytdl['webpage_url'],
                             'requester': ctx.author.mention
                         }
+                        song_title = song_info_from_ytdl['title']
+                    
+                    await self.update_music_status(
+                        song_title=song_title,
+                        is_playing=True
+                    )
                     
                     self.add_song_to_history(ctx.author.id, self.now_playing_info[ctx.guild.id])
                     
@@ -1719,6 +1872,8 @@ class Music(commands.Cog):
             
             await ctx.voice_client.disconnect()
             
+            await self.update_music_status(is_playing=False)
+            
             guild_id = ctx.guild.id
             self.queues.pop(guild_id, None)
             self.loop_status.pop(guild_id, None)
@@ -1851,6 +2006,215 @@ class Music(commands.Cog):
             log.error(f"Error in clear_queue_cmd: {e}")
             await ctx.send(f"Terjadi kesalahan: {e}", ephemeral=True)
     
+    @commands.command(name="resstatus", help="[ADMIN] Kelola custom rotating status")
+    @commands.has_permissions(administrator=True)
+    async def manage_status(self, ctx, action: str = None, *, args: str = None):
+        embed = discord.Embed(
+            title="🎮 Custom Status Manager",
+            color=discord.Color.blue()
+        )
+        
+        if action is None:
+            statuses = self.status_config.get("statuses", [])
+            enabled = self.status_config.get("enabled", True)
+            interval = self.status_config.get("interval", 30)
+            
+            embed.description = f"**Status Rotasi:** {'✅ ON' if enabled else '❌ OFF'}\n"
+            embed.description += f"**Interval:** {interval} detik\n"
+            embed.description += f"**Jumlah Status:** {len(statuses)}\n\n"
+            
+            if statuses:
+                for i, status in enumerate(statuses):
+                    type_emoji = {
+                        "playing": "🎮",
+                        "listening": "🎵", 
+                        "watching": "👀",
+                        "competing": "🏆",
+                        "streaming": "📺",
+                        "custom": "🔧"
+                    }.get(status.get("type", "playing"), "🎮")
+                    
+                    embed.add_field(
+                        name=f"{type_emoji} Status #{i+1}",
+                        value=f"**Type:** {status.get('type', 'playing')}\n"
+                              f"**Text:** {status.get('text', 'N/A')}",
+                        inline=False
+                    )
+            
+            embed.add_field(
+                name="📖 Perintah",
+                value="`!resstatus add <type> <text>` - Tambah status baru\n"
+                      "`!resstatus remove <number>` - Hapus status\n"
+                      "`!resstatus edit <number> <type> <text>` - Edit status\n"
+                      "`!resstatus on/off` - Enable/disable rotasi\n"
+                      "`!resstatus interval <detik>` - Ubah interval\n"
+                      "`!resstatus list` - Lihat daftar status",
+                inline=False
+            )
+            
+            await ctx.send(embed=embed, ephemeral=True)
+            return
+        
+        action = action.lower()
+        
+        if action == "on":
+            self.status_config["enabled"] = True
+            save_status_config(self.status_config)
+            self.status_rotation_task.restart()
+            await ctx.send("✅ **Rotasi status diaktifkan!**", ephemeral=True)
+            
+        elif action == "off":
+            self.status_config["enabled"] = False
+            save_status_config(self.status_config)
+            self.status_rotation_task.cancel()
+            activity = discord.Activity(
+                type=discord.ActivityType.listening,
+                name="Music Bot",
+                details="Status rotation disabled"
+            )
+            await self.bot.change_presence(activity=activity)
+            await ctx.send("❌ **Rotasi status dinonaktifkan!**", ephemeral=True)
+            
+        elif action == "interval":
+            try:
+                if not args or not args.isdigit():
+                    return await ctx.send("❌ Gunakan: `!resstatus interval <detik>`", ephemeral=True)
+                
+                interval = int(args)
+                if interval < 10:
+                    return await ctx.send("❌ Interval minimal 10 detik", ephemeral=True)
+                if interval > 300:
+                    return await ctx.send("❌ Interval maksimal 300 detik (5 menit)", ephemeral=True)
+                
+                self.status_config["interval"] = interval
+                save_status_config(self.status_config)
+                self.status_rotation_task.change_interval(seconds=interval)
+                await ctx.send(f"✅ **Interval diubah menjadi {interval} detik!**", ephemeral=True)
+                
+            except ValueError:
+                await ctx.send("❌ Interval harus angka!", ephemeral=True)
+                
+        elif action == "add":
+            if not args:
+                return await ctx.send("❌ Gunakan: `!resstatus add <type> <text>`\n"
+                                    "Contoh: `!resstatus add playing dengan musik`", ephemeral=True)
+            
+            parts = args.split(" ", 1)
+            if len(parts) < 2:
+                return await ctx.send("❌ Format salah! Gunakan: `!resstatus add <type> <text>`", ephemeral=True)
+            
+            status_type, status_text = parts[0].lower(), parts[1]
+            
+            valid_types = ["playing", "listening", "watching", "competing", "streaming", "custom"]
+            if status_type not in valid_types:
+                return await ctx.send(f"❌ Type tidak valid! Pilih dari: {', '.join(valid_types)}", ephemeral=True)
+            
+            if "statuses" not in self.status_config:
+                self.status_config["statuses"] = []
+            
+            self.status_config["statuses"].append({
+                "type": status_type,
+                "text": status_text[:100]
+            })
+            
+            save_status_config(self.status_config)
+            await ctx.send(f"✅ **Status berhasil ditambahkan!**\n"
+                          f"Type: `{status_type}`\n"
+                          f"Text: `{status_text[:50]}`", ephemeral=True)
+            
+        elif action == "remove":
+            try:
+                if not args or not args.isdigit():
+                    return await ctx.send("❌ Gunakan: `!resstatus remove <nomor>`", ephemeral=True)
+                
+                index = int(args) - 1
+                statuses = self.status_config.get("statuses", [])
+                
+                if index < 0 or index >= len(statuses):
+                    return await ctx.send(f"❌ Nomor tidak valid! Pilih 1-{len(statuses)}", ephemeral=True)
+                
+                removed = statuses.pop(index)
+                self.status_config["statuses"] = statuses
+                save_status_config(self.status_config)
+                
+                if self.current_status_index >= len(statuses):
+                    self.current_status_index = 0
+                
+                await ctx.send(f"✅ **Status #{index+1} dihapus:**\n"
+                              f"Type: `{removed.get('type')}`\n"
+                              f"Text: `{removed.get('text', 'N/A')}`", ephemeral=True)
+                
+            except ValueError:
+                await ctx.send("❌ Nomor harus angka!", ephemeral=True)
+                
+        elif action == "edit":
+            if not args:
+                return await ctx.send("❌ Gunakan: `!resstatus edit <nomor> <type> <text>`", ephemeral=True)
+            
+            parts = args.split(" ", 2)
+            if len(parts) < 3:
+                return await ctx.send("❌ Format salah! Gunakan: `!resstatus edit <nomor> <type> <text>`", ephemeral=True)
+            
+            try:
+                index = int(parts[0]) - 1
+                status_type = parts[1].lower()
+                status_text = parts[2]
+                
+                statuses = self.status_config.get("statuses", [])
+                if index < 0 or index >= len(statuses):
+                    return await ctx.send(f"❌ Nomor tidak valid! Pilih 1-{len(statuses)}", ephemeral=True)
+                
+                valid_types = ["playing", "listening", "watching", "competing", "streaming", "custom"]
+                if status_type not in valid_types:
+                    return await ctx.send(f"❌ Type tidak valid! Pilih dari: {', '.join(valid_types)}", ephemeral=True)
+                
+                old_status = statuses[index]
+                statuses[index] = {
+                    "type": status_type,
+                    "text": status_text[:100]
+                }
+                self.status_config["statuses"] = statuses
+                save_status_config(self.status_config)
+                
+                await ctx.send(f"✅ **Status #{index+1} diedit:**\n"
+                              f"**Dari:** `{old_status.get('type')}` - `{old_status.get('text', 'N/A')}`\n"
+                              f"**Menjadi:** `{status_type}` - `{status_text[:50]}`", ephemeral=True)
+                
+            except ValueError:
+                await ctx.send("❌ Nomor harus angka!", ephemeral=True)
+                
+        elif action == "list":
+            statuses = self.status_config.get("statuses", [])
+            if not statuses:
+                return await ctx.send("❌ Tidak ada status yang tersedia!", ephemeral=True)
+            
+            embed = discord.Embed(
+                title="📋 Daftar Custom Status",
+                description=f"Total: {len(statuses)} status\n",
+                color=discord.Color.green()
+            )
+            
+            for i, status in enumerate(statuses):
+                type_emoji = {
+                    "playing": "🎮",
+                    "listening": "🎵", 
+                    "watching": "👀",
+                    "competing": "🏆",
+                    "streaming": "📺",
+                    "custom": "🔧"
+                }.get(status.get("type", "playing"), "🎮")
+                
+                embed.add_field(
+                    name=f"#{i+1} {type_emoji} {status.get('type', 'playing').title()}",
+                    value=status.get("text", "N/A"),
+                    inline=False
+                )
+            
+            await ctx.send(embed=embed, ephemeral=True)
+            
+        else:
+            await ctx.send("❌ Action tidak dikenali! Gunakan `!resstatus` untuk melihat bantuan.", ephemeral=True)
+
     @commands.command(name="settriger", help="[ADMIN] Mengatur saluran suara pemicu untuk server ini.")
     @commands.has_permissions(administrator=True)
     async def set_trigger_channel(self, ctx, channel_id: int):
