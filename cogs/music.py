@@ -769,6 +769,7 @@ class Music(commands.Cog):
         self.current_status_index = 0
         self.is_playing_music = False
         self.current_song_title = None
+        self.manual_status_active = False
 
         GENIUS_API_TOKEN = os.getenv("GENIUS_API")
         self.genius = None
@@ -813,10 +814,18 @@ class Music(commands.Cog):
             if not self.status_config.get("enabled", True):
                 return
             
+            if self.manual_status_active:
+                return
+            
             if self.is_playing_music and self.current_song_title:
                 return
             
             interval = self.status_config.get("interval", 30)
+            if interval < 5:
+                interval = 5
+                self.status_config["interval"] = 5
+                save_status_config(self.status_config)
+            
             self.status_rotation_task.change_interval(seconds=interval)
             
             statuses = self.status_config.get("statuses", [])
@@ -1525,10 +1534,11 @@ class Music(commands.Cog):
 
     async def update_music_status(self, song_title=None, is_playing=False):
         try:
-            self.is_playing_music = is_playing
-            self.current_song_title = song_title
-            
             if is_playing and song_title:
+                self.is_playing_music = True
+                self.current_song_title = song_title
+                self.manual_status_active = False
+                
                 activity = discord.Activity(
                     type=discord.ActivityType.listening,
                     name=f"{song_title[:100]}...",
@@ -1543,11 +1553,79 @@ class Music(commands.Cog):
             else:
                 self.is_playing_music = False
                 self.current_song_title = None
+                self.manual_status_active = False
                 
-                self.status_rotation_task.restart()
+                if self.status_config.get("enabled", True):
+                    self.status_rotation_task.restart()
+                else:
+                    activity = discord.Activity(
+                        type=discord.ActivityType.playing,
+                        name="Music Bot",
+                        details="Status rotation disabled"
+                    )
+                    await self.bot.change_presence(activity=activity)
                 
         except Exception as e:
             log.error(f"Error update_music_status: {e}")
+
+    async def set_manual_status(self, status_type, status_text):
+        try:
+            self.manual_status_active = True
+            self.status_rotation_task.stop()
+            
+            activity_type_map = {
+                "playing": discord.ActivityType.playing,
+                "listening": discord.ActivityType.listening,
+                "watching": discord.ActivityType.watching,
+                "competing": discord.ActivityType.competing,
+                "streaming": discord.ActivityType.streaming,
+                "custom": discord.ActivityType.custom
+            }
+            
+            activity_type = activity_type_map.get(status_type.lower(), discord.ActivityType.playing)
+            
+            activity = discord.Activity(
+                type=activity_type,
+                name=status_text[:128]
+            )
+            
+            await self.bot.change_presence(
+                activity=activity,
+                status=discord.Status.online
+            )
+            
+            log.info(f"✅ Status manual diatur: {status_type} - {status_text}")
+            return True
+            
+        except Exception as e:
+            log.error(f"Error set_manual_status: {e}")
+            return False
+
+    async def reset_to_auto_status(self):
+        try:
+            self.manual_status_active = False
+            
+            if self.is_playing_music and self.current_song_title:
+                await self.update_music_status(
+                    song_title=self.current_song_title,
+                    is_playing=True
+                )
+            elif self.status_config.get("enabled", True):
+                self.status_rotation_task.restart()
+            else:
+                activity = discord.Activity(
+                    type=discord.ActivityType.playing,
+                    name="Music Bot",
+                    details="Status rotation disabled"
+                )
+                await self.bot.change_presence(activity=activity)
+                
+            log.info("✅ Status kembali ke mode otomatis")
+            return True
+            
+        except Exception as e:
+            log.error(f"Error reset_to_auto_status: {e}")
+            return False
 
     @commands.command(name="testaudio")
     async def test_audio(self, ctx):
@@ -2068,7 +2146,7 @@ class Music(commands.Cog):
             save_status_config(self.status_config)
             self.status_rotation_task.cancel()
             activity = discord.Activity(
-                type=discord.ActivityType.listening,
+                type=discord.ActivityType.playing,
                 name="Music Bot",
                 details="Status rotation disabled"
             )
@@ -2081,8 +2159,8 @@ class Music(commands.Cog):
                     return await ctx.send("❌ Gunakan: `!resstatus interval <detik>`", ephemeral=True)
                 
                 interval = int(args)
-                if interval < 10:
-                    return await ctx.send("❌ Interval minimal 10 detik", ephemeral=True)
+                if interval < 5:
+                    return await ctx.send("❌ Interval minimal 5 detik", ephemeral=True)
                 if interval > 300:
                     return await ctx.send("❌ Interval maksimal 300 detik (5 menit)", ephemeral=True)
                 
@@ -2214,6 +2292,40 @@ class Music(commands.Cog):
             
         else:
             await ctx.send("❌ Action tidak dikenali! Gunakan `!resstatus` untuk melihat bantuan.", ephemeral=True)
+
+    @commands.command(name="setstatus", help="[ADMIN] Set status bot secara manual")
+    @commands.has_permissions(administrator=True)
+    async def set_status_manual(self, ctx, status_type: str, *, status_text: str):
+        valid_types = ["playing", "listening", "watching", "competing", "streaming", "custom"]
+        
+        if status_type.lower() not in valid_types:
+            await ctx.send(f"❌ Type status tidak valid! Pilih dari: {', '.join(valid_types)}", ephemeral=True)
+            return
+        
+        success = await self.set_manual_status(status_type.lower(), status_text)
+        
+        if success:
+            await ctx.send(f"✅ **Status manual diatur:**\n"
+                          f"Type: `{status_type}`\n"
+                          f"Text: `{status_text[:50]}`\n\n"
+                          f"Status ini akan aktif sampai bot mulai memutar musik atau Anda menggunakan `!resetstatus`.", ephemeral=True)
+        else:
+            await ctx.send("❌ Gagal mengatur status manual.", ephemeral=True)
+
+    @commands.command(name="resetstatus", help="[ADMIN] Reset status ke mode otomatis")
+    @commands.has_permissions(administrator=True)
+    async def reset_status(self, ctx):
+        success = await self.reset_to_auto_status()
+        
+        if success:
+            if self.is_playing_music and self.current_song_title:
+                await ctx.send("✅ **Status direset ke mode musik** (karena sedang memutar musik).", ephemeral=True)
+            elif self.status_config.get("enabled", True):
+                await ctx.send("✅ **Status direset ke mode rotasi otomatis**.", ephemeral=True)
+            else:
+                await ctx.send("✅ **Status direset ke default** (rotasi dinonaktifkan).", ephemeral=True)
+        else:
+            await ctx.send("❌ Gagal mereset status.", ephemeral=True)
 
     @commands.command(name="settriger", help="[ADMIN] Mengatur saluran suara pemicu untuk server ini.")
     @commands.has_permissions(administrator=True)
