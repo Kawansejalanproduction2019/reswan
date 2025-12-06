@@ -769,6 +769,8 @@ class Music(commands.Cog):
         self.current_status_index = 0
         self.is_playing_music = False
         self.current_song_title = None
+        self.manual_status_active = False
+        self.voice_retry_attempts = {}  # Track retry attempts per guild
 
         GENIUS_API_TOKEN = os.getenv("GENIUS_API")
         self.genius = None
@@ -813,10 +815,18 @@ class Music(commands.Cog):
             if not self.status_config.get("enabled", True):
                 return
             
+            if self.manual_status_active:
+                return
+            
             if self.is_playing_music and self.current_song_title:
                 return
             
             interval = self.status_config.get("interval", 30)
+            if interval < 5:
+                interval = 5
+                self.status_config["interval"] = 5
+                save_status_config(self.status_config)
+            
             self.status_rotation_task.change_interval(seconds=interval)
             
             statuses = self.status_config.get("statuses", [])
@@ -1525,10 +1535,11 @@ class Music(commands.Cog):
 
     async def update_music_status(self, song_title=None, is_playing=False):
         try:
-            self.is_playing_music = is_playing
-            self.current_song_title = song_title
-            
             if is_playing and song_title:
+                self.is_playing_music = True
+                self.current_song_title = song_title
+                self.manual_status_active = False
+                
                 activity = discord.Activity(
                     type=discord.ActivityType.listening,
                     name=f"{song_title[:100]}...",
@@ -1543,11 +1554,155 @@ class Music(commands.Cog):
             else:
                 self.is_playing_music = False
                 self.current_song_title = None
+                self.manual_status_active = False
                 
-                self.status_rotation_task.restart()
+                if self.status_config.get("enabled", True):
+                    self.status_rotation_task.restart()
+                else:
+                    activity = discord.Activity(
+                        type=discord.ActivityType.playing,
+                        name="Music Bot",
+                        details="Status rotation disabled"
+                    )
+                    await self.bot.change_presence(activity=activity)
                 
         except Exception as e:
             log.error(f"Error update_music_status: {e}")
+
+    async def set_manual_status(self, status_type, status_text):
+        try:
+            self.manual_status_active = True
+            self.status_rotation_task.stop()
+            
+            activity_type_map = {
+                "playing": discord.ActivityType.playing,
+                "listening": discord.ActivityType.listening,
+                "watching": discord.ActivityType.watching,
+                "competing": discord.ActivityType.competing,
+                "streaming": discord.ActivityType.streaming,
+                "custom": discord.ActivityType.custom
+            }
+            
+            activity_type = activity_type_map.get(status_type.lower(), discord.ActivityType.playing)
+            
+            activity = discord.Activity(
+                type=activity_type,
+                name=status_text[:128]
+            )
+            
+            await self.bot.change_presence(
+                activity=activity,
+                status=discord.Status.online
+            )
+            
+            log.info(f"✅ Status manual diatur: {status_type} - {status_text}")
+            return True
+            
+        except Exception as e:
+            log.error(f"Error set_manual_status: {e}")
+            return False
+
+    async def reset_to_auto_status(self):
+        try:
+            self.manual_status_active = False
+            
+            if self.is_playing_music and self.current_song_title:
+                await self.update_music_status(
+                    song_title=self.current_song_title,
+                    is_playing=True
+                )
+            elif self.status_config.get("enabled", True):
+                self.status_rotation_task.restart()
+            else:
+                activity = discord.Activity(
+                    type=discord.ActivityType.playing,
+                    name="Music Bot",
+                    details="Status rotation disabled"
+                )
+                await self.bot.change_presence(activity=activity)
+                
+            log.info("✅ Status kembali ke mode otomatis")
+            return True
+            
+        except Exception as e:
+            log.error(f"Error reset_to_auto_status: {e}")
+            return False
+
+    async def safe_connect_voice(self, ctx, max_retries=3):
+        """Connect to voice with error handling and retries"""
+        if not ctx.author.voice or not ctx.author.voice.channel:
+            return None
+        
+        guild_id = ctx.guild.id
+        
+        for attempt in range(max_retries):
+            try:
+                if ctx.voice_client and ctx.voice_client.is_connected():
+                    if ctx.voice_client.channel == ctx.author.voice.channel:
+                        return ctx.voice_client
+                    await ctx.voice_client.disconnect()
+                
+                log.info(f"Connecting to voice channel (attempt {attempt + 1}/{max_retries})...")
+                vc = await ctx.author.voice.channel.connect(
+                    timeout=30.0,
+                    reconnect=True,
+                    self_deaf=True
+                )
+                
+                await self.auto_deafen_bot(vc)
+                log.info(f"✅ Connected to voice channel: {ctx.author.voice.channel.name}")
+                
+                self.voice_retry_attempts.pop(guild_id, None)
+                return vc
+                
+            except discord.errors.ConnectionClosed as e:
+                log.error(f"Voice connection closed (attempt {attempt + 1}): {e}")
+                if attempt < max_retries - 1:
+                    wait_time = (attempt + 1) * 2
+                    log.info(f"Retrying in {wait_time} seconds...")
+                    await asyncio.sleep(wait_time)
+                else:
+                    log.error(f"Failed to connect after {max_retries} attempts")
+                    self.voice_retry_attempts[guild_id] = datetime.now()
+                    raise
+            
+            except asyncio.TimeoutError:
+                log.error(f"Voice connection timeout (attempt {attempt + 1})")
+                if attempt < max_retries - 1:
+                    await asyncio.sleep(3)
+                else:
+                    log.error(f"Failed to connect after {max_retries} attempts")
+                    self.voice_retry_attempts[guild_id] = datetime.now()
+                    raise
+            
+            except discord.ClientException as e:
+                log.error(f"Client exception (attempt {attempt + 1}): {e}")
+                if "Already connected" in str(e):
+                    if ctx.voice_client and ctx.voice_client.is_connected():
+                        return ctx.voice_client
+                raise
+            
+            except Exception as e:
+                log.error(f"Unexpected error connecting to voice (attempt {attempt + 1}): {e}")
+                if attempt < max_retries - 1:
+                    await asyncio.sleep(2)
+                else:
+                    log.error(f"Failed to connect after {max_retries} attempts")
+                    self.voice_retry_attempts[guild_id] = datetime.now()
+                    raise
+        
+        return None
+
+    def can_retry_voice(self, guild_id):
+        """Check if voice connection can be retried for this guild"""
+        if guild_id not in self.voice_retry_attempts:
+            return True
+        
+        last_attempt = self.voice_retry_attempts[guild_id]
+        time_since_attempt = datetime.now() - last_attempt
+        
+        # Allow retry after 60 seconds
+        return time_since_attempt.total_seconds() > 60
 
     @commands.command(name="testaudio")
     async def test_audio(self, ctx):
@@ -1608,27 +1763,31 @@ class Music(commands.Cog):
             return await ctx.send("Kamu harus berada di voice channel dulu.")
         
         try:
-            if ctx.voice_client is not None:
-                if ctx.voice_client.is_connected():
-                    if ctx.voice_client.channel == ctx.author.voice.channel:
-                        return await ctx.send("Bot sudah berada di channel ini.")
-                    await ctx.voice_client.disconnect()
+            guild_id = ctx.guild.id
+            if not self.can_retry_voice(guild_id):
+                return await ctx.send("❌ Voice connection sedang bermasalah. Coba lagi dalam 1 menit.", ephemeral=True)
             
-            vc = await ctx.author.voice.channel.connect(
-                timeout=60.0,
-                reconnect=True,
-                self_deaf=True
-            )
+            vc = await self.safe_connect_voice(ctx)
             
-            await self.auto_deafen_bot(vc)
-            
-            await ctx.send(f"✅ Bergabung ke **{ctx.author.voice.channel.name}** (Auto-Deafen)")
-            await asyncio.sleep(1)
+            if vc:
+                await ctx.send(f"✅ Bergabung ke **{ctx.author.voice.channel.name}** (Auto-Deafen)")
+                await asyncio.sleep(1)
+            else:
+                await ctx.send("❌ Gagal bergabung ke voice channel setelah beberapa percobaan.")
+                
+        except discord.errors.ConnectionClosed as e:
+            await ctx.send("❌ **Error 4006**: Gagal terhubung ke server voice Discord. Ini adalah masalah jaringan Discord. Silakan coba lagi nanti.")
+            log.error(f"ConnectionClosed error in join: {e}")
             
         except asyncio.TimeoutError:
             await ctx.send("❌ Timeout saat mencoba bergabung ke voice channel.")
+            
         except discord.ClientException as e:
-            await ctx.send(f"❌ Error: {e}")
+            if "Already connected" in str(e):
+                await ctx.send("✅ Bot sudah terhubung ke voice channel.")
+            else:
+                await ctx.send(f"❌ Error: {e}")
+                
         except Exception as e:
             log.error(f"Error in join command: {e}")
             await ctx.send(f"❌ Gagal bergabung: {type(e).__name__}: {str(e)[:200]}")
@@ -1639,11 +1798,19 @@ class Music(commands.Cog):
             if not ctx.author.voice or not ctx.author.voice.channel:
                 return await ctx.send("Kamu harus berada di voice channel terlebih dahulu.")
             
+            guild_id = ctx.guild.id
+            if not self.can_retry_voice(guild_id):
+                return await ctx.send("❌ Voice connection sedang bermasalah. Coba lagi dalam 1 menit.", ephemeral=True)
+            
             if not ctx.voice_client or not ctx.voice_client.is_connected():
                 try:
-                    vc = await ctx.author.voice.channel.connect(timeout=60.0, reconnect=True)
+                    vc = await self.safe_connect_voice(ctx)
+                    if not vc:
+                        return await ctx.send("❌ Gagal bergabung ke voice channel.")
                     await ctx.send(f"✅ Bergabung ke **{ctx.author.voice.channel.name}**")
                     await asyncio.sleep(1)
+                except discord.errors.ConnectionClosed as e:
+                    return await ctx.send("❌ **Error 4006**: Gagal terhubung ke server voice Discord. Ini adalah masalah jaringan Discord. Silakan coba lagi nanti.")
                 except Exception as e:
                     log.error(f"Error connecting to voice: {e}")
                     await ctx.send(f"❌ Gagal bergabung ke voice channel: {e}")
@@ -1767,6 +1934,12 @@ class Music(commands.Cog):
                             'channel_id': message_sent.channel.id
                         }
                 
+                except discord.errors.ConnectionClosed as e:
+                    await ctx.send("❌ **Error 4006**: Koneksi voice terputus saat memutar musik. Silakan coba lagi.")
+                    log.error(f"ConnectionClosed error while playing: {e}")
+                    self.voice_retry_attempts[ctx.guild.id] = datetime.now()
+                    return
+                
                 except Exception as e:
                     log.error(f"Error playing song: {e}")
                     await ctx.send(f'Gagal memutar lagu: {e}', ephemeral=True)
@@ -1788,6 +1961,11 @@ class Music(commands.Cog):
                 if ctx.guild.id in self.current_music_message_info:
                     await self._update_music_message_from_ctx(ctx)
         
+        except discord.errors.ConnectionClosed as e:
+            await ctx.send("❌ **Error 4006**: Koneksi voice Discord bermasalah. Silakan coba lagi nanti.")
+            log.error(f"ConnectionClosed error in play command: {e}")
+            self.voice_retry_attempts[ctx.guild.id] = datetime.now()
+            
         except Exception as e:
             log.error(f"Error in play command: {e}")
             await ctx.send(f"Terjadi kesalahan: {e}", ephemeral=True)
@@ -2068,7 +2246,7 @@ class Music(commands.Cog):
             save_status_config(self.status_config)
             self.status_rotation_task.cancel()
             activity = discord.Activity(
-                type=discord.ActivityType.listening,
+                type=discord.ActivityType.playing,
                 name="Music Bot",
                 details="Status rotation disabled"
             )
@@ -2081,8 +2259,8 @@ class Music(commands.Cog):
                     return await ctx.send("❌ Gunakan: `!resstatus interval <detik>`", ephemeral=True)
                 
                 interval = int(args)
-                if interval < 10:
-                    return await ctx.send("❌ Interval minimal 10 detik", ephemeral=True)
+                if interval < 5:
+                    return await ctx.send("❌ Interval minimal 5 detik", ephemeral=True)
                 if interval > 300:
                     return await ctx.send("❌ Interval maksimal 300 detik (5 menit)", ephemeral=True)
                 
@@ -2214,6 +2392,40 @@ class Music(commands.Cog):
             
         else:
             await ctx.send("❌ Action tidak dikenali! Gunakan `!resstatus` untuk melihat bantuan.", ephemeral=True)
+
+    @commands.command(name="setstatus", help="[ADMIN] Set status bot secara manual")
+    @commands.has_permissions(administrator=True)
+    async def set_status_manual(self, ctx, status_type: str, *, status_text: str):
+        valid_types = ["playing", "listening", "watching", "competing", "streaming", "custom"]
+        
+        if status_type.lower() not in valid_types:
+            await ctx.send(f"❌ Type status tidak valid! Pilih dari: {', '.join(valid_types)}", ephemeral=True)
+            return
+        
+        success = await self.set_manual_status(status_type.lower(), status_text)
+        
+        if success:
+            await ctx.send(f"✅ **Status manual diatur:**\n"
+                          f"Type: `{status_type}`\n"
+                          f"Text: `{status_text[:50]}`\n\n"
+                          f"Status ini akan aktif sampai bot mulai memutar musik atau Anda menggunakan `!resetstatus`.", ephemeral=True)
+        else:
+            await ctx.send("❌ Gagal mengatur status manual.", ephemeral=True)
+
+    @commands.command(name="resetstatus", help="[ADMIN] Reset status ke mode otomatis")
+    @commands.has_permissions(administrator=True)
+    async def reset_status(self, ctx):
+        success = await self.reset_to_auto_status()
+        
+        if success:
+            if self.is_playing_music and self.current_song_title:
+                await ctx.send("✅ **Status direset ke mode musik** (karena sedang memutar musik).", ephemeral=True)
+            elif self.status_config.get("enabled", True):
+                await ctx.send("✅ **Status direset ke mode rotasi otomatis**.", ephemeral=True)
+            else:
+                await ctx.send("✅ **Status direset ke default** (rotasi dinonaktifkan).", ephemeral=True)
+        else:
+            await ctx.send("❌ Gagal mereset status.", ephemeral=True)
 
     @commands.command(name="settriger", help="[ADMIN] Mengatur saluran suara pemicu untuk server ini.")
     @commands.has_permissions(administrator=True)
@@ -2474,7 +2686,7 @@ class Music(commands.Cog):
                 if "NoneType" in str(original_error) or "'NoneType' object" in str(original_error):
                     await ctx.send("❌ Bot tidak terhubung ke voice channel. Silakan hubungkan terlebih dahulu dengan `!resjoin`.", ephemeral=True)
                 elif "4006" in str(original_error):
-                    await ctx.send("❌ Terjadi error koneksi voice. Silakan coba lagi.", ephemeral=True)
+                    await ctx.send("❌ **Error 4006**: Koneksi voice Discord bermasalah. Ini adalah masalah jaringan Discord. Silakan coba lagi dalam 1 menit.", ephemeral=True)
                 else:
                     await ctx.send(f"❌ Terjadi kesalahan saat menjalankan perintah: {str(original_error)[:100]}", ephemeral=True)
             else:
