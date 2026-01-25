@@ -8,6 +8,7 @@ from datetime import datetime, time, timedelta
 import google.generativeai as genai
 import logging
 import re
+import google.genai
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s:%(levelname)s:%(name)s: %(message)s')
 log = logging.getLogger('CombinedCog')
