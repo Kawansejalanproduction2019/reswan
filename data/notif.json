@@ -1,58 +1,5 @@
 {
-    "mirrored_users": [
-        "1044050359586394192",
-        "282286160494067712",
-        "1000737066822410311",
-        "678344927997853742",
-        "204255221017214977"
-    ],
     "notification_paths": {
-        "6839c53c-14d1-4649-ae8b-4ab37f369414": {
-            "source_id": 1419777158540296412,
-            "target_id": 1398385406596087828,
-            "custom_messages": {
-                "live": {
-                    "title": "",
-                    "description": "",
-                    "content": "@everyone \ud835\udde2\ud835\udde0\ud835\uddda! \ud835\uddec\ud835\uddfc\ud835\ude02 \ud835\ude04\ud835\uddfc\ud835\uddfb'\ud835\ude01 \ud835\uddef\ud835\uddf2\ud835\uddf9\ud835\uddf6\ud835\uddf2\ud835\ude03\ud835\uddf2 \ud835\ude01\ud835\uddf5\ud835\uddf6\ud835\ude00. **\ud835\uddff\ud835\uddf2\ud835\udde6\ud835\ude04\ud835\uddee\ud835\uddfb** \ud835\uddf6\ud835\ude00 \ud835\uddf9\ud835\uddf6\ud835\ude03\ud835\uddf2! \ud835\uddda\ud835\uddf2\ud835\ude01 \ud835\uddf6\ud835\uddfb \ud835\uddf5\ud835\uddf2\ud835\uddff\ud835\uddf2, \ud835\uddfb\ud835\uddfc\ud835\ude04!",
-                    "button_label": "Watch now",
-                    "button_style": 1,
-                    "embed_color": "#ed4245",
-                    "use_embed": false,
-                    "embed_thumbnail": false
-                },
-                "upload": {
-                    "title": "",
-                    "description": "",
-                    "content": "@everyone \ud835\uddd9\ud835\uddf6\ud835\uddfb\ud835\uddee\ud835\uddf9\ud835\uddf9\ud835\ude06! \ud835\udde7\ud835\uddf5\ud835\uddf2 \ud835\ude04\ud835\uddee\ud835\uddf6\ud835\ude01 \ud835\uddf6\ud835\ude00 \ud835\uddfc\ud835\ude03\ud835\uddf2\ud835\uddff. \ud835\udde7\ud835\uddf5\ud835\uddf2 \ud835\uddfb\ud835\uddf2\ud835\ude04 \ud835\ude03\ud835\uddf6\ud835\uddf1\ud835\uddf2\ud835\uddfc \ud835\uddf3\ud835\uddff\ud835\uddfc\ud835\uddfa **\ud835\uddff\ud835\uddf2\ud835\udde6\ud835\ude04\ud835\uddee\ud835\uddfb** \ud835\uddf6\ud835\ude00 \ud835\uddf5\ud835\uddf2\ud835\uddff\ud835\uddf2! \ud835\uddec\ud835\uddfc\ud835\ude02 \ud835\uddf8\ud835\uddfb\ud835\uddfc\ud835\ude04 \ud835\ude04\ud835\uddf5\ud835\uddee\ud835\ude01 \ud835\ude01\ud835\uddfc \ud835\uddf1\ud835\uddfc.",
-                    "button_label": "Watch now",
-                    "button_style": 3,
-                    "embed_color": "#ed4245",
-                    "use_embed": false,
-                    "embed_thumbnail": false
-                },
-                "premier": {
-                    "title": "",
-                    "description": "",
-                    "content": "@everyone \ud835\uddd4\ud835\uddf1\ud835\uddee \ud835\ude03\ud835\uddf6\ud835\uddf1\ud835\uddf2\ud835\uddfc \ud835\uddfd\ud835\uddff\ud835\uddf2\ud835\uddfa\ud835\uddf6\ud835\uddf2\ud835\uddff\ud835\uddf2 \ud835\uddf1\ud835\uddee\ud835\uddff\ud835\uddf6 \ud835\uddfa\ud835\uddee\ud835\ude00 **\ud835\uddff\ud835\uddf2\ud835\udde6\ud835\ude04\ud835\uddee\ud835\uddfb**",
-                    "button_label": "Tonton Premiere",
-                    "button_style": 3,
-                    "embed_color": "#2ecc71",
-                    "use_embed": false,
-                    "embed_thumbnail": false
-                },
-                "default": {
-                    "title": "",
-                    "description": null,
-                    "content": "**Rizwan Fadilah** upload video baru di TikTok",
-                    "button_label": "Tonton Konten",
-                    "button_style": 1,
-                    "embed_color": "#3498db",
-                    "use_embed": false,
-                    "embed_thumbnail": false
-                }
-            }
-        },
         "036b3527-ca02-4113-b00e-8df2380e4241": {
             "source_id": 1419777158540296412,
             "target_id": 723724572045737985,
@@ -84,8 +31,8 @@
                     "button_label": "Tonton Premiere",
                     "button_style": 3,
                     "embed_color": "#2ecc71",
-                    "use_embed": true,
-                    "embed_thumbnail": true
+                    "use_embed": false,
+                    "embed_thumbnail": false
                 },
                 "default": {
                     "title": null,
@@ -94,6 +41,17 @@
                     "button_label": "Tonton Konten",
                     "button_style": 1,
                     "embed_color": "#3498db",
+                    "use_embed": false,
+                    "embed_thumbnail": false
+                },
+                "tiktok": {
+                    "title": "[\ud83d\udcf1 {judul}]({url})",
+                    "description": "Cek video TikTok terbaru!\n\n{url}",
+                    "content": "Ada video TikTok baru nih!",
+                    "button_label": "Tonton di TikTok",
+                    "button_style": 1,
+                    "button_color": "#000000",
+                    "embed_color": "#000000",
                     "use_embed": false,
                     "embed_thumbnail": false
                 }
@@ -142,52 +100,17 @@
                     "embed_color": "#3498db",
                     "use_embed": false,
                     "embed_thumbnail": false
-                }
-            }
-        },
-        "c092d9e2-419f-4899-a910-a2c433c83814": {
-            "source_id": 1417919917637898370,
-            "target_id": 759210443771871252,
-            "custom_messages": {
-                "live": {
-                    "title": "",
-                    "description": "",
-                    "content": "@everyone Iky lagi live nih gaskeun tonton ges",
-                    "button_label": "Tonton Live",
-                    "button_style": 4,
+                },
+                "tiktok": {
+                    "title": "[\ud83d\udcf1 {judul}]({url})",
+                    "description": "Cek video TikTok terbaru!\n\n{url}",
+                    "content": "Ada video TikTok baru nih!",
+                    "button_label": "Tonton di TikTok",
+                    "button_style": 1,
+                    "button_color": "#000000",
                     "embed_color": "#e74c3c",
                     "use_embed": false,
                     "embed_thumbnail": false
-                },
-                "upload": {
-                    "title": "",
-                    "description": "",
-                    "content": "@everyone Ada video baru nih dari a iky, cekidot!",
-                    "button_label": "Tonton Video",
-                    "button_style": 2,
-                    "embed_color": "#95a5a6",
-                    "use_embed": false,
-                    "embed_thumbnail": false
-                },
-                "premier": {
-                    "title": "\ud83c\udfac **Premiere Segera: {judul}**",
-                    "description": "Video premiere akan segera tayang!",
-                    "content": "@everyone Ada video premiere",
-                    "button_label": "Tonton Premiere",
-                    "button_style": 3,
-                    "embed_color": "#2ecc71",
-                    "use_embed": false,
-                    "embed_thumbnail": false
-                },
-                "default": {
-                    "title": null,
-                    "description": null,
-                    "content": null,
-                    "button_label": "Tonton Konten",
-                    "button_style": 1,
-                    "embed_color": "#3498db",
-                    "use_embed": true,
-                    "embed_thumbnail": true
                 }
             }
         },
@@ -234,19 +157,198 @@
                     "embed_color": "#3498db",
                     "use_embed": true,
                     "embed_thumbnail": true
+                },
+                "tiktok": {
+                    "title": "[\ud83d\udcf1 {judul}]({url})",
+                    "description": "Cek video TikTok terbaru!\n\n{url}",
+                    "content": "Ada video TikTok baru nih!",
+                    "button_label": "Tonton di TikTok",
+                    "button_style": 1,
+                    "button_color": "#000000",
+                    "embed_color": "#000000",
+                    "use_embed": true,
+                    "embed_thumbnail": true
+                }
+            }
+        },
+        "b526c6c5-f1ff-4434-8f9a-421d822d6d6d": {
+            "source_id": 1417919917637898370,
+            "target_id": 759210443771871252,
+            "custom_messages": {
+                "live": {
+                    "title": "\ud83d\udd34 **{judul}**",
+                    "description": "Yuk gabung di live stream ini!",
+                    "content": "@everyone Live stream dimulai!",
+                    "button_label": "Tonton Live",
+                    "button_style": 4,
+                    "embed_color": "#e74c3c",
+                    "use_embed": false,
+                    "embed_thumbnail": false
+                },
+                "upload": {
+                    "title": "\u2728 **{judul}**",
+                    "description": "Video baru diupload, jangan sampai ketinggalan!",
+                    "content": "Ada video baru nih, cekidot!",
+                    "button_label": "Tonton Video",
+                    "button_style": 2,
+                    "embed_color": "#95a5a6",
+                    "use_embed": false,
+                    "embed_thumbnail": false
+                },
+                "premier": {
+                    "title": "\ud83c\udfac **Premiere Segera: {judul}**",
+                    "description": "Video premiere akan segera tayang!",
+                    "content": "Ada video premiere!",
+                    "button_label": "Tonton Premiere",
+                    "button_style": 3,
+                    "embed_color": "#2ecc71",
+                    "use_embed": true,
+                    "embed_thumbnail": true
+                },
+                "default": {
+                    "title": null,
+                    "description": null,
+                    "content": null,
+                    "button_label": "Tonton Konten",
+                    "button_style": 1,
+                    "embed_color": "#3498db",
+                    "use_embed": true,
+                    "embed_thumbnail": true
+                },
+                "tiktok": {
+                    "title": "[\ud83d\udcf1 {judul}]({url})",
+                    "description": "Cek video TikTok terbaru!\n\n{url}",
+                    "content": "Ada video TikTok baru nih!",
+                    "button_label": "Tonton di TikTok",
+                    "button_style": 1,
+                    "button_color": "#000000",
+                    "embed_color": "#000000",
+                    "use_embed": true,
+                    "embed_thumbnail": true
+                }
+            }
+        },
+        "ba9c356f-31db-46d1-bb3f-e31a231633fe": {
+            "source_id": 1424389868636602448,
+            "target_id": 1417599133065285884,
+            "custom_messages": {
+                "live": {
+                    "title": "{judul}",
+                    "description": "Tonton di {url}\n\n\nDeskripsi :\n\n{deskripsi}",
+                    "content": "@everyone Live stream dimulai! {url}",
+                    "button_label": "Tonton Live",
+                    "button_style": 4,
+                    "embed_color": "#f1c40f",
+                    "use_embed": true,
+                    "embed_thumbnail": true,
+                    "button_color": "#ed4245"
+                },
+                "upload": {
+                    "title": "\u2728 **{judul}**",
+                    "description": "Tonton di {url}\n\n\nDeskripsi :\n\n{deskripsi}",
+                    "content": "Ada video baru nih, cekidot!",
+                    "button_label": "Tonton Video",
+                    "button_style": 3,
+                    "embed_color": "#2ecc71",
+                    "use_embed": true,
+                    "embed_thumbnail": true,
+                    "button_color": "#57f287"
+                },
+                "premier": {
+                    "title": "\ud83c\udfac **Premiere Segera: {judul}**",
+                    "description": "Video premiere akan segera tayang!",
+                    "content": "Ada video premiere!",
+                    "button_label": "Tonton Premiere",
+                    "button_style": 3,
+                    "embed_color": "#2ecc71",
+                    "use_embed": false,
+                    "embed_thumbnail": false
+                },
+                "default": {
+                    "title": null,
+                    "description": null,
+                    "content": null,
+                    "button_label": "Tonton Konten",
+                    "button_style": 1,
+                    "embed_color": "#3498db",
+                    "use_embed": true,
+                    "embed_thumbnail": true
+                },
+                "tiktok": {
+                    "title": "[\ud83d\udcf1 {judul}]({url})",
+                    "description": "Cek video TikTok terbaru!\n\n{url}",
+                    "content": "Ada video TikTok baru nih!",
+                    "button_label": "Tonton di TikTok",
+                    "button_style": 1,
+                    "button_color": "#000000",
+                    "embed_color": "#e74c3c",
+                    "use_embed": false,
+                    "embed_thumbnail": false
+                }
+            }
+        },
+        "f4d448ef-a726-429c-8c2d-6a820906a0b4": {
+            "source_id": 1419777158540296412,
+            "target_id": 1398385406596087828,
+            "custom_messages": {
+                "live": {
+                    "title": "{judul}",
+                    "description": "Yuk gabung di live stream ini!\n\n{deskripsi}",
+                    "content": "@everyone \ud835\udde2\ud835\udde0\ud835\uddda! \ud835\uddec\ud835\uddfc\ud835\ude02 \ud835\ude04\ud835\uddfc\ud835\uddfb'\ud835\ude01 \ud835\uddef\ud835\uddf2\ud835\uddf9\ud835\uddf6\ud835\uddf2\ud835\ude03\ud835\uddf2 \ud835\ude01\ud835\uddf5\ud835\uddf6\ud835\ude00. **\ud835\uddff\ud835\uddf2\ud835\udde6\ud835\ude04\ud835\uddee\ud835\uddfb** \ud835\uddf6\ud835\ude00 \ud835\uddf9\ud835\uddf6\ud835\ude03\ud835\uddf2! \ud835\uddda\ud835\uddf2\ud835\ude01 \ud835\uddf6\ud835\uddfb \ud835\uddf5\ud835\uddf2\ud835\uddff\ud835\uddf2, \ud835\uddfb\ud835\uddfc\ud835\ude04!",
+                    "button_label": "Tonton Live",
+                    "button_style": 4,
+                    "button_color": "#ed4245",
+                    "embed_color": "#f1c40f",
+                    "use_embed": false,
+                    "embed_thumbnail": false
+                },
+                "upload": {
+                    "title": "[\u2728 {judul}]({url})",
+                    "description": "Video baru diupload, jangan sampai ketinggalan!\n\n{url}",
+                    "content": "Ada video baru nih, cekidot!",
+                    "button_label": "Tonton Video",
+                    "button_style": 1,
+                    "button_color": "#5865f2",
+                    "embed_color": "#2ecc71",
+                    "use_embed": false,
+                    "embed_thumbnail": false
+                },
+                "premier": {
+                    "title": "[\ud83c\udfac Premiere Segera: {judul}]({url})",
+                    "description": "Video premiere akan segera tayang!\n\n{url}",
+                    "content": "Ada video premiere!",
+                    "button_label": "Tonton Premiere",
+                    "button_style": 3,
+                    "button_color": "#57f287",
+                    "embed_color": "#9b59b6",
+                    "use_embed": false,
+                    "embed_thumbnail": false
+                },
+                "tiktok": {
+                    "title": "[\ud83d\udcf1 {judul}]({url})",
+                    "description": "Cek video TikTok terbaru!\n\n{url}",
+                    "content": "Ada video TikTok baru nih!",
+                    "button_label": "Tonton di TikTok",
+                    "button_style": 1,
+                    "button_color": "#000000",
+                    "embed_color": "#000000",
+                    "use_embed": false,
+                    "embed_thumbnail": false
                 }
             }
         }
     },
     "recent_video_ids": [
-        "yt_h8k6DK43aGg",
-        "tk_7564372115298749703",
-        "yt_R9F2taKNsNg",
-        "yt_GbBjMBGM65A",
-        "yt_WmJIVBvKq5E",
-        "yt_ahd_Bm0cvw0",
-        "yt_TQm2PT0X1ts",
-        "yt_9XxOSRpw0fQ"
+        "yt_Ohw9_Dbiz-k",
+        "yt_CEOU8bsMwpI",
+        "tk_7587297330861313301",
+        "tk_7588060227493235986",
+        "yt_dhle3QEKB74",
+        "yt_w_0CihEJTpY",
+        "yt__SD40HoJB2k",
+        "yt_dvX7VkJkvrM",
+        "yt_MTtPixnAHSI",
+        "tk_7589588053858077970"
     ],
     "last_daily_reset_timestamp": null,
     "next_daily_reset_timestamp": null,
