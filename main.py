@@ -14,6 +14,7 @@ from pymongo import MongoClient, errors as pymongo_errors
 from dotenv import load_dotenv
 from datetime import datetime, timezone 
 import zipfile
+import time 
 
 base_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
 
@@ -28,7 +29,6 @@ class WebhookHandler(logging.Handler):
     def __init__(self, webhook_url):
         super().__init__()
         self.webhook_url = webhook_url
-        self.session = None
 
     def emit(self, record):
         try:
@@ -41,27 +41,25 @@ class WebhookHandler(logging.Handler):
         if not self.webhook_url:
             return
 
-        if self.session is None or self.session.closed:
-            self.session = aiohttp.ClientSession()
-            
-        try:
-            log_entry = self.format(record)
-            if len(log_entry) > 1900:
-                log_entry = log_entry[:1900] + "..."
+        async with aiohttp.ClientSession() as session:
+            try:
+                log_entry = self.format(record)
+                if len(log_entry) > 1900:
+                    log_entry = log_entry[:1900] + "..."
 
-            embed = {
-                "title": f"🚨 Bot Error: {record.levelname}",
-                "description": f"```python\n{log_entry}\n```",
-                "color": 0xFF0000,
-                "timestamp": datetime.now(timezone.utc).isoformat()
-            }
-            payload = {"embeds": [embed], "username": "Bot Logger"}
-            
-            async with self.session.post(self.webhook_url, json=payload) as response:
-                if not response.ok:
-                    print(f"Gagal mengirim log ke webhook: Status {response.status}")
-        except Exception as e:
-            print(f"Terjadi error pada WebhookHandler: {e}")
+                embed = {
+                    "title": f"🚨 Bot Error: {record.levelname}",
+                    "description": f"```python\n{log_entry}\n```",
+                    "color": 0xFF0000,
+                    "timestamp": datetime.now(timezone.utc).isoformat()
+                }
+                payload = {"embeds": [embed], "username": "Bot Logger"}
+                
+                async with session.post(self.webhook_url, json=payload) as response:
+                    if not response.ok:
+                        print(f"Gagal mengirim log ke webhook: Status {response.status}")
+            except Exception as e:
+                print(f"Terjadi error saat mengirim log (di WebhookHandler): {e}")
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 log = logging.getLogger(__name__)
@@ -100,22 +98,30 @@ client = None
 db = None
 collection = None
 
-try:
-    log.info(f"Attempting to connect to MongoDB...")
-    client = MongoClient(mongo_uri, serverSelectionTimeoutMS=5000)
-    db = client["reSwan"]
-    collection = db["Data collection"]
-    client.admin.command('ping') 
-    log.info("✅ Successfully connected to MongoDB!")
-except pymongo_errors.ServerSelectionTimeoutError as err:
-    log.critical(f"❌ MongoDB Server Selection Timeout: {err}. Check your network connection and MongoDB Atlas IP whitelist settings.")
-    raise Exception("MongoDB connection failed at startup.") from err
-except pymongo_errors.ConfigurationError as err:
-    log.critical(f"❌ MongoDB Configuration Error: {err}. Check your MONGODB_URI format and credentials carefully.")
-    raise Exception("MongoDB configuration failed at startup.") from err
-except Exception as e:
-    log.critical(f"❌ An unexpected error occurred during MongoDB connection: {e}")
-    raise Exception("Unexpected MongoDB connection error at startup.") from e
+MAX_RETRIES = 3
+RETRY_DELAY = 5 
+
+for attempt in range(MAX_RETRIES):
+    try:
+        log.info(f"Attempting to connect to MongoDB... (Percobaan {attempt + 1}/{MAX_RETRIES})")
+        client = MongoClient(mongo_uri, serverSelectionTimeoutMS=5000)
+        db = client["reSwan"]
+        collection = db["Data collection"]
+        client.admin.command('ping') 
+        log.info("✅ Successfully connected to MongoDB!")
+        break
+    except pymongo_errors.ServerSelectionTimeoutError as err:
+        log.critical(f"❌ MongoDB Server Selection Timeout: {err}. Mencoba lagi dalam {RETRY_DELAY}s.")
+    except pymongo_errors.ConfigurationError as err:
+        log.critical(f"❌ MongoDB Configuration Error: {err}. Mencoba lagi dalam {RETRY_DELAY}s.")
+    except Exception as e:
+        log.critical(f"❌ An unexpected error occurred during MongoDB connection: {e}. Mencoba lagi dalam {RETRY_DELAY}s.")
+    
+    if attempt == MAX_RETRIES - 1:
+        raise Exception("MongoDB connection failed after multiple retries.") from e
+
+    time.sleep(RETRY_DELAY) 
+
 
 try:
     from keep_alive import keep_alive
@@ -233,19 +239,20 @@ class CogBackupView(ui.View):
         )
         embed.add_field(name="Diinisiasi oleh", value=f"{self.ctx.author.name} (`{self.ctx.author.id}`)", inline=False)
         
-        webhook = discord.Webhook.from_url(self.webhook_url, session=self.ctx.bot.session)
-        try:
-            await webhook.send(
-                content="**Backup File Cog (.py)**", 
-                file=file_obj, 
-                embed=embed,
-                username="Cog Backup Notifier"
-            )
-            self.log.info(f"✅ File backup {filename} berhasil dikirim ke webhook.")
-            return True
-        except Exception as e:
-            self.log.error(f"❌ Gagal mengirim file backup ke webhook: {e}", exc_info=True)
-            return False
+        async with aiohttp.ClientSession() as session:
+            webhook = discord.Webhook.from_url(self.webhook_url, session=session)
+            try:
+                await webhook.send(
+                    content="**Backup File Cog (.py)**", 
+                    file=file_obj, 
+                    embed=embed,
+                    username="Cog Backup Notifier"
+                )
+                self.log.info(f"✅ File backup {filename} berhasil dikirim ke webhook.")
+                return True
+            except Exception as e:
+                self.log.error(f"❌ Gagal mengirim file backup ke webhook: {e}", exc_info=True)
+                return False
 
 intents = discord.Intents.default()
 intents.messages = True
@@ -256,16 +263,23 @@ intents.voice_states = True
 
 bot = commands.Bot(command_prefix=("!", "?"), intents=intents, help_command=None)
 
-# --- EVENT ON_MESSAGE BARU UNTUK MENCEGAH DUPLIKASI COMMAND ---
+@bot.event
+async def on_resumed():
+    log.info("🌐 Koneksi Discord berhasil dilanjutkan.")
+
+@bot.event
+async def on_error(event, *args, **kwargs):
+    if event == "on_socket_raw_receive":
+        return
+    log.error(f"❌ Terjadi error Discord generik pada event {event}") 
+
+
 @bot.event
 async def on_message(message):
-    # Abaikan pesan dari bot itu sendiri
     if message.author.bot:
         return
 
-    # Pastikan command hanya diproses di sini
     await bot.process_commands(message)
-# -------------------------------------------------------------
 
 @bot.event
 async def on_ready():
@@ -450,7 +464,7 @@ async def send_backup_to_webhook(backup_data):
 
 @bot.command()
 @commands.is_owner()
-async def backup(ctx):
+async def backupnow(ctx):
     await ctx.send("Memulai proses backup...")
     backup_data = {}
 
@@ -506,7 +520,7 @@ async def backup(ctx):
 
 @bot.command()
 @commands.is_owner()
-async def send(ctx):
+async def sendbackup(ctx):
     if not client:
         await ctx.send("❌ MongoDB client tidak aktif.", ephemeral=True)
         log.error("MongoDB client is None, cannot perform sendbackup.")
@@ -590,7 +604,8 @@ async def cog_backup_error(ctx, error):
 
 async def load_cogs():
     initial_extensions = [
-        "cogs.music"
+        "cogs.leveling", "cogs.moderation", "cogs.quotes", "cogs.endgame",
+        "cogs.webhook", "cogs.notif", "cogs.multi", "cogs.info", "cogs.gemini", "cogs.game", "cogs.youtube"
     ]
     for extension in initial_extensions:
         try:
