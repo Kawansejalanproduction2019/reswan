@@ -16,7 +16,7 @@
             "1379458566452154438": {
                 "disallow_bots": false,
                 "disallow_media": false,
-                "disallow_prefix": false,
+                "disallow_prefix": true,
                 "disallow_url": false,
                 "auto_delete_seconds": 0
             },
@@ -82,6 +82,13 @@
                 "disallow_prefix": false,
                 "disallow_url": false,
                 "auto_delete_seconds": 0
+            },
+            "1424389868636602448": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
             }
         },
         "welcome_embed_title": "halo",
@@ -101,7 +108,8 @@
         "membership_confirm_message": "\ud83c\udf89 Anda sudah menjadi anggota! Anda adalah anggota tier: **{tier_name}**.",
         "verification_button_label": "Verifikasi Membership",
         "spam_whitelist_roles": [],
-        "goodbye_message": "sampai jumpa, {user} ! Kami sangat menyayangkan kepergian Anda \ud83e\udd79. Terima kasih banyak atas waktu dan kontribusi Anda selama berada di komunitas kami. Semoga kita bisa bertemu lagi di masa depan! \n\nJika ada masalah yang membuat Anda keluar, kami mohon maaf dan berharap Anda baik-baik saja."
+        "goodbye_message": "sampai jumpa, {user} ! Kami sangat menyayangkan kepergian Anda \ud83e\udd79. Terima kasih banyak atas waktu dan kontribusi Anda selama berada di komunitas kami. Semoga kita bisa bertemu lagi di masa depan! \n\nJika ada masalah yang membuat Anda keluar, kami mohon maaf dan berharap Anda baik-baik saja.",
+        "panel_role_stats": []
     },
     "788337048997199882": {
         "auto_role_id": null,
@@ -180,6 +188,55 @@
                 "disallow_prefix": false,
                 "disallow_url": false,
                 "auto_delete_seconds": 0
+            },
+            "1270448639852154911": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "1447151891892142110": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "1270448232572391425": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "1301620887996334151": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "1471107351363846268": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "1384272885010661496": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
+            },
+            "1472191283345883299": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
             }
         },
         "welcome_embed_title": "halo",
@@ -191,15 +248,16 @@
         "boost_image_url": null,
         "announcement_webhooks": {},
         "welcome_banner_url": null,
-        "mod_panel_message_id": null,
-        "mod_panel_channel_id": null,
+        "mod_panel_message_id": 1472237138178342914,
+        "mod_panel_channel_id": 1382047607702028339,
         "main_membership_role_id": null,
         "membership_roles": {},
         "membership_invite_message": "\ud83e\udd7a Anda belum menjadi anggota channel YouTube. Silakan berlangganan untuk mendapatkan role eksklusif! [LINK MEMBERSHIP]",
         "membership_confirm_message": "\ud83c\udf89 Anda sudah menjadi anggota! Anda adalah anggota tier: **{tier_name}**.",
         "verification_button_label": "Verifikasi Membership",
         "spam_whitelist_roles": [],
-        "goodbye_message": "Selamat tinggal, **{user}**. Sampai jumpa lagi! \ud83d\udc4b"
+        "goodbye_message": "Selamat tinggal, **{user}**. Sampai jumpa lagi! \ud83d\udc4b",
+        "panel_role_stats": []
     },
     "765138959625486357": {
         "auto_role_id": null,
@@ -255,7 +313,7 @@
                 "disallow_media": false,
                 "disallow_prefix": false,
                 "disallow_url": false,
-                "auto_delete_seconds": 90
+                "auto_delete_seconds": 0
             },
             "1394076149000175656": {
                 "disallow_bots": false,
@@ -380,7 +438,7 @@
                 "disallow_bots": false,
                 "disallow_media": false,
                 "disallow_prefix": false,
-                "disallow_url": true,
+                "disallow_url": false,
                 "auto_delete_seconds": 60
             },
             "1405767077351919626": {
@@ -571,6 +629,13 @@
                 "disallow_prefix": false,
                 "disallow_url": false,
                 "auto_delete_seconds": 0
+            },
+            "1398385406596087828": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
             }
         },
         "welcome_embed_title": "Halo",
@@ -675,7 +740,8 @@
         "membership_confirm_message": "\ud83c\udf89 Anda sudah menjadi anggota! Anda adalah anggota tier: **{tier_name}**.",
         "verification_button_label": "Verifikasi Membership",
         "spam_whitelist_roles": [],
-        "goodbye_message": "Selamat tinggal, **{user}**. Sampai jumpa lagi! \ud83d\udc4b"
+        "goodbye_message": "Selamat tinggal, **{user}**. Sampai jumpa lagi! \ud83d\udc4b",
+        "panel_role_stats": []
     },
     "722619465644113962": {
         "auto_role_id": null,
@@ -826,6 +892,13 @@
                 "disallow_prefix": false,
                 "disallow_url": false,
                 "auto_delete_seconds": 0
+            },
+            "832909264690348042": {
+                "disallow_bots": false,
+                "disallow_media": false,
+                "disallow_prefix": false,
+                "disallow_url": false,
+                "auto_delete_seconds": 0
             }
         },
         "boost_channel_id": null,
@@ -842,6 +915,61 @@
         "membership_confirm_message": "\ud83c\udf89 Anda sudah menjadi anggota! Anda adalah anggota tier: **{tier_name}**.",
         "verification_button_label": "Verifikasi Membership",
         "spam_whitelist_roles": [],
-        "goodbye_message": "sampai jumpa, {user} ! Kami sangat menyayangkan kepergian Anda \ud83e\udd79. Terima kasih banyak atas waktu dan kontribusi Anda selama berada di komunitas kami. Semoga kita bisa bertemu lagi di masa depan! \n\nJika ada masalah yang membuat Anda keluar, kami mohon maaf dan berharap Anda baik-baik saja."
+        "goodbye_message": "sampai jumpa, {user} ! Kami sangat menyayangkan kepergian Anda \ud83e\udd79. Terima kasih banyak atas waktu dan kontribusi Anda selama berada di komunitas kami. Semoga kita bisa bertemu lagi di masa depan! \n\nJika ada masalah yang membuat Anda keluar, kami mohon maaf dan berharap Anda baik-baik saja.",
+        "panel_role_stats": []
+    },
+    "1446026825708081246": {
+        "auto_role_id": null,
+        "welcome_channel_id": null,
+        "welcome_message": "Selamat datang di **{guild_name}**, {user}! \ud83c\udf89",
+        "welcome_embed_title": "SELAMAT DATANG!",
+        "welcome_sender_name": "Admin Server",
+        "welcome_banner_url": null,
+        "log_channel_id": null,
+        "reaction_roles": {},
+        "channel_rules": {},
+        "boost_channel_id": null,
+        "boost_message": "Terima kasih banyak, {user}, telah menjadi **Server Booster** kami di {guild_name}! Kami sangat menghargai dukunganmu! \u2764\ufe0f",
+        "boost_embed_title": "TERIMA KASIH SERVER BOOSTER!",
+        "boost_sender_name": "Tim Server",
+        "boost_image_url": null,
+        "mod_panel_message_id": null,
+        "mod_panel_channel_id": null,
+        "main_membership_role_id": null,
+        "membership_roles": {},
+        "membership_invite_message": "\ud83e\udd7a Anda belum menjadi anggota channel YouTube. Silakan berlangganan untuk mendapatkan role eksklusif! [LINK MEMBERSHIP]",
+        "membership_confirm_message": "\ud83c\udf89 Anda sudah menjadi anggota! Anda adalah anggota tier: **{tier_name}**.",
+        "verification_button_label": "Verifikasi Membership",
+        "spam_whitelist_roles": [],
+        "goodbye_message": "Selamat tinggal, **{user}**. Sampai jumpa lagi! \ud83d\udc4b",
+        "panel_role_stats": [],
+        "announcement_webhooks": {}
+    },
+    "759846717696245810": {
+        "auto_role_id": null,
+        "welcome_channel_id": null,
+        "welcome_message": "Selamat datang di **{guild_name}**, {user}! \ud83c\udf89",
+        "welcome_embed_title": "SELAMAT DATANG!",
+        "welcome_sender_name": "Admin Server",
+        "welcome_banner_url": null,
+        "log_channel_id": null,
+        "reaction_roles": {},
+        "channel_rules": {},
+        "boost_channel_id": null,
+        "boost_message": "Terima kasih banyak, {user}, telah menjadi **Server Booster** kami di {guild_name}! Kami sangat menghargai dukunganmu! \u2764\ufe0f",
+        "boost_embed_title": "TERIMA KASIH SERVER BOOSTER!",
+        "boost_sender_name": "Tim Server",
+        "boost_image_url": null,
+        "mod_panel_message_id": null,
+        "mod_panel_channel_id": null,
+        "main_membership_role_id": null,
+        "membership_roles": {},
+        "membership_invite_message": "\ud83e\udd7a Anda belum menjadi anggota channel YouTube. Silakan berlangganan untuk mendapatkan role eksklusif! [LINK MEMBERSHIP]",
+        "membership_confirm_message": "\ud83c\udf89 Anda sudah menjadi anggota! Anda adalah anggota tier: **{tier_name}**.",
+        "verification_button_label": "Verifikasi Membership",
+        "spam_whitelist_roles": [],
+        "goodbye_message": "Selamat tinggal, **{user}**. Sampai jumpa lagi! \ud83d\udc4b",
+        "panel_role_stats": [],
+        "announcement_webhooks": {}
     }
 }

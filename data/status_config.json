@@ -1,6 +1,30 @@
 {
-  "type": "playing",
-  "name": "Roblox",          // Nama utama (yang muncul besar)
-  "details": "Playing with friends",  // Detail (baris kedua)
-  "state": "Level 99"        // State (baris ketiga)
+    "enabled": true,
+    "interval": 30,
+    "statuses": [
+        {
+            "type": "playing",
+            "name": "!resp untuk play musik",
+            "details": "ResWan Music Bot",
+            "state": "Type !reshelp untuk bantuan"
+        },
+        {
+            "type": "listening",
+            "name": "Perintah !reshelp",
+            "details": "Music Bot Commands",
+            "state": "Ready to play music"
+        },
+        {
+            "type": "watching",
+            "name": "Kamu di voice channel",
+            "details": "Music Bot Presence",
+            "state": "Monitoring voice channels"
+        },
+        {
+            "type": "competing",
+            "name": "Music Battle",
+            "details": "Music Competition",
+            "state": "vs Other Music Bots"
+        }
+    ]
 }

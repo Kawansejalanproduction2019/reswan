@@ -338,18 +338,7 @@
             }
         }
     },
-    "recent_video_ids": [
-        "yt_Ohw9_Dbiz-k",
-        "yt_CEOU8bsMwpI",
-        "tk_7587297330861313301",
-        "tk_7588060227493235986",
-        "yt_dhle3QEKB74",
-        "yt_w_0CihEJTpY",
-        "yt__SD40HoJB2k",
-        "yt_dvX7VkJkvrM",
-        "yt_MTtPixnAHSI",
-        "tk_7589588053858077970"
-    ],
+    "recent_video_ids": [],
     "last_daily_reset_timestamp": null,
     "next_daily_reset_timestamp": null,
     "last_link_after_reset": null,
