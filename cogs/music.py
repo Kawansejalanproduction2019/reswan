@@ -13,25 +13,23 @@ import logging
 import json
 import random
 from datetime import datetime, timedelta
-import subprocess
-import sys
-import traceback
 
+# Konfigurasi logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 log = logging.getLogger(__name__)
 
-FFMPEG_EXECUTABLE = '/usr/bin/ffmpeg'
-
+# --- FILE DATA UNTUK MELACAK RIWAYAT DAN CHANNEL SEMENTARA (Persisten antar restart bot) ---
 TEMP_CHANNELS_FILE = 'data/temp_voice_channels.json'
 LISTENING_HISTORY_FILE = 'data/listening_history.json'
 GUILD_CONFIG_FILE = 'data/guild_config.json'
-STATUS_CONFIG_FILE = 'data/status_config.json'
 
+# --- KONFIGURASI PENGATURAN TEMPOVICE BARU ---
 ENABLE_SCHEDULED_CREATION = False
 CREATION_START_TIME = (20, 0)
 CREATION_END_TIME = (6, 0)
 
-TARGET_REGION = 'singapore'
+# KONSTANTA TAMBAHAN UNTUK TEMPOVICE
+TARGET_REGION = 'singapore' 
 
 def load_json_file(file_path, default_data={}):
     os.makedirs(os.path.dirname(file_path), exist_ok=True)
@@ -73,82 +71,27 @@ def load_listening_history():
 
 def save_listening_history(data):
     save_json_file(LISTENING_HISTORY_FILE, data)
-
+    
 def load_guild_config():
     return load_json_file(GUILD_CONFIG_FILE)
 
 def save_guild_config(data):
     save_json_file(GUILD_CONFIG_FILE, data)
-
-def load_status_config():
-    os.makedirs(os.path.dirname(STATUS_CONFIG_FILE), exist_ok=True)
-    default_config = {
-        "enabled": True,
-        "interval": 30,
-        "statuses": [
-            {
-                "type": "playing",
-                "name": "!resp untuk play musik",
-                "details": "ResWan Music Bot",
-                "state": "Type !reshelp untuk bantuan"
-            },
-            {
-                "type": "listening",
-                "name": "Perintah !reshelp",
-                "details": "Music Bot Commands",
-                "state": "Ready to play music"
-            },
-            {
-                "type": "watching",
-                "name": "Kamu di voice channel",
-                "details": "Music Bot Presence",
-                "state": "Monitoring voice channels"
-            },
-            {
-                "type": "competing",
-                "name": "Music Battle",
-                "details": "Music Competition",
-                "state": "vs Other Music Bots"
-            }
-        ]
-    }
     
-    if not os.path.exists(STATUS_CONFIG_FILE):
-        with open(STATUS_CONFIG_FILE, 'w', encoding='utf-8') as f:
-            json.dump(default_config, f, indent=4)
-        return default_config
-    
-    try:
-        with open(STATUS_CONFIG_FILE, 'r', encoding='utf-8') as f:
-            return json.load(f)
-    except:
-        return default_config
-
-def save_status_config(config):
-    save_json_file(STATUS_CONFIG_FILE, config)
-
 ytdl_opts = {
-    'format': 'bestaudio[ext=opus]/bestaudio[ext=m4a]/bestaudio/best',
+    # 1. Prioritaskan Opus (codec Discord) atau m4a (biasanya lebih stabil)
+    'format': 'bestaudio[ext=opus]/bestaudio[ext=m4a]/bestaudio/best', 
     'cookiefile': 'cookies.txt',
     'quiet': True,
     'default_search': 'ytsearch',
     'outtmpl': 'downloads/%(title)s.%(ext)s',
     'noplaylist': True,
-    'postprocessors': [{
-        'key': 'FFmpegExtractAudio',
-        'preferredcodec': 'opus',
-        'preferredquality': '128',
-    }],
-    'socket_timeout': 30,
-    'nocheckcertificate': True,
-    'ignoreerrors': True,
-    'no_warnings': True,
+    # 2. HAPUS postprocessors: Biarkan streaming langsung, jangan diproses ulang.
+    # 'postprocessors': [...], 
 }
-
 FFMPEG_OPTIONS = {
-    'executable': FFMPEG_EXECUTABLE,
-    'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 -nostdin',
-    'options': '-vn -b:a 128k -bufsize 1024K'
+    'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
+    'options': '-vn -b:a 128k -bufsize 1024K -probesize 10M -analyzeduration 10M -fflags +discardcorrupt -flags +global_header -af "afftdn,equalizer=f=80:width=80:g=4,equalizer=f=10000:width=2000:g=4,loudnorm"'
 }
 
 ytdl = yt_dlp.YoutubeDL(ytdl_opts)
@@ -172,13 +115,7 @@ class YTDLSource(discord.PCMVolumeTransformer):
         if 'entries' in data:
             data = data['entries'][0]
         filename = data['url'] if stream else ytdl.prepare_filename(data)
-        
-        source = discord.FFmpegPCMAudio(
-            filename,
-            **FFMPEG_OPTIONS
-        )
-        
-        return cls(source, data=data)
+        return cls(discord.FFmpegPCMAudio(filename, **FFMPEG_OPTIONS), data=data)
 
 class MusicControlView(discord.ui.View):
     def __init__(self, cog_instance):
@@ -201,176 +138,132 @@ class MusicControlView(discord.ui.View):
             pass
 
     async def _check_voice_channel(self, interaction: discord.Interaction):
-        try:
-            if not interaction.guild or not interaction.guild.voice_client:
-                await interaction.response.send_message("Bot tidak ada di voice channel!", ephemeral=True)
-                return False
-            if not interaction.user.voice or not interaction.user.voice.channel:
-                await interaction.response.send_message("Kamu harus berada di voice channel!", ephemeral=True)
-                return False
-            if interaction.user.voice.channel != interaction.guild.voice_client.channel:
-                await interaction.response.send_message("Kamu harus di channel suara yang sama dengan bot!", ephemeral=True)
-                return False
-            return True
-        except Exception as e:
-            log.error(f"Error in _check_voice_channel: {e}")
-            await interaction.response.send_message("Terjadi kesalahan saat memeriksa voice channel.", ephemeral=True)
+        if not interaction.guild.voice_client:
+            await interaction.response.send_message("Bot tidak ada di voice channel!", ephemeral=True)
             return False
+        if not interaction.user.voice or interaction.user.voice.channel != interaction.guild.voice_client.channel:
+            await interaction.response.send_message("Kamu harus di channel suara yang sama dengan bot!", ephemeral=True)
+            return False
+        return True
 
     async def _update_music_message(self, interaction: discord.Interaction):
-        try:
-            guild_id = interaction.guild.id
-            current_message_info = self.cog.current_music_message_info.get(guild_id)
-            vc = interaction.guild.voice_client
-            queue = self.cog.get_queue(guild_id)
-            
-            if vc and vc.is_connected() and vc.is_playing() and vc.source and guild_id in self.cog.now_playing_info:
-                info = self.cog.now_playing_info[guild_id]
-                source = vc.source
-                new_embed = discord.Embed(
-                    title="🎶 Sedang Memutar",
-                    description=f"**[{info['title']}]({info['webpage_url']})**",
-                    color=discord.Color.purple()
-                )
-                if source.thumbnail:
-                    new_embed.set_thumbnail(url=source.thumbnail)
-                duration_str = "N/A"
-                if source.duration:
-                    minutes, seconds = divmod(source.duration, 60)
-                    duration_str = f"{minutes:02}:{seconds:02}"
-                new_embed.add_field(name="Durasi", value=duration_str, inline=True)
-                new_embed.add_field(name="Diminta oleh", value=info.get('requester', 'N/A'), inline=True)
-                new_embed.set_footer(text=f"Antrean: {len(queue)} lagu tersisa")
-            else:
-                new_embed = discord.Embed(
-                    title="Musik Bot",
-                    description="Antrean kosong. Bot akan keluar dari voice channel jika tidak ada pengguna lain.",
-                    color=discord.Color.red()
-                )
-            
-            updated_view = MusicControlView(self.cog)
-            if not vc or not vc.is_connected():
-                for item in updated_view.children:
-                    item.disabled = True
-            else:
-                for item in updated_view.children:
-                    if item.custom_id == "music:play_pause":
-                        if vc.is_playing():
-                            item.emoji = "⏸️"
-                            item.style = discord.ButtonStyle.green
-                        elif vc.is_paused():
-                            item.emoji = "▶️"
-                            item.style = discord.ButtonStyle.primary
-                    elif item.custom_id == "music:mute_unmute":
-                        if self.cog.is_muted.get(guild_id, False):
-                            item.emoji = "🔇"
-                        else:
-                            item.emoji = "🔊"
-                    elif item.custom_id == "music:loop":
-                        if self.cog.loop_status.get(guild_id, False):
-                            item.style = discord.ButtonStyle.green
-                        else:
-                            item.style = discord.ButtonStyle.grey
-                    item.disabled = False
-            
-            if current_message_info:
-                try:
-                    old_channel = interaction.guild.get_channel(current_message_info['channel_id']) or await interaction.guild.fetch_channel(current_message_info['channel_id'])
-                    if old_channel:
-                        old_message = await old_channel.fetch_message(current_message_info['message_id'])
-                        await old_message.delete()
-                except (discord.NotFound, discord.HTTPException):
-                    pass
-                finally:
-                    self.cog.current_music_message_info.pop(guild_id, None)
-            
-            new_message = await interaction.channel.send(embed=new_embed, view=updated_view)
-            self.cog.current_music_message_info[guild_id] = {
-                'message_id': new_message.id,
-                'channel_id': new_message.channel.id
-            }
-        except Exception as e:
-            log.error(f"Error in _update_music_message: {e}")
+        guild_id = interaction.guild.id
+        current_message_info = self.cog.current_music_message_info.get(guild_id)
+        vc = interaction.guild.voice_client
+        queue = self.cog.get_queue(guild_id)
+        if vc and vc.is_playing() and vc.source and guild_id in self.cog.now_playing_info:
+            info = self.cog.now_playing_info[guild_id]
+            source = vc.source
+            new_embed = discord.Embed(
+                title="🎶 Sedang Memutar",
+                description=f"**[{info['title']}]({info['webpage_url']})**",
+                color=discord.Color.purple()
+            )
+            if source.thumbnail:
+                new_embed.set_thumbnail(url=source.thumbnail)
+            duration_str = "N/A"
+            if source.duration:
+                minutes, seconds = divmod(source.duration, 60)
+                duration_str = f"{minutes:02}:{seconds:02}"
+            new_embed.add_field(name="Durasi", value=duration_str, inline=True)
+            new_embed.add_field(name="Diminta oleh", value=info.get('requester', 'N/A'), inline=True)
+            new_embed.set_footer(text=f"Antrean: {len(queue)} lagu tersisa")
+        else:
+            new_embed = discord.Embed(
+                title="Musik Bot",
+                description="Antrean kosong. Bot akan keluar dari voice channel jika tidak ada pengguna lain.",
+                color=discord.Color.red()
+            )
+        updated_view = MusicControlView(self.cog)
+        vc = interaction.guild.voice_client
+        if not vc:
+            for item in updated_view.children:
+                item.disabled = True
+        else:
+            for item in updated_view.children:
+                if item.custom_id == "music:play_pause":
+                    if vc.is_playing():
+                        item.emoji = "⏸️"
+                        item.style = discord.ButtonStyle.green
+                    elif vc.is_paused():
+                        item.emoji = "▶️"
+                        item.style = discord.ButtonStyle.primary
+                elif item.custom_id == "music:mute_unmute":
+                    if self.cog.is_muted.get(guild_id, False):
+                        item.emoji = "🔇"
+                    else:
+                        item.emoji = "🔊"
+                elif item.custom_id == "music:loop":
+                    if self.cog.loop_status.get(guild_id, False):
+                        item.style = discord.ButtonStyle.green
+                    else:
+                        item.style = discord.ButtonStyle.grey
+                item.disabled = False
+        if current_message_info:
+            try:
+                old_channel = interaction.guild.get_channel(current_message_info['channel_id']) or await interaction.guild.fetch_channel(current_message_info['channel_id'])
+                if old_channel:
+                    old_message = await old_channel.fetch_message(current_message_info['message_id'])
+                    await old_message.delete()
+            except (discord.NotFound, discord.HTTPException):
+                pass
+            finally:
+                self.cog.current_music_message_info.pop(guild_id, None)
+        new_message = await interaction.channel.send(embed=new_embed, view=updated_view)
+        self.cog.current_music_message_info[guild_id] = {
+            'message_id': new_message.id,
+            'channel_id': new_message.channel.id
+        }
 
     @discord.ui.button(emoji="▶️", style=discord.ButtonStyle.primary, custom_id="music:play_pause", row=0)
     async def play_pause_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not await self._check_voice_channel(interaction):
             return
-        
-        try:
-            await interaction.response.defer(ephemeral=True)
-            vc = interaction.guild.voice_client
-            
-            if not vc or not vc.is_connected():
-                await interaction.followup.send("Bot tidak terhubung ke voice channel.", ephemeral=True)
-                return
-            
-            if vc.is_playing():
-                vc.pause()
-                await interaction.followup.send("⏸️ Lagu dijeda.", ephemeral=True)
-            elif vc.is_paused():
-                vc.resume()
-                await interaction.followup.send("▶️ Lanjut lagu.", ephemeral=True)
-            else:
-                await interaction.followup.send("Tidak ada lagu yang sedang diputar/dijeda.", ephemeral=True)
-            
-            await self._update_music_message(interaction)
-        except Exception as e:
-            log.error(f"Error in play_pause_button: {e}")
-            await interaction.followup.send(f"Terjadi kesalahan: {e}", ephemeral=True)
+        await interaction.response.defer(ephemeral=True)
+        vc = interaction.guild.voice_client
+        if vc.is_playing():
+            vc.pause()
+            await interaction.followup.send("⏸️ Lagu dijeda.", ephemeral=True)
+        elif vc.is_paused():
+            vc.resume()
+            await interaction.followup.send("▶️ Lanjut lagu.", ephemeral=True)
+        else:
+            await interaction.followup.send("Tidak ada lagu yang sedang diputar/dijeda.", ephemeral=True)
+        await self._update_music_message(interaction)
 
     @discord.ui.button(emoji="⏩", style=discord.ButtonStyle.secondary, custom_id="music:skip", row=0)
     async def skip_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not await self._check_voice_channel(interaction):
             return
-        
-        try:
-            await interaction.response.defer(ephemeral=True)
-            vc = interaction.guild.voice_client
-            
-            if not vc or not vc.is_connected():
-                await interaction.followup.send("Bot tidak terhubung ke voice channel.", ephemeral=True)
-                return
-            
-            if vc and (vc.is_playing() or vc.is_paused()):
-                guild_id = interaction.guild.id
-                queue = self.cog.get_queue(guild_id)
-                if queue:
-                    queue.pop(0)
-                vc.stop()
-                await interaction.followup.send("⏭️ Skip lagu.", ephemeral=True)
-            else:
-                await interaction.followup.send("Tidak ada lagu yang sedang diputar.", ephemeral=True)
-        except Exception as e:
-            log.error(f"Error in skip_button: {e}")
-            await interaction.followup.send(f"Terjadi kesalahan: {e}", ephemeral=True)
+        await interaction.response.defer(ephemeral=True)
+        vc = interaction.guild.voice_client
+        if vc and (vc.is_playing() or vc.is_paused()):
+            guild_id = interaction.guild.id
+            queue = self.cog.get_queue(guild_id)
+            if queue:
+                queue.pop(0)
+            vc.stop()
+            await interaction.followup.send("⏭️ Skip lagu.", ephemeral=True)
+        else:
+            await interaction.followup.send("Tidak ada lagu yang sedang diputar.", ephemeral=True)
             
     @discord.ui.button(emoji="⏹️", style=discord.ButtonStyle.danger, custom_id="music:stop", row=0)
     async def stop_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not await self._check_voice_channel(interaction):
             return
-        
-        try:
-            await interaction.response.defer(ephemeral=True)
-            vc = interaction.guild.voice_client
-            
-            if not vc or not vc.is_connected():
-                await interaction.followup.send("Bot tidak ada di voice channel.", ephemeral=True)
-                return
-            
+        await interaction.response.defer(ephemeral=True)
+        vc = interaction.guild.voice_client
+        if vc:
             if vc.is_playing() or vc.is_paused():
                 vc.stop()
-            
             await vc.disconnect()
-            guild_id = interaction.guild.id
-            self.cog.queues.pop(guild_id, None)
-            self.cog.loop_status.pop(guild_id, None)
-            self.cog.is_muted.pop(guild_id, None)
-            self.cog.old_volume.pop(guild_id, None)
-            self.cog.now_playing_info.pop(guild_id, None)
-            
-            if guild_id in self.cog.current_music_message_info:
-                old_message_info = self.cog.current_music_message_info[guild_id]
+            self.cog.queues[interaction.guild.id] = []
+            self.cog.loop_status[interaction.guild.id] = False
+            self.cog.is_muted[interaction.guild.id] = False
+            self.cog.old_volume.pop(interaction.guild.id, None)
+            self.cog.now_playing_info.pop(interaction.guild.id, None)
+            if interaction.guild.id in self.cog.current_music_message_info:
+                old_message_info = self.cog.current_music_message_info[interaction.guild.id]
                 try:
                     old_channel = interaction.guild.get_channel(old_message_info['channel_id']) or await interaction.guild.fetch_channel(old_message_info['channel_id'])
                     if old_channel:
@@ -379,236 +272,164 @@ class MusicControlView(discord.ui.View):
                 except (discord.NotFound, discord.HTTPException) as e:
                     pass
                 finally:
-                    self.cog.current_music_message_info.pop(guild_id, None)
-            
+                    del self.cog.current_music_message_info[interaction.guild.id]
             await interaction.followup.send("⏹️ Stop dan keluar dari voice.", ephemeral=True)
-        except Exception as e:
-            log.error(f"Error in stop_button: {e}")
-            await interaction.followup.send(f"Terjadi kesalahan: {e}", ephemeral=True)
             
     @discord.ui.button(emoji="📜", style=discord.ButtonStyle.grey, custom_id="music:queue", row=1)
     async def queue_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        try:
-            queue = self.cog.get_queue(interaction.guild.id)
-            if queue:
-                display_queue = queue[:10]
-                display_queue_titles = await asyncio.gather(
-                    *[self.cog.get_song_info_from_url(q) for q in display_queue]
-                )
-                msg = "\n".join([f"{i+1}. {q['title']}" for i, q in enumerate(display_queue_titles)])
-                embed = discord.Embed(
-                    title="🎶 Antrean Lagu",
-                    description=f"```{msg}```",
-                    color=discord.Color.gold()
-                )
-                if len(queue) > 15:
-                    embed.set_footer(text=f"Dan {len(queue) - 15} lagu lainnya...")
-                await interaction.response.send_message(embed=embed, ephemeral=True)
-            else:
-                await interaction.response.send_message("Antrean kosong.", ephemeral=True)
-        except Exception as e:
-            log.error(f"Error in queue_button: {e}")
-            await interaction.response.send_message("Terjadi kesalahan saat mengambil antrean.", ephemeral=True)
+        queue = self.cog.get_queue(interaction.guild.id)
+        if queue:
+            display_queue = queue[:10]
+            display_queue_titles = await asyncio.gather(
+                *[self.cog.get_song_info_from_url(q) for q in display_queue]
+            )
+            msg = "\n".join([f"{i+1}. {q['title']}" for i, q in enumerate(display_queue_titles)])
+            embed = discord.Embed(
+                title="🎶 Antrean Lagu",
+                description=f"```{msg}```",
+                color=discord.Color.gold()
+            )
+            if len(queue) > 15:
+                embed.set_footer(text=f"Dan {len(queue) - 15} lagu lainnya...")
+            await interaction.response.send_message(embed=embed, ephemeral=True)
+        else:
+            await interaction.response.send_message("Antrean kosong.", ephemeral=True)
             
     @discord.ui.button(emoji="🔁", style=discord.ButtonStyle.grey, custom_id="music:loop", row=1)
     async def loop_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not await self._check_voice_channel(interaction):
             return
-        
-        try:
-            await interaction.response.defer(ephemeral=True)
-            guild_id = interaction.guild.id
-            if guild_id not in self.cog.loop_status:
-                self.cog.loop_status[guild_id] = False
-            self.cog.loop_status[guild_id] = not self.cog.loop_status[guild_id]
-            
-            if self.cog.loop_status[guild_id]:
-                await interaction.followup.send("🔁 Mode Loop **ON** (lagu saat ini akan diulang).", ephemeral=True)
-            else:
-                await interaction.followup.send("🔁 Mode Loop **OFF**.", ephemeral=True)
-            
-            await self._update_music_message(interaction)
-        except Exception as e:
-            log.error(f"Error in loop_button: {e}")
-            await interaction.followup.send(f"Terjadi kesalahan: {e}", ephemeral=True)
+        await interaction.response.defer(ephemeral=True)
+        guild_id = interaction.guild.id
+        if guild_id not in self.cog.loop_status:
+            self.cog.loop_status[guild_id] = False
+        self.cog.loop_status[guild_id] = not self.cog.loop_status[guild_id]
+        if self.cog.loop_status[guild_id]:
+            await interaction.followup.send("🔁 Mode Loop **ON** (lagu saat ini akan diulang).", ephemeral=True)
+        else:
+            await interaction.followup.send("🔁 Mode Loop **OFF**.", ephemeral=True)
+        await self._update_music_message(interaction)
 
     @discord.ui.button(emoji="📖", style=discord.ButtonStyle.blurple, custom_id="music:lyrics", row=1)
     async def lyrics_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not self.cog.genius:
             await interaction.response.send_message("Fitur lirik masih beta dan akan segera dirilis nantinya.", ephemeral=True)
             return
-        
-        try:
-            if not interaction.guild.id in self.cog.now_playing_info:
-                await interaction.response.send_message("Tidak ada lagu yang sedang diputar. Harap gunakan `!reslyrics <nama lagu>` untuk mencari lirik.", ephemeral=True)
-                return
-            
-            await interaction.response.defer(ephemeral=True)
-            await self.cog._send_lyrics(interaction_or_ctx=interaction, song_name_override=None)
-        except Exception as e:
-            log.error(f"Error in lyrics_button: {e}")
-            await interaction.followup.send(f"Terjadi kesalahan: {e}", ephemeral=True)
+        song_name = None
+        if not interaction.guild.id in self.cog.now_playing_info:
+            await interaction.response.send_message("Tidak ada lagu yang sedang diputar. Harap gunakan `!reslyrics <nama lagu>` untuk mencari lirik.", ephemeral=True)
+            return
+        await interaction.response.defer(ephemeral=True)
+        await self.cog._send_lyrics(interaction_or_ctx=interaction, song_name_override=None)
 
     @discord.ui.button(emoji="➕", style=discord.ButtonStyle.secondary, custom_id="music:volume_up", row=2)
     async def volume_up_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not await self._check_voice_channel(interaction):
             return
-        
-        try:
-            vc = interaction.guild.voice_client
-            guild_id = interaction.guild.id
-            
-            if not vc or not vc.is_connected():
-                await interaction.response.send_message("Bot tidak terhubung ke voice channel.", ephemeral=True)
-                return
-            
-            if vc and vc.source:
-                current_volume = vc.source.volume
-                new_volume = min(current_volume + 0.1, 1.0)
-                vc.source.volume = new_volume
-                self.cog.is_muted[guild_id] = False
-                await interaction.response.send_message(f"Volume diatur ke: {int(new_volume * 100)}%", ephemeral=True)
-            else:
-                await interaction.response.send_message("Tidak ada lagu yang sedang diputar.", ephemeral=True)
-            
-            await self._update_music_message(interaction)
-        except Exception as e:
-            log.error(f"Error in volume_up_button: {e}")
-            await interaction.response.send_message(f"Terjadi kesalahan: {e}", ephemeral=True)
+        vc = interaction.guild.voice_client
+        guild_id = interaction.guild.id
+        if vc and vc.source:
+            current_volume = vc.source.volume
+            new_volume = min(current_volume + 0.1, 1.0)
+            vc.source.volume = new_volume
+            self.cog.is_muted[guild_id] = False
+            await interaction.response.send_message(f"Volume diatur ke: {int(new_volume * 100)}%", ephemeral=True)
+        else:
+            await interaction.response.send_message("Tidak ada lagu yang sedang diputar.", ephemeral=True)
+        await self._update_music_message(interaction)
 
     @discord.ui.button(emoji="➖", style=discord.ButtonStyle.secondary, custom_id="music:volume_down", row=2)
     async def volume_down_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not await self._check_voice_channel(interaction):
             return
-        
-        try:
-            vc = interaction.guild.voice_client
-            guild_id = interaction.guild.id
-            
-            if not vc or not vc.is_connected():
-                await interaction.response.send_message("Bot tidak terhubung ke voice channel.", ephemeral=True)
-                return
-            
-            if vc and vc.source:
-                current_volume = vc.source.volume
-                new_volume = max(current_volume - 0.1, 0.0)
-                vc.source.volume = new_volume
-                if new_volume > 0.0:
-                    self.cog.is_muted[guild_id] = False
-                else:
-                    self.cog.is_muted[guild_id] = True
-                await interaction.response.send_message(f"Volume diatur ke: {int(new_volume * 100)}%", ephemeral=True)
+        vc = interaction.guild.voice_client
+        guild_id = interaction.guild.id
+        if vc and vc.source:
+            current_volume = vc.source.volume
+            new_volume = max(current_volume - 0.1, 0.0)
+            vc.source.volume = new_volume
+            if new_volume > 0.0:
+                self.cog.is_muted[guild_id] = False
             else:
-                await interaction.response.send_message("Tidak ada lagu yang sedang diputar.", ephemeral=True)
-            
-            await self._update_music_message(interaction)
-        except Exception as e:
-            log.error(f"Error in volume_down_button: {e}")
-            await interaction.response.send_message(f"Terjadi kesalahan: {e}", ephemeral=True)
+                self.cog.is_muted[guild_id] = True
+            await interaction.response.send_message(f"Volume diatur ke: {int(new_volume * 100)}%", ephemeral=True)
+        else:
+            await interaction.response.send_message("Tidak ada lagu yang sedang diputar.", ephemeral=True)
+        await self._update_music_message(interaction)
 
     @discord.ui.button(emoji="🔊", style=discord.ButtonStyle.secondary, custom_id="music:mute_unmute", row=2)
     async def mute_unmute_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not await self._check_voice_channel(interaction):
             return
-        
-        try:
-            await interaction.response.defer(ephemeral=True)
-            vc = interaction.guild.voice_client
-            guild_id = interaction.guild.id
-            
-            if not vc or not vc.is_connected():
-                await interaction.followup.send("Bot tidak terhubung ke voice channel.", ephemeral=True)
-                return
-            
-            if vc and vc.source:
-                if not self.cog.is_muted.get(guild_id, False):
-                    self.cog.old_volume[guild_id] = vc.source.volume
-                    vc.source.volume = 0.0
-                    self.cog.is_muted[guild_id] = True
-                    await interaction.followup.send("🔇 Volume dimatikan.", ephemeral=True)
-                else:
-                    vc.source.volume = self.cog.old_volume.get(guild_id, 0.8)
-                    self.cog.is_muted[guild_id] = False
-                    await interaction.followup.send("🔊 Volume dinyalakan.", ephemeral=True)
-                await self._update_music_message(interaction)
+        await interaction.response.defer(ephemeral=True)
+        vc = interaction.guild.voice_client
+        guild_id = interaction.guild.id
+        if vc and vc.source:
+            if not self.cog.is_muted.get(guild_id, False):
+                self.cog.old_volume[guild_id] = vc.source.volume
+                vc.source.volume = 0.0
+                self.cog.is_muted[guild_id] = True
+                await interaction.followup.send("🔇 Volume dimatikan.", ephemeral=True)
             else:
-                await interaction.followup.send("Tidak ada lagu yang sedang diputar.", ephemeral=True)
-        except Exception as e:
-            log.error(f"Error in mute_unmute_button: {e}")
-            await interaction.followup.send(f"Terjadi kesalahan: {e}", ephemeral=True)
+                vc.source.volume = self.cog.old_volume.get(guild_id, 0.8)
+                self.cog.is_muted[guild_id] = False
+                await interaction.followup.send("🔊 Volume dinyalakan.", ephemeral=True)
+            await self._update_music_message(interaction)
+        else:
+            await interaction.followup.send("Tidak ada lagu yang sedang diputar.", ephemeral=True)
 
     @discord.ui.button(emoji="🔀", style=discord.ButtonStyle.grey, custom_id="music:shuffle", row=1)
     async def shuffle_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not await self._check_voice_channel(interaction):
             return
-        
-        try:
-            guild_id = interaction.guild.id
-            queue = self.cog.get_queue(guild_id)
-            if len(queue) > 1:
-                random.shuffle(queue)
-                await interaction.response.send_message("🔀 Antrean lagu diacak!", ephemeral=True)
-            else:
-                await interaction.response.send_message("Antrean terlalu pendek untuk diacak.", ephemeral=True)
-            await self._update_music_message(interaction)
-        except Exception as e:
-            log.error(f"Error in shuffle_button: {e}")
-            await interaction.response.send_message(f"Terjadi kesalahan: {e}", ephemeral=True)
+        guild_id = interaction.guild.id
+        queue = self.cog.get_queue(guild_id)
+        if len(queue) > 1:
+            random.shuffle(queue)
+            await interaction.response.send_message("🔀 Antrean lagu diacak!", ephemeral=True)
+        else:
+            await interaction.response.send_message("Antrean terlalu pendek untuk diacak.", ephemeral=True)
+        await self._update_music_message(interaction)
 
     @discord.ui.button(emoji="🗑️", style=discord.ButtonStyle.danger, custom_id="music:clear_queue", row=1)
     async def clear_queue_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not await self._check_voice_channel(interaction):
             return
-        
-        try:
-            guild_id = interaction.guild.id
-            queue = self.cog.get_queue(guild_id)
-            if queue:
-                self.cog.queues[guild_id] = []
-                await interaction.response.send_message("🗑️ Antrean lagu telah dikosongkan!", ephemeral=True)
-            else:
-                await interaction.response.send_message("Antrean sudah kosong.", ephemeral=True)
-            await self._update_music_message(interaction)
-        except Exception as e:
-            log.error(f"Error in clear_queue_button: {e}")
-            await interaction.response.send_message(f"Terjadi kesalahan: {e}", ephemeral=True)
+        guild_id = interaction.guild.id
+        queue = self.cog.get_queue(guild_id)
+        if queue:
+            self.cog.queues[guild_id] = []
+            await interaction.response.send_message("🗑️ Antrean lagu telah dikosongkan!", ephemeral=True)
+        else:
+            await interaction.response.send_message("Antrean sudah kosong.", ephemeral=True)
+        await self._update_music_message(interaction)
 
     @discord.ui.button(emoji="ℹ️", style=discord.ButtonStyle.blurple, custom_id="music:np_info", row=0)
     async def now_playing_info_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not await self._check_voice_channel(interaction):
             return
-        
-        try:
-            vc = interaction.guild.voice_client
-            guild_id = interaction.guild.id
-            
-            if not vc or not vc.is_connected():
-                await interaction.response.send_message("Bot tidak terhubung ke voice channel.", ephemeral=True)
-                return
-            
-            if vc and vc.is_playing() and vc.source and guild_id in self.cog.now_playing_info:
-                info = self.cog.now_playing_info[guild_id]
-                source = vc.source
-                embed = discord.Embed(
-                    title=f"🎶 Sedang Memutar: {info['title']}",
-                    description=f"Oleh: {info['artist']}\n[Link YouTube]({info['webpage_url']})",
-                    color=discord.Color.purple()
-                )
-                if source.thumbnail:
-                    embed.set_thumbnail(url=source.thumbnail)
-                duration_str = "N/A"
-                if source.duration:
-                    minutes, seconds = divmod(source.duration, 60)
-                    duration_str = f"{minutes:02}:{seconds:02}"
-                embed.add_field(name="Durasi", value=duration_str, inline=True)
-                queue = self.cog.get_queue(interaction.guild.id)
-                embed.set_footer(text=f"Antrean: {len(queue)} lagu tersisa")
-                await interaction.response.send_message(embed=embed, ephemeral=True)
-            else:
-                await interaction.response.send_message("Tidak ada lagu yang sedang diputar.", ephemeral=True)
-        except Exception as e:
-            log.error(f"Error in now_playing_info_button: {e}")
-            await interaction.response.send_message(f"Terjadi kesalahan: {e}", ephemeral=True)
+        vc = interaction.guild.voice_client
+        guild_id = interaction.guild.id
+        if vc and vc.is_playing() and vc.source and guild_id in self.cog.now_playing_info:
+            info = self.cog.now_playing_info[guild_id]
+            source = vc.source
+            embed = discord.Embed(
+                title=f"🎶 Sedang Memutar: {info['title']}",
+                description=f"Oleh: {info['artist']}\n[Link YouTube]({info['webpage_url']})",
+                color=discord.Color.purple()
+            )
+            if source.thumbnail:
+                embed.set_thumbnail(url=source.thumbnail)
+            duration_str = "N/A"
+            if source.duration:
+                minutes, seconds = divmod(source.duration, 60)
+                duration_str = f"{minutes:02}:{seconds:02}"
+            embed.add_field(name="Durasi", value=duration_str, inline=True)
+            queue = self.cog.get_queue(interaction.guild.id)
+            embed.set_footer(text=f"Antrean: {len(queue)} lagu tersisa")
+            await interaction.response.send_message(embed=embed, ephemeral=True)
+        else:
+            await interaction.response.send_message("Tidak ada lagu yang sedang diputar.", ephemeral=True)
 
 class RenameVCModal(discord.ui.Modal, title="Ganti Nama Channel Suara"):
     new_name = discord.ui.TextInput(
@@ -773,12 +594,6 @@ class Music(commands.Cog):
         self.now_playing_info = {}
         self.listening_history = load_listening_history()
         self.guild_config = load_guild_config()
-        self.status_config = load_status_config()
-        self.current_status_index = 0
-        self.is_playing_music = False
-        self.current_song_title = None
-        self.manual_status_active = False
-        self.voice_retry_attempts = {}  # Track retry attempts per guild
 
         GENIUS_API_TOKEN = os.getenv("GENIUS_API")
         self.genius = None
@@ -808,77 +623,12 @@ class Music(commands.Cog):
         self.bot.add_view(VCControlView(self))
         self.active_temp_channels = load_temp_channels()
         
-        self.status_rotation_task.start()
         self.cleanup_task.start()
         self.idle_check_task.start()
         
     def cog_unload(self):
-        self.status_rotation_task.cancel()
         self.cleanup_task.cancel()
         self.idle_check_task.cancel()
-
-    @tasks.loop(seconds=30)
-    async def status_rotation_task(self):
-        try:
-            if not self.status_config.get("enabled", True):
-                return
-            
-            if self.manual_status_active:
-                return
-            
-            if self.is_playing_music and self.current_song_title:
-                return
-            
-            interval = self.status_config.get("interval", 30)
-            if interval < 5:
-                interval = 5
-                self.status_config["interval"] = 5
-                save_status_config(self.status_config)
-            
-            self.status_rotation_task.change_interval(seconds=interval)
-            
-            statuses = self.status_config.get("statuses", [])
-            if not statuses:
-                return
-            
-            status = statuses[self.current_status_index]
-            status_type = status.get("type", "playing").lower()
-            status_name = status.get("name", "Music Bot")
-            status_details = status.get("details", "")
-            status_state = status.get("state", "")
-            
-            activity_type_map = {
-                "playing": discord.ActivityType.playing,
-                "listening": discord.ActivityType.listening,
-                "watching": discord.ActivityType.watching,
-                "competing": discord.ActivityType.competing,
-                "streaming": discord.ActivityType.streaming,
-                "custom": discord.ActivityType.custom
-            }
-            
-            activity_type = activity_type_map.get(status_type, discord.ActivityType.playing)
-            
-            activity = discord.Activity(
-                type=activity_type,
-                name=status_name[:128],
-                details=status_details[:128] if status_details else None,
-                state=status_state[:128] if status_state else None
-            )
-            
-            await self.bot.change_presence(
-                activity=activity,
-                status=discord.Status.online
-            )
-            
-            self.current_status_index = (self.current_status_index + 1) % len(statuses)
-            
-        except Exception as e:
-            log.error(f"Error in status_rotation_task: {e}")
-
-    @status_rotation_task.before_loop
-    async def before_status_rotation(self):
-        await self.bot.wait_until_ready()
-        await self.update_music_status()
 
     @tasks.loop(seconds=10)
     async def cleanup_task(self):
@@ -932,20 +682,14 @@ class Music(commands.Cog):
                 if num_human_members == 0:
                     if vc.is_playing() or vc.is_paused():
                         vc.stop()
-                    try:
-                        await vc.disconnect()
-                    except Exception as e:
-                        log.error(f"Error disconnecting from voice: {e}")
-                    
-                    guild_id = guild.id
-                    self.queues.pop(guild_id, None)
-                    self.loop_status.pop(guild_id, None)
-                    self.is_muted.pop(guild_id, None)
-                    self.old_volume.pop(guild_id, None)
-                    self.now_playing_info.pop(guild_id, None)
-                    
-                    if guild_id in self.current_music_message_info:
-                        old_message_info = self.current_music_message_info[guild_id]
+                    await vc.disconnect()
+                    self.queues.pop(guild.id, None)
+                    self.loop_status.pop(guild.id, None)
+                    self.is_muted.pop(guild.id, None)
+                    self.old_volume.pop(guild.id, None)
+                    self.now_playing_info.pop(guild.id, None)
+                    if guild.id in self.current_music_message_info:
+                        old_message_info = self.current_music_message_info[guild.id]
                         try:
                             old_channel = guild.get_channel(old_message_info['channel_id']) or await guild.fetch_channel(old_message_info['channel_id'])
                             if old_channel:
@@ -954,7 +698,7 @@ class Music(commands.Cog):
                         except (discord.NotFound, discord.HTTPException) as e:
                             pass
                         finally:
-                            del self.current_music_message_info[guild_id]
+                            del self.current_music_message_info[guild.id]
 
     @idle_check_task.before_loop
     async def before_idle_check_task(self):
@@ -1035,6 +779,8 @@ class Music(commands.Cog):
                     )
                 }
                 
+                # --- Implementasi Bitrate Dinamis ---
+                # Mengambil batas bitrate maksimum yang diizinkan oleh Level Boost Server
                 dynamic_bitrate = guild.bitrate_limit
                 bitrate_to_set = dynamic_bitrate
                 bitrate_kbps = bitrate_to_set // 1000 
@@ -1055,7 +801,7 @@ class Music(commands.Cog):
                 
                 embed = discord.Embed(
                     title="🎉 Channel Pribadimu Dibuat!",
-                    description=f"Selamat welcome di **{new_vc.name}**, {member.mention}! Kamu adalah pemilik channel ini.\n"
+                    description=f"Selamat datang di **{new_vc.name}**, {member.mention}! Kamu adalah pemilik channel ini.\n"
                                  f"**Bitrate diatur maksimal ({bitrate_kbps} kbps)** dan **Region diatur ke {TARGET_REGION.upper()}**.\n"
                                  f"Gunakan tombol di bawah untuk mengelola channelmu tanpa perintah teks.\n"
                                  f"Channel ini akan otomatis dihapus jika tidak ada user di dalamnya.",
@@ -1152,35 +898,31 @@ class Music(commands.Cog):
             else:
                 await interaction_or_ctx.send("Fitur lirik tidak aktif karena API token Genius belum diatur.")
             return
-        
+        guild_id = interaction_or_ctx.guild.id if isinstance(interaction_or_ctx, discord.Interaction) else interaction_or_ctx.guild.id
+        song_title_for_lyrics = None
+        song_artist_for_lyrics = None
+        if song_name_override:
+            if ' - ' in song_name_override:
+                parts = song_name_override.split(' - ', 1)
+                song_title_for_lyrics = parts[0].strip()
+                song_artist_for_lyrics = parts[1].strip()
+            else:
+                song_title_for_lyrics = song_name_override
+                song_artist_for_lyrics = None
+        elif guild_id in self.now_playing_info:
+            info = self.now_playing_info[guild_id]
+            song_title_for_lyrics = info.get('title')
+            song_artist_for_lyrics = info.get('artist')
+        if not song_title_for_lyrics:
+            if isinstance(interaction_or_ctx, discord.Interaction):
+                if not interaction_or_ctx.response.is_done():
+                    await interaction_or_ctx.response.send_message("Tidak ada lagu yang sedang diputar atau nama lagu tidak diberikan. Harap gunakan `!reslyrics <nama lagu>` untuk mencari lirik.", ephemeral=True)
+                else:
+                    await interaction_or_ctx.followup.send("Tidak ada lagu yang sedang diputar atau nama lagu tidak diberikan. Harap gunakan `!reslyrics <nama lagu>` untuk mencari lirik.", ephemeral=True)
+            else:
+                await interaction_or_ctx.send("Tidak ada lagu yang sedang diputar atau nama lagu tidak diberikan. Harap gunakan `!reslyrics <nama lagu>` untuk mencari lirik.")
+            return
         try:
-            guild_id = interaction_or_ctx.guild.id if isinstance(interaction_or_ctx, discord.Interaction) else interaction_or_ctx.guild.id
-            song_title_for_lyrics = None
-            song_artist_for_lyrics = None
-            
-            if song_name_override:
-                if ' - ' in song_name_override:
-                    parts = song_name_override.split(' - ', 1)
-                    song_title_for_lyrics = parts[0].strip()
-                    song_artist_for_lyrics = parts[1].strip()
-                else:
-                    song_title_for_lyrics = song_name_override
-                    song_artist_for_lyrics = None
-            elif guild_id in self.now_playing_info:
-                info = self.now_playing_info[guild_id]
-                song_title_for_lyrics = info.get('title')
-                song_artist_for_lyrics = info.get('artist')
-            
-            if not song_title_for_lyrics:
-                if isinstance(interaction_or_ctx, discord.Interaction):
-                    if not interaction_or_ctx.response.is_done():
-                        await interaction_or_ctx.response.send_message("Tidak ada lagu yang sedang diputar atau nama lagu tidak diberikan. Harap gunakan `!reslyrics <nama lagu>` untuk mencari lirik.", ephemeral=True)
-                    else:
-                        await interaction_or_ctx.followup.send("Tidak ada lagu yang sedang diputar atau nama lagu tidak diberikan. Harap gunakan `!reslyrics <nama lagu>` untuk mencari lirik.", ephemeral=True)
-                else:
-                    await interaction_or_ctx.send("Tidak ada lagu yang sedang diputar atau nama lagu tidak diberikan. Harap gunakan `!reslyrics <nama lagu>` untuk mencari lirik.")
-                return
-            
             song = None
             if song_artist_for_lyrics and "Unknown Artist" not in song_artist_for_lyrics and "channel" not in song_artist_for_lyrics.lower() and "vevo" not in song_artist_for_lyrics.lower() and "topic" not in song_artist_for_lyrics.lower():
                 song = await asyncio.to_thread(self.genius.search_song, song_title_for_lyrics, song_artist_for_lyrics)
@@ -1188,7 +930,6 @@ class Music(commands.Cog):
                     song = await asyncio.to_thread(self.genius.search_song, song_title_for_lyrics)
             else:
                 song = await asyncio.to_thread(self.genius.search_song, song_title_for_lyrics)
-            
             if song:
                 embed = discord.Embed(
                     title=f"Lirik: {song.title} - {song.artist}",
@@ -1199,7 +940,6 @@ class Music(commands.Cog):
                     embed.set_thumbnail(url=song.song_art_image_url)
                 lyrics_parts = [song.lyrics[i:i+1900] for i in range(0, len(song.lyrics), 1900)]
                 embed.description = lyrics_parts[0]
-                
                 if isinstance(interaction_or_ctx, discord.Interaction):
                     if interaction_or_ctx.response.is_done():
                         message_sent = await interaction_or_ctx.followup.send(embed=embed)
@@ -1207,7 +947,6 @@ class Music(commands.Cog):
                         message_sent = await interaction_or_ctx.response.send_message(embed=embed)
                 else:
                     message_sent = await interaction_or_ctx.send(embed=embed)
-                
                 for part in lyrics_parts[1:]:
                     if isinstance(interaction_or_ctx, discord.Interaction):
                         await interaction_or_ctx.followup.send(part)
@@ -1223,7 +962,6 @@ class Music(commands.Cog):
                     await interaction_or_ctx.send("Lirik tidak ditemukan untuk lagu tersebut.")
         except Exception as e:
             error_message = f"Gagal mengambil lirik: {e}"
-            log.error(f"Error in _send_lyrics: {e}")
             if isinstance(interaction_or_ctx, discord.Interaction):
                 if interaction_or_ctx.response.is_done():
                     await interaction_or_ctx.followup.send(error_message, ephemeral=True)
@@ -1235,22 +973,19 @@ class Music(commands.Cog):
     async def play_next(self, ctx):
         guild_id = ctx.guild.id
         queue = self.get_queue(guild_id)
-        
         if self.loop_status.get(guild_id, False) and ctx.voice_client and ctx.voice_client.source:
             current_song_url = ctx.voice_client.source.data.get('webpage_url')
             if current_song_url:
                 queue.insert(0, current_song_url)
-        
         if not queue:
             vc = ctx.voice_client
-            if vc and vc.is_connected() and len([member for member in vc.channel.members if not member.bot]) > 0:
-                pass
-        
+            if vc and len([member for member in vc.channel.members if not member.bot]) > 0:
+                await self.refill_queue_for_random(ctx)
+                queue = self.get_queue(guild_id)
         if not queue:
             vc = ctx.voice_client
             if vc and vc.is_connected():
                 await vc.disconnect()
-            
             if guild_id in self.current_music_message_info:
                 message_info = self.current_music_message_info.pop(guild_id)
                 try:
@@ -1262,30 +997,16 @@ class Music(commands.Cog):
                     pass
                 await ctx.send("Antrean kosong. Bot akan keluar dari voice channel jika tidak ada pengguna lain.", ephemeral=True)
             return
-        
         url = queue.pop(0)
         try:
             song_info_from_ytdl = await self.get_song_info_from_url(url)
             self.add_song_to_history(ctx.author.id, song_info_from_ytdl)
             song_info_from_ytdl['requester'] = ctx.author.mention
-            
             source = await YTDLSource.from_url(url, loop=self.bot.loop, stream=True)
-            
-            if not ctx.voice_client or not ctx.voice_client.is_connected():
-                await ctx.send("Bot tidak terhubung ke voice channel. Silakan hubungkan terlebih dahulu.", ephemeral=True)
-                return
-            
             if ctx.voice_client.is_playing() or ctx.voice_client.is_paused():
                 ctx.voice_client.stop()
-            
             ctx.voice_client.play(source, after=lambda e: asyncio.run_coroutine_threadsafe(self._after_play_handler(ctx, e), self.bot.loop))
             self.now_playing_info[guild_id] = song_info_from_ytdl
-            
-            await self.update_music_status(
-                song_title=song_info_from_ytdl['title'],
-                is_playing=True
-            )
-            
             embed = discord.Embed(
                 title="🎶 Sedang Memutar",
                 description=f"**[{self.now_playing_info[guild_id]['title']}]({self.now_playing_info[guild_id]['webpage_url']})**",
@@ -1293,18 +1014,14 @@ class Music(commands.Cog):
             )
             if source.thumbnail:
                 embed.set_thumbnail(url=source.thumbnail)
-            
             duration_str = "N/A"
             if source.duration:
                 minutes, seconds = divmod(source.duration, 60)
                 duration_str = f"{minutes:02}:{seconds:02}"
-            
             embed.add_field(name="Durasi", value=duration_str, inline=True)
             embed.add_field(name="Diminta oleh", value=ctx.author.mention, inline=True)
             embed.set_footer(text=f"Antrean: {len(queue)} lagu tersisa")
-            
             view = MusicControlView(self)
-            
             if guild_id in self.current_music_message_info:
                 message_info = self.current_music_message_info.pop(guild_id)
                 try:
@@ -1314,742 +1031,315 @@ class Music(commands.Cog):
                         await old_message.delete()
                 except (discord.NotFound, discord.HTTPException):
                     pass
-            
             message_sent = await ctx.send(embed=embed, view=view)
             self.current_music_message_info[guild_id] = {'message_id': message_sent.id, 'channel_id': message_sent.channel.id}
-        
         except Exception as e:
-            log.error(f"Error in play_next: {e}")
             await ctx.send(f'Gagal memutar lagu: {e}', ephemeral=True)
             if ctx.voice_client and (ctx.voice_client.is_playing() or ctx.voice_client.is_paused()):
                 ctx.voice_client.stop()
+            return
 
     async def _after_play_handler(self, ctx, error):
+        guild_id = ctx.guild.id
         if error:
-            log.error(f"Error in _after_play_handler: {error}")
-            try:
-                await ctx.send(f"Terjadi error saat memutar: {error}")
-            except:
-                pass
-        
-        await asyncio.sleep(1)
-        
-        try:
-            if ctx.voice_client and ctx.voice_client.is_connected():
-                await self.play_next(ctx)
-            else:
-                await self.update_music_status(is_playing=False)
-                
-                guild_id = ctx.guild.id
-                self.queues.pop(guild_id, None)
-                self.loop_status.pop(guild_id, None)
-                self.is_muted.pop(guild_id, None)
-                self.old_volume.pop(guild_id, None)
-                self.now_playing_info.pop(guild_id, None)
-                
-                if guild_id in self.current_music_message_info:
-                    old_message_info = self.current_music_message_info[guild_id]
-                    try:
-                        old_channel = ctx.guild.get_channel(old_message_info['channel_id']) or await ctx.guild.fetch_channel(old_message_info['channel_id'])
-                        if old_channel:
-                            old_message = await old_channel.fetch_message(old_message_info['message_id'])
-                            await old_message.delete()
-                    except (discord.NotFound, discord.HTTPException):
-                        pass
-                    finally:
-                        self.current_music_message_info.pop(guild_id, None)
-        except Exception as e:
-            log.error(f"Error in _after_play_handler cleanup: {e}")
-
-    async def _update_music_message_from_ctx(self, ctx):
-        try:
-            guild_id = ctx.guild.id
-            current_message_info = self.current_music_message_info.get(guild_id)
-            if not current_message_info:
-                return
-            
-            vc = ctx.voice_client
-            queue = self.get_queue(guild_id)
-            
-            if vc and vc.is_connected() and vc.is_playing() and vc.source and guild_id in self.now_playing_info:
-                info = self.now_playing_info[guild_id]
-                source = vc.source
-                embed_to_send = discord.Embed(
-                    title="🎶 Sedang Memutar",
-                    description=f"**[{info['title']}]({info['webpage_url']})**",
-                    color=discord.Color.purple()
-                )
-                if source.thumbnail:
-                    embed_to_send.set_thumbnail(url=source.thumbnail)
-                duration_str = "N/A"
-                if source.duration:
-                    minutes, seconds = divmod(source.duration, 60)
-                    duration_str = f"{minutes:02}:{seconds:02}"
-                embed_to_send.add_field(name="Durasi", value=duration_str, inline=True)
-                embed_to_send.add_field(name="Diminta oleh", value=info.get('requester', 'N/A'), inline=True)
-                embed_to_send.set_footer(text=f"Antrean: {len(queue)} lagu tersisa")
-            else:
-                embed_to_send = discord.Embed(title="Musik Bot", description="Status musik...", color=discord.Color.light_grey())
-            
-            updated_view = MusicControlView(self)
-            if not vc or not vc.is_connected():
-                for item in updated_view.children:
-                    item.disabled = True
-            else:
-                for item in updated_view.children:
-                    if item.custom_id == "music:play_pause":
-                        if vc.is_playing():
-                            item.emoji = "⏸️"
-                            item.style = discord.ButtonStyle.green
-                        elif vc.is_paused():
-                            item.emoji = "▶️"
-                            item.style = discord.ButtonStyle.primary
-                    elif item.custom_id == "music:mute_unmute":
-                        if self.is_muted.get(guild_id, False):
-                            item.emoji = "🔇"
-                        else:
-                            item.emoji = "🔊"
-                    elif item.custom_id == "music:loop":
-                        if self.loop_status.get(guild_id, False):
-                            item.style = discord.ButtonStyle.green
-                        else:
-                            item.style = discord.ButtonStyle.grey
-                    item.disabled = False
-            
+            target_channel = None
             if guild_id in self.current_music_message_info:
-                message_info = self.current_music_message_info.pop(guild_id)
+                channel_id = self.current_music_message_info[guild_id]['channel_id']
                 try:
-                    channel = ctx.guild.get_channel(message_info['channel_id']) or await ctx.guild.fetch_channel(message_info['channel_id'])
-                    if channel:
-                        old_message = await channel.fetch_message(message_info['message_id'])
+                    target_channel = ctx.guild.get_channel(channel_id) or await ctx.guild.fetch_channel(channel_id)
+                except discord.NotFound:
+                    pass
+                if target_channel:
+                    await target_channel.send(f"Terjadi error saat memutar: {error}")
+                else:
+                    await ctx.send(f"Terjadi error saat memutar: {error}")
+        await asyncio.sleep(1)
+        if ctx.voice_client and ctx.voice_client.is_connected():
+            await self.play_next(ctx)
+        else:
+            self.queues.pop(guild_id, None)
+            self.loop_status.pop(guild_id, None)
+            self.is_muted.pop(guild_id, None)
+            self.old_volume.pop(guild_id, None)
+            self.now_playing_info.pop(guild_id, None)
+            if guild_id in self.current_music_message_info:
+                old_message_info = self.current_music_message_info[guild_id]
+                try:
+                    old_channel = ctx.guild.get_channel(old_message_info['channel_id']) or await ctx.guild.fetch_channel(old_message_info['channel_id'])
+                    if old_channel:
+                        old_message = await old_channel.fetch_message(old_message_info['message_id'])
                         await old_message.delete()
                 except (discord.NotFound, discord.HTTPException):
                     pass
+                finally:
+                    self.current_music_message_info.pop(guild_id, None)
+
+    async def refill_queue_for_random(self, ctx, num_songs=10):
+        user_id_str = str(ctx.author.id)
+        new_urls = []
+        
+        # 1. Ambil URL dari riwayat putar pengguna
+        user_history = self.listening_history.get(user_id_str, [])
+        
+        if not isinstance(user_history, list):
+            user_history = []
+        
+        if user_history:
+            # Menggunakan set untuk menghindari duplikat dalam riwayat
+            filtered_history_urls = [s['webpage_url'] for s in user_history if 'webpage_url' in s]
             
-            new_message = await ctx.send(embed=embed_to_send, view=updated_view)
-            self.current_music_message_info[guild_id] = {
-                'message_id': new_message.id,
-                'channel_id': new_message.channel.id
-            }
-        except Exception as e:
-            log.error(f"Error in _update_music_message_from_ctx: {e}")
+            # Acak dan ambil yang paling atas
+            if filtered_history_urls:
+                random.shuffle(filtered_history_urls)
+                urls_from_history = filtered_history_urls[:num_songs]
+                new_urls.extend(urls_from_history)
+
+        # 2. Jika masih kurang, ambil dari trending music umum
+        if len(new_urls) < num_songs:
+            search_query = "trending music"
+            try:
+                info = await asyncio.to_thread(lambda: ytdl.extract_info(search_query, download=False, process=True))
+                if 'entries' in info and isinstance(info.get('entries'), list):
+                    filtered_entries_urls = [entry['webpage_url'] for entry in info['entries'] if 'webpage_url' in entry]
+                    
+                    if filtered_entries_urls:
+                        random.shuffle(filtered_entries_urls)
+                        urls_from_search = filtered_entries_urls[:num_songs - len(new_urls)]
+                        new_urls.extend(urls_from_search)
+            except Exception as e:
+                pass
+                
+        self.get_queue(ctx.guild.id).extend(new_urls)
+
+    async def _update_music_message_from_ctx(self, ctx):
+        guild_id = ctx.guild.id
+        current_message_info = self.current_music_message_info.get(guild_id)
+        if not current_message_info:
+            return
+        vc = ctx.voice_client
+        queue = self.get_queue(guild_id)
+        if vc and vc.is_playing() and vc.source and guild_id in self.now_playing_info:
+            info = self.now_playing_info[guild_id]
+            source = vc.source
+            embed_to_send = discord.Embed(
+                title="🎶 Sedang Memutar",
+                description=f"**[{info['title']}]({info['webpage_url']})**",
+                color=discord.Color.purple()
+            )
+            if source.thumbnail:
+                embed_to_send.set_thumbnail(url=source.thumbnail)
+            duration_str = "N/A"
+            if source.duration:
+                minutes, seconds = divmod(source.duration, 60)
+                duration_str = f"{minutes:02}:{seconds:02}"
+            embed_to_send.add_field(name="Durasi", value=duration_str, inline=True)
+            embed_to_send.add_field(name="Diminta oleh", value=info.get('requester', 'N/A'), inline=True)
+            embed_to_send.set_footer(text=f"Antrean: {len(queue)} lagu tersisa")
+        else:
+            embed_to_send = discord.Embed(title="Musik Bot", description="Status musik...", color=discord.Color.light_grey())
+        updated_view = MusicControlView(self)
+        if not vc:
+            for item in updated_view.children:
+                item.disabled = True
+        else:
+            for item in updated_view.children:
+                if item.custom_id == "music:play_pause":
+                    if vc.is_playing():
+                        item.emoji = "⏸️"
+                        item.style = discord.ButtonStyle.green
+                    elif vc.is_paused():
+                        item.emoji = "▶️"
+                        item.style = discord.ButtonStyle.primary
+                elif item.custom_id == "music:mute_unmute":
+                    if self.is_muted.get(guild_id, False):
+                        item.emoji = "🔇"
+                    else:
+                        item.emoji = "🔊"
+                elif item.custom_id == "music:loop":
+                    if self.loop_status.get(guild_id, False):
+                        item.style = discord.ButtonStyle.green
+                    else:
+                        item.style = discord.ButtonStyle.grey
+                item.disabled = False
+        if guild_id in self.current_music_message_info:
+            message_info = self.current_music_message_info.pop(guild_id)
+            try:
+                channel = ctx.guild.get_channel(message_info['channel_id']) or await ctx.guild.fetch_channel(message_info['channel_id'])
+                if channel:
+                    old_message = await channel.fetch_message(message_info['message_id'])
+                    await old_message.delete()
+            except (discord.NotFound, discord.HTTPException):
+                pass
+        new_message = await ctx.send(embed=embed_to_send, view=updated_view)
+        self.current_music_message_info[guild_id] = {
+            'message_id': new_message.id,
+            'channel_id': new_message.channel.id
+        }
 
     async def send_scheduled_message(self, member, message_content):
         try:
             await member.move_to(None)
         except Exception:
             pass
+        # Perbaikan: Menghapus 'ephemeral=True' dari member.send()
         try:
             await member.send(message_content)
         except discord.Forbidden:
             pass
-
-    async def process_spotify_url(self, query, ctx):
-        try:
-            urls = []
-            spotify_track_info = None
-            
-            if "track" in query:
-                track = self.spotify.track(query)
-                spotify_track_info = {
-                    'title': track['name'],
-                    'artist': track['artists'][0]['name'],
-                    'webpage_url': track['external_urls']['spotify'],
-                    'requester': ctx.author.mention
-                }
-                search_query = f"{track['name']} {track['artists'][0]['name']} audio"
-                info = await asyncio.to_thread(lambda: ytdl.extract_info(search_query, download=False, process=True))
-                if 'entries' in info and isinstance(info.get('entries'), list) and len(info['entries']) > 0:
-                    urls.append(info['entries'][0]['webpage_url'])
-                else:
-                    raise Exception(f"Tidak dapat menemukan audio untuk track Spotify: {track['name']}")
-            elif "playlist" in query:
-                results = self.spotify.playlist_tracks(query)
-                for item in results['items']:
-                    track = item['track']
-                    if track:
-                        search_query = f"{track['name']} {track['artists'][0]['name']} audio"
-                        try:
-                            info = await asyncio.to_thread(lambda: ytdl.extract_info(search_query, download=False, process=True))
-                            if 'entries' in info and isinstance(info.get('entries'), list) and len(info['entries']) > 0:
-                                urls.append(info['entries'][0]['webpage_url'])
-                        except Exception:
-                            continue
-            elif "album" in query:
-                results = self.spotify.album_tracks(query)
-                for item in results['items']:
-                    track = item
-                    if track:
-                        search_query = f"{track['name']} {track['artists'][0]['name']} audio"
-                        try:
-                            info = await asyncio.to_thread(lambda: ytdl.extract_info(search_query, download=False, process=True))
-                            if 'entries' in info and isinstance(info.get('entries'), list) and len(info['entries']) > 0:
-                                urls.append(info['entries'][0]['webpage_url'])
-                        except Exception:
-                            continue
-            
-            return urls, spotify_track_info
-        except Exception as e:
-            log.error(f"Error processing Spotify URL: {e}")
-            raise Exception(f"Gagal memproses link Spotify. Coba gunakan link Deezer atau SoundCloud sebagai alternatif. Error: {str(e)[:100]}")
-
-    async def process_deezer_url(self, query, ctx):
-        try:
-            search_query = ""
-            if "deezer.com" in query:
-                if "track" in query:
-                    search_query = query
-                elif "playlist" in query or "album" in query:
-                    search_query = query
-            
-            if not search_query:
-                return [], None
-            
-            info = await asyncio.to_thread(lambda: ytdl.extract_info(search_query, download=False, process=True))
-            if 'entries' in info and isinstance(info.get('entries'), list):
-                urls = [entry['webpage_url'] for entry in info['entries']]
-                return urls, None
-            elif 'webpage_url' in info:
-                return [info['webpage_url']], None
-            else:
-                raise Exception("Tidak dapat memproses link Deezer")
-        except Exception as e:
-            log.error(f"Error processing Deezer URL: {e}")
-            raise Exception(f"Gagal memproses link Deezer. Error: {str(e)[:100]}")
-
-    async def process_soundcloud_url(self, query, ctx):
-        try:
-            search_query = query
-            info = await asyncio.to_thread(lambda: ytdl.extract_info(search_query, download=False, process=True))
-            if 'entries' in info and isinstance(info.get('entries'), list):
-                urls = [entry['webpage_url'] for entry in info['entries']]
-                return urls, None
-            elif 'webpage_url' in info:
-                return [info['webpage_url']], None
-            else:
-                raise Exception("Tidak dapat memproses link SoundCloud")
-        except Exception as e:
-            log.error(f"Error processing SoundCloud URL: {e}")
-            raise Exception(f"Gagal memproses link SoundCloud. Error: {str(e)[:100]}")
-
-    async def auto_deafen_bot(self, voice_channel):
-        try:
-            await asyncio.sleep(1)
-            
-            bot_member = voice_channel.guild.get_member(self.bot.user.id)
-            if bot_member and bot_member.voice:
-                await bot_member.edit(deafen=True)
-                log.info(f"✅ Bot auto-deafen di {voice_channel.name}")
-        except Exception as e:
-            log.error(f"Error auto-deafen: {e}")
-
-    async def update_music_status(self, song_title=None, is_playing=False):
-        try:
-            if is_playing and song_title:
-                self.is_playing_music = True
-                self.current_song_title = song_title
-                self.manual_status_active = False
-                
-                # Set activity status (listening to music)
-                activity = discord.Activity(
-                    type=discord.ActivityType.listening,
-                    name=f"{song_title[:100]}",
-                    details="🎵 Playing Music",
-                    state="Type !reshelp for commands"
-                )
-                await self.bot.change_presence(
-                    activity=activity,
-                    status=discord.Status.online
-                )
-                log.info(f"🎵 Activity status: Listening to {song_title[:30]}...")
-            else:
-                self.is_playing_music = False
-                self.current_song_title = None
-                self.manual_status_active = False
-                
-                if self.status_config.get("enabled", True):
-                    self.status_rotation_task.restart()
-                else:
-                    activity = discord.Activity(
-                        type=discord.ActivityType.playing,
-                        name="Music Bot",
-                        details="Ready to play music",
-                        state="Type !reshelp"
-                    )
-                    await self.bot.change_presence(activity=activity)
-                
-        except Exception as e:
-            log.error(f"Error update_music_status: {e}")
-
-    async def set_manual_activity(self, activity_type, name, details=None, state=None):
-        try:
-            self.manual_status_active = True
-            self.is_playing_music = False
-            self.current_song_title = None
-            self.status_rotation_task.stop()
-            
-            activity_type_map = {
-                "playing": discord.ActivityType.playing,
-                "listening": discord.ActivityType.listening,
-                "watching": discord.ActivityType.watching,
-                "competing": discord.ActivityType.competing,
-                "streaming": discord.ActivityType.streaming,
-                "custom": discord.ActivityType.custom
-            }
-            
-            activity_type_enum = activity_type_map.get(activity_type.lower(), discord.ActivityType.playing)
-            
-            activity = discord.Activity(
-                type=activity_type_enum,
-                name=name[:128],
-                details=details[:128] if details else None,
-                state=state[:128] if state else None
-            )
-            
-            await self.bot.change_presence(
-                activity=activity,
-                status=discord.Status.online
-            )
-            
-            log.info(f"✅ Manual activity set: {activity_type} - {name}")
-            return True
-            
-        except Exception as e:
-            log.error(f"Error set_manual_activity: {e}")
-            return False
-
-    async def reset_to_auto_status(self):
-        try:
-            self.manual_status_active = False
-            
-            if self.is_playing_music and self.current_song_title:
-                await self.update_music_status(
-                    song_title=self.current_song_title,
-                    is_playing=True
-                )
-            elif self.status_config.get("enabled", True):
-                self.status_rotation_task.restart()
-            else:
-                activity = discord.Activity(
-                    type=discord.ActivityType.playing,
-                    name="Music Bot",
-                    details="Ready to play music",
-                    state="Type !reshelp"
-                )
-                await self.bot.change_presence(activity=activity)
-                
-            log.info("✅ Status kembali ke mode otomatis")
-            return True
-            
-        except Exception as e:
-            log.error(f"Error reset_to_auto_status: {e}")
-            return False
-
-    async def safe_connect_voice(self, ctx, max_retries=3):
-        """Connect to voice with error handling and retries"""
-        if not ctx.author.voice or not ctx.author.voice.channel:
-            return None
-        
-        guild_id = ctx.guild.id
-        
-        for attempt in range(max_retries):
-            try:
-                if ctx.voice_client and ctx.voice_client.is_connected():
-                    if ctx.voice_client.channel == ctx.author.voice.channel:
-                        return ctx.voice_client
-                    await ctx.voice_client.disconnect()
-                
-                log.info(f"Connecting to voice channel (attempt {attempt + 1}/{max_retries})...")
-                vc = await ctx.author.voice.channel.connect(
-                    timeout=30.0,
-                    reconnect=True,
-                    self_deaf=True
-                )
-                
-                await self.auto_deafen_bot(vc)
-                log.info(f"✅ Connected to voice channel: {ctx.author.voice.channel.name}")
-                
-                self.voice_retry_attempts.pop(guild_id, None)
-                return vc
-                
-            except discord.errors.ConnectionClosed as e:
-                log.error(f"Voice connection closed (attempt {attempt + 1}): {e}")
-                if attempt < max_retries - 1:
-                    wait_time = (attempt + 1) * 2
-                    log.info(f"Retrying in {wait_time} seconds...")
-                    await asyncio.sleep(wait_time)
-                else:
-                    log.error(f"Failed to connect after {max_retries} attempts")
-                    self.voice_retry_attempts[guild_id] = datetime.now()
-                    raise
-            
-            except asyncio.TimeoutError:
-                log.error(f"Voice connection timeout (attempt {attempt + 1})")
-                if attempt < max_retries - 1:
-                    await asyncio.sleep(3)
-                else:
-                    log.error(f"Failed to connect after {max_retries} attempts")
-                    self.voice_retry_attempts[guild_id] = datetime.now()
-                    raise
-            
-            except discord.ClientException as e:
-                log.error(f"Client exception (attempt {attempt + 1}): {e}")
-                if "Already connected" in str(e):
-                    if ctx.voice_client and ctx.voice_client.is_connected():
-                        return ctx.voice_client
-                raise
-            
-            except Exception as e:
-                log.error(f"Unexpected error connecting to voice (attempt {attempt + 1}): {e}")
-                if attempt < max_retries - 1:
-                    await asyncio.sleep(2)
-                else:
-                    log.error(f"Failed to connect after {max_retries} attempts")
-                    self.voice_retry_attempts[guild_id] = datetime.now()
-                    raise
-        
-        return None
-
-    def can_retry_voice(self, guild_id):
-        """Check if voice connection can be retried for this guild"""
-        if guild_id not in self.voice_retry_attempts:
-            return True
-        
-        last_attempt = self.voice_retry_attempts[guild_id]
-        time_since_attempt = datetime.now() - last_attempt
-        
-        # Allow retry after 60 seconds
-        return time_since_attempt.total_seconds() > 60
-
-    @commands.command(name="testaudio")
-    async def test_audio(self, ctx):
-        import subprocess
-        import os
-        
-        tests = []
-        
-        ffmpeg_path = '/usr/bin/ffmpeg'
-        if os.path.exists(ffmpeg_path):
-            try:
-                result = subprocess.run(
-                    [ffmpeg_path, '-version'],
-                    capture_output=True,
-                    text=True,
-                    timeout=5
-                )
-                version_line = result.stdout.split('\n')[0]
-                tests.append(f"✅ **FFmpeg**: {version_line}")
-                
-                if 'libopus' in result.stdout:
-                    tests.append("✅ **Opus codec**: Supported")
-                else:
-                    tests.append("⚠️ **Opus codec**: Not found")
-            except Exception as e:
-                tests.append(f"❌ **FFmpeg test failed**: {str(e)[:100]}")
-        else:
-            tests.append(f"❌ **FFmpeg not found at**: {ffmpeg_path}")
-        
-        try:
-            import discord
-            tests.append(f"✅ **discord.py**: {discord.__version__}")
-        except Exception as e:
-            tests.append(f"❌ **discord.py**: {str(e)[:100]}")
-        
-        try:
-            import yt_dlp
-            tests.append(f"✅ **yt-dlp**: {yt_dlp.version.__version__}")
-        except Exception as e:
-            tests.append(f"❌ **yt-dlp**: {str(e)[:100]}")
-        
-        if ctx.voice_client and ctx.voice_client.is_connected():
-            tests.append(f"🎵 **Voice status**: Connected to {ctx.voice_client.channel.name}")
-        else:
-            tests.append("🔇 **Voice status**: Not connected")
-        
-        embed = discord.Embed(
-            title="🔊 Audio System Test",
-            description="\n".join(tests),
-            color=discord.Color.blue()
-        )
-        
-        await ctx.send(embed=embed)
-
+    
     @commands.command(name="resjoin")
     async def join(self, ctx):
-        if ctx.author.voice is None or ctx.author.voice.channel is None:
-            return await ctx.send("Kamu harus berada di voice channel dulu.")
-        
-        try:
-            guild_id = ctx.guild.id
-            if not self.can_retry_voice(guild_id):
-                return await ctx.send("❌ Voice connection sedang bermasalah. Coba lagi dalam 1 menit.", ephemeral=True)
-            
-            vc = await self.safe_connect_voice(ctx)
-            
-            if vc:
-                await ctx.send(f"✅ Bergabung ke **{ctx.author.voice.channel.name}** (Auto-Deafen)")
-                await asyncio.sleep(1)
-            else:
-                await ctx.send("❌ Gagal bergabung ke voice channel setelah beberapa percobaan.")
-                
-        except discord.errors.ConnectionClosed as e:
-            await ctx.send("❌ **Error 4006**: Gagal terhubung ke server voice Discord. Ini adalah masalah jaringan Discord. Silakan coba lagi nanti.")
-            log.error(f"ConnectionClosed error in join: {e}")
-            
-        except asyncio.TimeoutError:
-            await ctx.send("❌ Timeout saat mencoba bergabung ke voice channel.")
-            
-        except discord.ClientException as e:
-            if "Already connected" in str(e):
-                await ctx.send("✅ Bot sudah terhubung ke voice channel.")
-            else:
-                await ctx.send(f"❌ Error: {e}")
-                
-        except Exception as e:
-            log.error(f"Error in join command: {e}")
-            await ctx.send(f"❌ Gagal bergabung: {type(e).__name__}: {str(e)[:200]}")
+        if ctx.voice_client:
+            if ctx.voice_client.channel != ctx.author.voice.channel:
+                return await ctx.send("Bot sudah berada di voice channel lain. Harap keluarkan dulu.")
+            return
+        if ctx.author.voice:
+            await ctx.author.voice.channel.connect()
+            await ctx.send(f"Joined **{ctx.author.voice.channel.name}**")
+        else:
+            await ctx.send("Kamu harus berada di voice channel dulu.")
 
     @commands.command(name="resp", aliases=["p", "play"])
     async def play(self, ctx, *, query):
-        try:
-            if not ctx.author.voice or not ctx.author.voice.channel:
-                return await ctx.send("Kamu harus berada di voice channel terlebih dahulu.")
-            
-            guild_id = ctx.guild.id
-            if not self.can_retry_voice(guild_id):
-                return await ctx.send("❌ Voice connection sedang bermasalah. Coba lagi dalam 1 menit.", ephemeral=True)
-            
-            if not ctx.voice_client or not ctx.voice_client.is_connected():
-                try:
-                    vc = await self.safe_connect_voice(ctx)
-                    if not vc:
-                        return await ctx.send("❌ Gagal bergabung ke voice channel.")
-                    await ctx.send(f"✅ Bergabung ke **{ctx.author.voice.channel.name}**")
-                    await asyncio.sleep(1)
-                except discord.errors.ConnectionClosed as e:
-                    return await ctx.send("❌ **Error 4006**: Gagal terhubung ke server voice Discord. Ini adalah masalah jaringan Discord. Silakan coba lagi nanti.")
-                except Exception as e:
-                    log.error(f"Error connecting to voice: {e}")
-                    await ctx.send(f"❌ Gagal bergabung ke voice channel: {e}")
-                    return
-        
-            await ctx.defer()
-            urls = []
-            is_spotify_request = False
-            is_deezer_request = False
-            is_soundcloud_request = False
-            spotify_track_info = None
-            
-            if "open.spotify.com" in query or "spotify:" in query:
-                is_spotify_request = True
-                try:
-                    urls, spotify_track_info = await self.process_spotify_url(query, ctx)
-                    if not urls:
-                        await ctx.send("⚠️ Link Spotify saat ini sedang mengalami masalah hak cipta. Coba gunakan link Deezer atau SoundCloud sebagai alternatif.", ephemeral=True)
-                        return
-                except Exception as e:
-                    await ctx.send(f"⚠️ {str(e)}", ephemeral=True)
-                    return
-            elif "deezer.com" in query:
-                is_deezer_request = True
-                try:
-                    urls, _ = await self.process_deezer_url(query, ctx)
-                    if not urls:
-                        await ctx.send("❌ Gagal memproses link Deezer.", ephemeral=True)
-                        return
-                except Exception as e:
-                    await ctx.send(f"❌ {str(e)}", ephemeral=True)
-                    return
-            elif "soundcloud.com" in query:
-                is_soundcloud_request = True
-                try:
-                    urls, _ = await self.process_soundcloud_url(query, ctx)
-                    if not urls:
-                        await ctx.send("❌ Gagal memproses link SoundCloud.", ephemeral=True)
-                        return
-                except Exception as e:
-                    await ctx.send(f"❌ {str(e)}", ephemeral=True)
-                    return
-            else:
-                urls.append(query)
-            
-            queue = self.get_queue(ctx.guild.id)
-            
-            if not ctx.voice_client.is_playing() and not ctx.voice_client.is_paused() and not queue:
-                first_url = urls.pop(0)
-                queue.extend(urls)
-                
-                try:
-                    source = await YTDLSource.from_url(first_url, loop=self.bot.loop, stream=True)
-                    
-                    if not ctx.voice_client or not ctx.voice_client.is_connected():
-                        await ctx.send("Bot tidak terhubung ke voice channel. Silakan hubungkan terlebih dahulu.", ephemeral=True)
-                        return
-                    
-                    ctx.voice_client.play(source, after=lambda e: asyncio.run_coroutine_threadsafe(self._after_play_handler(ctx, e), self.bot.loop))
-                    
-                    if is_spotify_request and spotify_track_info:
-                        self.now_playing_info[ctx.guild.id] = spotify_track_info
-                        song_title = spotify_track_info['title']
-                    else:
-                        song_info_from_ytdl = await self.get_song_info_from_url(first_url)
-                        self.now_playing_info[ctx.guild.id] = {
-                            'title': song_info_from_ytdl['title'],
-                            'artist': song_info_from_ytdl['artist'],
-                            'webpage_url': song_info_from_ytdl['webpage_url'],
-                            'requester': ctx.author.mention
-                        }
-                        song_title = song_info_from_ytdl['title']
-                    
-                    await self.update_music_status(
-                        song_title=song_title,
-                        is_playing=True
-                    )
-                    
-                    self.add_song_to_history(ctx.author.id, self.now_playing_info[ctx.guild.id])
-                    
-                    embed = discord.Embed(
-                        title="🎶 Sedang Memutar",
-                        description=f"**[{self.now_playing_info[ctx.guild.id]['title']}]({self.now_playing_info[ctx.guild.id]['webpage_url']})**",
-                        color=discord.Color.purple()
-                    )
-                    
-                    if source.thumbnail:
-                        embed.set_thumbnail(url=source.thumbnail)
-                    
-                    duration_str = "N/A"
-                    if source.duration:
-                        minutes, seconds = divmod(source.duration, 60)
-                        duration_str = f"{minutes:02}:{seconds:02}"
-                    
-                    embed.add_field(name="Durasi", value=duration_str, inline=True)
-                    embed.add_field(name="Diminta oleh", value=ctx.author.mention, inline=True)
-                    embed.set_footer(text=f"Antrean: {len(queue)} lagu tersisa")
-                    
-                    view_instance = MusicControlView(self)
-                    
-                    if self.is_muted.get(ctx.guild.id, False):
-                        for item in view_instance.children:
-                            if item.custom_id == "music:mute_unmute":
-                                item.emoji = "🔇"
-                                break
-                    
-                    if ctx.guild.id in self.current_music_message_info:
-                        message_info = self.current_music_message_info.pop(ctx.guild.id)
-                        try:
-                            old_channel = ctx.guild.get_channel(message_info['channel_id']) or await ctx.guild.fetch_channel(message_info['channel_id'])
-                            if old_channel:
-                                old_message = await old_channel.fetch_message(message_info['message_id'])
-                                await old_message.delete()
-                        except (discord.NotFound, discord.HTTPException):
-                            pass
-                    
-                    message_sent = await ctx.send(embed=embed, view=view_instance)
-                    if message_sent:
-                        self.current_music_message_info[ctx.guild.id] = {
-                            'message_id': message_sent.id,
-                            'channel_id': message_sent.channel.id
-                        }
-                
-                except discord.errors.ConnectionClosed as e:
-                    await ctx.send("❌ **Error 4006**: Koneksi voice terputus saat memutar musik. Silakan coba lagi.")
-                    log.error(f"ConnectionClosed error while playing: {e}")
-                    self.voice_retry_attempts[ctx.guild.id] = datetime.now()
-                    return
-                
-                except Exception as e:
-                    log.error(f"Error playing song: {e}")
-                    await ctx.send(f'Gagal memutar lagu: {e}', ephemeral=True)
-                    if ctx.voice_client and (ctx.voice_client.is_playing() or ctx.voice_client.is_paused()):
-                        ctx.voice_client.stop()
-                    return
-            else:
-                if is_spotify_request:
-                    await ctx.send(f"Ditambahkan ke antrian: **{len(urls)} lagu dari Spotify**.", ephemeral=True)
-                elif is_deezer_request:
-                    await ctx.send(f"Ditambahkan ke antrian: **{len(urls)} lagu dari Deezer**.", ephemeral=True)
-                elif is_soundcloud_request:
-                    await ctx.send(f"Ditambahkan ke antrian: **{len(urls)} lagu dari SoundCloud**.", ephemeral=True)
+        if not ctx.voice_client:
+            await ctx.invoke(self.join)
+            if not ctx.voice_client:
+                return await ctx.send("Gagal bergabung ke voice channel.")
+        await ctx.defer()
+        urls = []
+        is_spotify_request = False
+        spotify_track_info = None
+        if self.spotify and ("http" in query and ("open.spotify.com/track/" in query or "open.spotify.com/playlist/" in query or "open.spotify.com/album/" in query) or "spotify:" in query):
+            is_spotify_request = True
+            try:
+                if "track" in query:
+                    track = self.spotify.track(query)
+                    spotify_track_info = {
+                        'title': track['name'],
+                        'artist': track['artists'][0]['name'],
+                        'webpage_url': track['external_urls']['spotify'],
+                        'requester': ctx.author.mention
+                    }
+                    urls.append(f"{track['name']} {track['artists'][0]['name']}")
+                elif "playlist" in query:
+                    results = self.spotify.playlist_tracks(query)
+                    for item in results['items']:
+                        track = item['track']
+                        if track:
+                            urls.append(f"{track['name']} {track['artists'][0]['name']}")
+                elif "album" in query:
+                    results = self.spotify.album_tracks(query)
+                    for item in results['items']:
+                        track = item
+                        if track:
+                            urls.append(f"{track['name']} {track['artists'][0]['name']}")
+            except Exception as e:
+                await ctx.send(f"Terjadi kesalahan saat memproses link Spotify: {e}", ephemeral=True)
+                return
+        if not is_spotify_request:
+            urls.append(query)
+        queue = self.get_queue(ctx.guild.id)
+        if not ctx.voice_client.is_playing() and not ctx.voice_client.is_paused() and not queue:
+            first_url = urls.pop(0)
+            queue.extend(urls)
+            try:
+                source = await YTDLSource.from_url(first_url, loop=self.bot.loop, stream=True)
+                ctx.voice_client.play(source, after=lambda e: asyncio.run_coroutine_threadsafe(self._after_play_handler(ctx, e), self.bot.loop))
+                if is_spotify_request and spotify_track_info:
+                    self.now_playing_info[ctx.guild.id] = spotify_track_info
                 else:
-                    song_info = await self.get_song_info_from_url(urls[0])
-                    await ctx.send(f"Ditambahkan ke antrean: **{song_info['title']}**.", ephemeral=True)
-                
-                queue.extend(urls)
+                    song_info_from_ytdl = await self.get_song_info_from_url(first_url)
+                    self.now_playing_info[ctx.guild.id] = {
+                        'title': song_info_from_ytdl['title'],
+                        'artist': song_info_from_ytdl['artist'],
+                        'webpage_url': song_info_from_ytdl['webpage_url'],
+                        'requester': ctx.author.mention
+                    }
+                self.add_song_to_history(ctx.author.id, self.now_playing_info[ctx.guild.id])
+                embed = discord.Embed(
+                    title="🎶 Sedang Memutar",
+                    description=f"**[{self.now_playing_info[ctx.guild.id]['title']}]({self.now_playing_info[ctx.guild.id]['webpage_url']})**",
+                    color=discord.Color.purple()
+                )
+                if source.thumbnail:
+                    embed.set_thumbnail(url=source.thumbnail)
+                duration_str = "N/A"
+                if source.duration:
+                    minutes, seconds = divmod(source.duration, 60)
+                    duration_str = f"{minutes:02}:{seconds:02}"
+                embed.add_field(name="Durasi", value=duration_str, inline=True)
+                embed.add_field(name="Diminta oleh", value=ctx.author.mention, inline=True)
+                embed.set_footer(text=f"Antrean: {len(queue)} lagu tersisa")
+                view_instance = MusicControlView(self)
+                if self.is_muted.get(ctx.guild.id, False):
+                    for item in view_instance.children:
+                        if item.custom_id == "music:mute_unmute":
+                            item.emoji = "🔇"
+                            break
                 if ctx.guild.id in self.current_music_message_info:
-                    await self._update_music_message_from_ctx(ctx)
-        
-        except discord.errors.ConnectionClosed as e:
-            await ctx.send("❌ **Error 4006**: Koneksi voice Discord bermasalah. Silakan coba lagi nanti.")
-            log.error(f"ConnectionClosed error in play command: {e}")
-            self.voice_retry_attempts[ctx.guild.id] = datetime.now()
-            
-        except Exception as e:
-            log.error(f"Error in play command: {e}")
-            await ctx.send(f"Terjadi kesalahan: {e}", ephemeral=True)
+                    message_info = self.current_music_message_info.pop(ctx.guild.id)
+                    try:
+                        old_channel = ctx.guild.get_channel(message_info['channel_id']) or await ctx.guild.fetch_channel(message_info['channel_id'])
+                        if old_channel:
+                            old_message = await old_channel.fetch_message(message_info['message_id'])
+                            await old_message.delete()
+                    except (discord.NotFound, discord.HTTPException):
+                        pass
+                message_sent = await ctx.send(embed=embed, view=view_instance)
+                if message_sent:
+                    self.current_music_message_info[ctx.guild.id] = {
+                        'message_id': message_sent.id,
+                        'channel_id': message_sent.channel.id
+                    }
+            except Exception as e:
+                await ctx.send(f'Gagal memutar lagu: {e}', ephemeral=True)
+                if ctx.voice_client and (ctx.voice_client.is_playing() or ctx.voice_client.is_paused()):
+                    ctx.voice_client.stop()
+                return
+        else:
+            if is_spotify_request:
+                await ctx.send(f"Ditambahkan ke antrian: **{len(urls)} lagu**.", ephemeral=True)
+            else:
+                song_info = await self.get_song_info_from_url(urls[0])
+                await ctx.send(f"Ditambahkan ke antrean: **{song_info['title']}**.", ephemeral=True)
+            queue.extend(urls)
+            if ctx.guild.id in self.current_music_message_info:
+                await self._update_music_message_from_ctx(ctx)
 
     @commands.command(name="resskip", aliases=["s", "skip"])
     async def skip_cmd(self, ctx):
-        try:
-            if not ctx.voice_client or not ctx.voice_client.is_connected():
-                return await ctx.send("Bot tidak terhubung ke voice channel.", ephemeral=True)
-            
-            if not ctx.voice_client.is_playing() and not ctx.voice_client.is_paused():
-                return await ctx.send("Tidak ada lagu yang sedang diputar.", ephemeral=True)
-            
-            guild_id = ctx.guild.id
-            queue = self.get_queue(guild_id)
-            if queue:
-                queue.pop(0)
-            
-            ctx.voice_client.stop()
-            await ctx.send("⏭️ Skip lagu.", ephemeral=True)
-        
-        except Exception as e:
-            log.error(f"Error in skip_cmd: {e}")
-            await ctx.send(f"Terjadi kesalahan: {e}", ephemeral=True)
+        if not ctx.voice_client or (not ctx.voice_client.is_playing() and not ctx.voice_client.is_paused()):
+            return await ctx.send("Tidak ada lagu yang sedang diputar.", ephemeral=True)
+        guild_id = ctx.guild.id
+        queue = self.get_queue(guild_id)
+        if queue:
+            queue.pop(0)
+        ctx.voice_client.stop()
+        await ctx.send("⏭️ Skip lagu.", ephemeral=True)
 
     @commands.command(name="respause", aliases=["pause", "jeda"])
     async def pause_cmd(self, ctx):
-        try:
-            if not ctx.voice_client or not ctx.voice_client.is_connected():
-                return await ctx.send("Bot tidak terhubung ke voice channel.", ephemeral=True)
-            
-            if ctx.voice_client.is_playing():
-                ctx.voice_client.pause()
-                await ctx.send("⏸️ Lagu dijeda.", ephemeral=True)
-                if ctx.guild.id in self.current_music_message_info:
-                    await self._update_music_message_from_ctx(ctx)
-            else:
-                await ctx.send("Tidak ada lagu yang sedang diputar.", ephemeral=True)
-        
-        except Exception as e:
-            log.error(f"Error in pause_cmd: {e}")
-            await ctx.send(f"Terjadi kesalahan: {e}", ephemeral=True)
+        if ctx.voice_client and ctx.voice_client.is_playing():
+            ctx.voice_client.pause()
+            await ctx.send("⏸️ Lagu dijeda.", ephemeral=True)
+            if ctx.guild.id in self.current_music_message_info:
+                await self._update_music_message_from_ctx(ctx)
+        else:
+            await ctx.send("Tidak ada lagu yang sedang diputar.", ephemeral=True)
 
     @commands.command(name="resresume", aliases=["r", "resume"])
     async def resume_cmd(self, ctx):
-        try:
-            if not ctx.voice_client or not ctx.voice_client.is_connected():
-                return await ctx.send("Bot tidak terhubung ke voice channel.", ephemeral=True)
-            
-            if ctx.voice_client.is_paused():
-                ctx.voice_client.resume()
-                await ctx.send("▶️ Lanjut lagu.", ephemeral=True)
-                if ctx.guild.id in self.current_music_message_info:
-                    await self._update_music_message_from_ctx(ctx)
-            else:
-                await ctx.send("Tidak ada lagu yang dijeda.", ephemeral=True)
-        
-        except Exception as e:
-            log.error(f"Error in resume_cmd: {e}")
-            await ctx.send(f"Terjadi kesalahan: {e}", ephemeral=True)
+        if ctx.voice_client and ctx.voice_client.is_paused():
+            ctx.voice_client.resume()
+            await ctx.send("▶️ Lanjut lagu.", ephemeral=True)
+            if ctx.guild.id in self.current_music_message_info:
+                await self._update_music_message_from_ctx(ctx)
+        else:
+            await ctx.send("Tidak ada lagu yang dijeda.", ephemeral=True)
 
     @commands.command(name="resstop", aliases=["stop"])
     async def stop_cmd(self, ctx):
-        try:
-            if not ctx.voice_client or not ctx.voice_client.is_connected():
-                return await ctx.send("Bot tidak ada di voice channel.", ephemeral=True)
-            
+        if ctx.voice_client:
             if ctx.guild.id in self.current_music_message_info:
                 old_message_info = self.current_music_message_info[ctx.guild.id]
                 try:
@@ -2061,436 +1351,152 @@ class Music(commands.Cog):
                     pass
                 finally:
                     del self.current_music_message_info[ctx.guild.id]
-            
             if ctx.voice_client.is_playing() or ctx.voice_client.is_paused():
                 ctx.voice_client.stop()
-            
+            self.queues[ctx.guild.id] = []
+            self.loop_status[ctx.guild.id] = False
+            self.is_muted[ctx.guild.id] = False
+            self.old_volume.pop(ctx.guild.id, None)
+            self.now_playing_info.pop(ctx.guild.id, None)
             await ctx.voice_client.disconnect()
-            
-            await self.update_music_status(is_playing=False)
-            
-            guild_id = ctx.guild.id
-            self.queues.pop(guild_id, None)
-            self.loop_status.pop(guild_id, None)
-            self.is_muted.pop(guild_id, None)
-            self.old_volume.pop(guild_id, None)
-            self.now_playing_info.pop(guild_id, None)
-            
             await ctx.send("⏹️ Stop dan keluar dari voice.", ephemeral=True)
-        
-        except Exception as e:
-            log.error(f"Error in stop_cmd: {e}")
-            await ctx.send(f"Terjadi kesalahan: {e}", ephemeral=True)
+        else:
+            await ctx.send("Bot tidak ada di voice channel.", ephemeral=True)
 
     @commands.command(name="resqueue", aliases=["q", "queue"])
     async def queue_cmd(self, ctx):
-        try:
-            queue = self.get_queue(ctx.guild.id)
-            if queue:
-                display_queue_titles = [await self.get_song_info_from_url(q) for q in queue[:15]]
-                msg = "\n".join([f"{i+1}. {q['title']}" for i, q in enumerate(display_queue_titles)])
-                embed = discord.Embed(
-                    title="🎶 Antrean Lagu",
-                    description=f"```{msg}```",
-                    color=discord.Color.gold()
-                )
-                if len(queue) > 15:
-                    embed.set_footer(text=f"Dan {len(queue) - 15} lagu lainnya...")
-                await ctx.send(embed=embed, ephemeral=True)
-            else:
-                await ctx.send("Antrean kosong.", ephemeral=True)
-        
-        except Exception as e:
-            log.error(f"Error in queue_cmd: {e}")
-            await ctx.send("Terjadi kesalahan saat mengambil antrean.", ephemeral=True)
+        queue = self.get_queue(ctx.guild.id)
+        if queue:
+            display_queue_titles = [await self.get_song_info_from_url(q) for q in queue[:15]]
+            msg = "\n".join([f"{i+1}. {q['title']}" for i, q in enumerate(display_queue_titles)])
+            embed = discord.Embed(
+                title="🎶 Antrean Lagu",
+                description=f"```{msg}```",
+                color=discord.Color.gold()
+            )
+            if len(queue) > 15:
+                embed.set_footer(text=f"Dan {len(queue) - 15} lagu lainnya...")
+            await ctx.send(embed=embed, ephemeral=True)
+        else:
+            await ctx.send("Antrean kosong.", ephemeral=True)
             
     @commands.command(name="resloop")
     async def loop_cmd(self, ctx):
-        try:
-            guild_id = ctx.guild.id
-            if guild_id not in self.loop_status:
-                self.loop_status[guild_id] = False
-            
-            self.loop_status[guild_id] = not self.loop_status[guild_id]
-            status_msg = "ON" if self.loop_status[guild_id] else "OFF"
-            
-            await ctx.send(f"🔁 Mode Loop **{status_msg}** (lagu saat ini akan diulang).", ephemeral=True)
-            if ctx.guild.id in self.current_music_message_info:
-                await self._update_music_message_from_ctx(ctx)
-        
-        except Exception as e:
-            log.error(f"Error in loop_cmd: {e}")
-            await ctx.send(f"Terjadi kesalahan: {e}", ephemeral=True)
+        guild_id = ctx.guild.id
+        if guild_id not in self.loop_status:
+            self.loop_status[guild_id] = False
+        self.loop_status[guild_id] = not self.loop_status[guild_id]
+        status_msg = "ON" if self.loop_status[guild_id] else "OFF"
+        await ctx.send(f"🔁 Mode Loop **{status_msg}** (lagu saat ini akan diulang).", ephemeral=True)
+        if ctx.guild.id in self.current_music_message_info:
+            await self._update_music_message_from_ctx(ctx)
 
     @commands.command(name="reslyrics")
     async def lyrics(self, ctx, *, song_name=None):
         if not self.genius:
             return await ctx.send("Fitur lirik tidak aktif karena API token Genius belum diatur.", ephemeral=True)
-        
-        try:
-            if song_name is None:
-                if ctx.guild.id not in self.now_playing_info:
-                    return await ctx.send("Tentukan nama lagu atau putar lagu terlebih dahulu untuk mencari liriknya.", ephemeral=True)
-            
-            await ctx.defer(ephemeral=True)
-            await self._send_lyrics(interaction_or_ctx=ctx, song_name_override=song_name)
-        
-        except Exception as e:
-            log.error(f"Error in lyrics command: {e}")
-            await ctx.send(f"Terjadi kesalahan: {e}", ephemeral=True)
+        if song_name is None:
+            if ctx.guild.id not in self.now_playing_info:
+                return await ctx.send("Tentukan nama lagu atau putar lagu terlebih dahulu untuk mencari liriknya.", ephemeral=True)
+        await ctx.defer(ephemeral=True)
+        await self._send_lyrics(interaction_or_ctx=ctx, song_name_override=song_name)
 
     @commands.command(name="resvolume")
     async def volume_cmd(self, ctx, volume: int):
-        try:
-            if not ctx.voice_client or not ctx.voice_client.is_connected():
-                return await ctx.send("Bot tidak terhubung ke voice channel.", ephemeral=True)
-            
-            if not ctx.voice_client.source:
-                return await ctx.send("Tidak ada lagu yang sedang diputar.", ephemeral=True)
-            
-            if not 0 <= volume <= 100:
-                return await ctx.send("Volume harus antara 0 dan 100.", ephemeral=True)
-            
-            ctx.voice_client.source.volume = volume / 100
-            guild_id = ctx.guild.id
-            
-            if volume > 0:
-                self.is_muted[guild_id] = False
-            else:
-                self.is_muted[guild_id] = True
-                self.old_volume[guild_id] = ctx.voice_client.source.volume
-            
-            await ctx.send(f"Volume diatur ke: {volume}%", ephemeral=True)
-            
-            if ctx.guild.id in self.current_music_message_info:
-                await self._update_music_message_from_ctx(ctx)
-        
-        except Exception as e:
-            log.error(f"Error in volume_cmd: {e}")
-            await ctx.send(f"Terjadi kesalahan: {e}", ephemeral=True)
+        if not ctx.voice_client or not ctx.voice_client.source:
+            return await ctx.send("Tidak ada lagu yang sedang diputar.", ephemeral=True)
+        if not 0 <= volume <= 100:
+            return await ctx.send("Volume harus antara 0 dan 100.", ephemeral=True)
+        ctx.voice_client.source.volume = volume / 100
+        guild_id = ctx.guild.id
+        if volume > 0:
+            self.is_muted[guild_id] = False
+        else:
+            self.is_muted[guild_id] = True
+            self.old_volume[guild_id] = ctx.voice_client.source.volume
+        await ctx.send(f"Volume diatur ke: {volume}%", ephemeral=True)
+        if ctx.guild.id in self.current_music_message_info:
+            await self._update_music_message_from_ctx(ctx)
 
     @commands.command(name="resshuffle")
     async def shuffle_cmd(self, ctx):
-        try:
-            queue = self.get_queue(ctx.guild.id)
-            if len(queue) > 1:
-                random.shuffle(queue)
-                await ctx.send("🔀 Antrean lagu diacak!", ephemeral=True)
-                if ctx.guild.id in self.current_music_message_info:
-                    await self._update_music_message_from_ctx(ctx)
-            else:
-                await ctx.send("Antrean terlalu pendek untuk diacak.", ephemeral=True)
-        
-        except Exception as e:
-            log.error(f"Error in shuffle_cmd: {e}")
-            await ctx.send(f"Terjadi kesalahan: {e}", ephemeral=True)
+        queue = self.get_queue(ctx.guild.id)
+        if len(queue) > 1:
+            random.shuffle(queue)
+            await ctx.send("🔀 Antrean lagu diacak!", ephemeral=True)
+            if ctx.guild.id in self.current_music_message_info:
+                await self._update_music_message_from_ctx(ctx)
+        else:
+            await ctx.send("Antrean terlalu pendek untuk diacak.", ephemeral=True)
 
     @commands.command(name="resclear")
     async def clear_queue_cmd(self, ctx):
-        try:
-            queue = self.get_queue(ctx.guild.id)
-            if queue:
-                self.queues[ctx.guild.id] = []
-                await ctx.send("🗑️ Antrean lagu telah dikosongkan!", ephemeral=True)
-                if ctx.guild.id in self.current_music_message_info:
-                    await self._update_music_message_from_ctx(ctx)
-            else:
-                await ctx.send("Antrean sudah kosong.", ephemeral=True)
-        
-        except Exception as e:
-            log.error(f"Error in clear_queue_cmd: {e}")
-            await ctx.send(f"Terjadi kesalahan: {e}", ephemeral=True)
+        queue = self.get_queue(ctx.guild.id)
+        if queue:
+            self.queues[ctx.guild.id] = []
+            await ctx.send("🗑️ Antrean lagu telah dikosongkan!", ephemeral=True)
+            if ctx.guild.id in self.current_music_message_info:
+                await self._update_music_message_from_ctx(ctx)
+        else:
+            await ctx.send("Antrean sudah kosong.", ephemeral=True)
     
-    @commands.command(name="resstatus", help="[ADMIN] Kelola custom rotating status")
-    @commands.has_permissions(administrator=True)
-    async def manage_status(self, ctx, action: str = None, *, args: str = None):
-        embed = discord.Embed(
-            title="🎮 Custom Status Manager",
-            color=discord.Color.blue()
-        )
-        
-        if action is None:
-            statuses = self.status_config.get("statuses", [])
-            enabled = self.status_config.get("enabled", True)
-            interval = self.status_config.get("interval", 30)
-            
-            embed.description = f"**Status Rotasi:** {'✅ ON' if enabled else '❌ OFF'}\n"
-            embed.description += f"**Interval:** {interval} detik\n"
-            embed.description += f"**Jumlah Status:** {len(statuses)}\n\n"
-            
-            if statuses:
-                for i, status in enumerate(statuses):
-                    type_emoji = {
-                        "playing": "🎮",
-                        "listening": "🎵", 
-                        "watching": "👀",
-                        "competing": "🏆",
-                        "streaming": "📺",
-                        "custom": "🔧"
-                    }.get(status.get("type", "playing"), "🎮")
-                    
-                    embed.add_field(
-                        name=f"{type_emoji} Status #{i+1}",
-                        value=f"**Type:** {status.get('type', 'playing')}\n"
-                              f"**Name:** {status.get('name', 'N/A')}\n"
-                              f"**Details:** {status.get('details', 'N/A')}\n"
-                              f"**State:** {status.get('state', 'N/A')}",
-                        inline=False
-                    )
-            
-            embed.add_field(
-                name="📖 Perintah",
-                value="`!resstatus add <type> <name> | <details> | <state>` - Tambah status baru\n"
-                      "`!resstatus remove <number>` - Hapus status\n"
-                      "`!resstatus edit <number> <type> <name> | <details> | <state>` - Edit status\n"
-                      "`!resstatus on/off` - Enable/disable rotasi\n"
-                      "`!resstatus interval <detik>` - Ubah interval\n"
-                      "`!resstatus list` - Lihat daftar status\n\n"
-                      "**Contoh:** `!resstatus add playing Roblox | Playing with friends | Level 99`",
-                inline=False
-            )
-            
-            await ctx.send(embed=embed, ephemeral=True)
-            return
-        
-        action = action.lower()
-        
-        if action == "on":
-            self.status_config["enabled"] = True
-            save_status_config(self.status_config)
-            self.status_rotation_task.restart()
-            await ctx.send("✅ **Rotasi status diaktifkan!**", ephemeral=True)
-            
-        elif action == "off":
-            self.status_config["enabled"] = False
-            save_status_config(self.status_config)
-            self.status_rotation_task.cancel()
-            activity = discord.Activity(
-                type=discord.ActivityType.playing,
-                name="Music Bot",
-                details="Status rotation disabled"
-            )
-            await self.bot.change_presence(activity=activity)
-            await ctx.send("❌ **Rotasi status dinonaktifkan!**", ephemeral=True)
-            
-        elif action == "interval":
-            try:
-                if not args or not args.isdigit():
-                    return await ctx.send("❌ Gunakan: `!resstatus interval <detik>`", ephemeral=True)
-                
-                interval = int(args)
-                if interval < 5:
-                    return await ctx.send("❌ Interval minimal 5 detik", ephemeral=True)
-                if interval > 300:
-                    return await ctx.send("❌ Interval maksimal 300 detik (5 menit)", ephemeral=True)
-                
-                self.status_config["interval"] = interval
-                save_status_config(self.status_config)
-                self.status_rotation_task.change_interval(seconds=interval)
-                await ctx.send(f"✅ **Interval diubah menjadi {interval} detik!**", ephemeral=True)
-                
-            except ValueError:
-                await ctx.send("❌ Interval harus angka!", ephemeral=True)
-                
-        elif action == "add":
-            if not args:
-                return await ctx.send("❌ Gunakan: `!resstatus add <type> <name> | <details> | <state>`\n"
-                                    "Contoh: `!resstatus add playing Roblox | Playing with friends | Level 99`", ephemeral=True)
-            
-            # Parse arguments with | separator
-            parts = args.split("|", 2)
-            if len(parts) < 1:
-                return await ctx.send("❌ Format salah! Gunakan: `!resstatus add <type> <name> | <details> | <state>`", ephemeral=True)
-            
-            first_part = parts[0].strip()
-            type_parts = first_part.split(" ", 1)
-            if len(type_parts) < 2:
-                return await ctx.send("❌ Format salah! Gunakan: `!resstatus add <type> <name> | <details> | <state>`", ephemeral=True)
-            
-            status_type = type_parts[0].lower()
-            status_name = type_parts[1].strip()
-            status_details = parts[1].strip() if len(parts) > 1 else ""
-            status_state = parts[2].strip() if len(parts) > 2 else ""
-            
-            valid_types = ["playing", "listening", "watching", "competing", "streaming", "custom"]
-            if status_type not in valid_types:
-                return await ctx.send(f"❌ Type tidak valid! Pilih dari: {', '.join(valid_types)}", ephemeral=True)
-            
-            if "statuses" not in self.status_config:
-                self.status_config["statuses"] = []
-            
-            self.status_config["statuses"].append({
-                "type": status_type,
-                "name": status_name[:100],
-                "details": status_details[:100],
-                "state": status_state[:100]
-            })
-            
-            save_status_config(self.status_config)
-            await ctx.send(f"✅ **Status berhasil ditambahkan!**\n"
-                          f"Type: `{status_type}`\n"
-                          f"Name: `{status_name[:50]}`\n"
-                          f"Details: `{status_details[:50] if status_details else 'N/A'}`\n"
-                          f"State: `{status_state[:50] if status_state else 'N/A'}`", ephemeral=True)
-            
-        elif action == "remove":
-            try:
-                if not args or not args.isdigit():
-                    return await ctx.send("❌ Gunakan: `!resstatus remove <nomor>`", ephemeral=True)
-                
-                index = int(args) - 1
-                statuses = self.status_config.get("statuses", [])
-                
-                if index < 0 or index >= len(statuses):
-                    return await ctx.send(f"❌ Nomor tidak valid! Pilih 1-{len(statuses)}", ephemeral=True)
-                
-                removed = statuses.pop(index)
-                self.status_config["statuses"] = statuses
-                save_status_config(self.status_config)
-                
-                if self.current_status_index >= len(statuses):
-                    self.current_status_index = 0
-                
-                await ctx.send(f"✅ **Status #{index+1} dihapus:**\n"
-                              f"Type: `{removed.get('type')}`\n"
-                              f"Name: `{removed.get('name', 'N/A')}`", ephemeral=True)
-                
-            except ValueError:
-                await ctx.send("❌ Nomor harus angka!", ephemeral=True)
-                
-        elif action == "edit":
-            if not args:
-                return await ctx.send("❌ Gunakan: `!resstatus edit <nomor> <type> <name> | <details> | <state>`", ephemeral=True)
-            
-            # Parse arguments with | separator
-            parts = args.split("|", 2)
-            if len(parts) < 1:
-                return await ctx.send("❌ Format salah! Gunakan: `!resstatus edit <nomor> <type> <name> | <details> | <state>`", ephemeral=True)
-            
-            first_part = parts[0].strip()
-            first_parts = first_part.split(" ", 2)
-            if len(first_parts) < 3:
-                return await ctx.send("❌ Format salah! Gunakan: `!resstatus edit <nomor> <type> <name> | <details> | <state>`", ephemeral=True)
-            
-            try:
-                index = int(first_parts[0]) - 1
-                status_type = first_parts[1].lower()
-                status_name = first_parts[2].strip()
-                status_details = parts[1].strip() if len(parts) > 1 else ""
-                status_state = parts[2].strip() if len(parts) > 2 else ""
-                
-                statuses = self.status_config.get("statuses", [])
-                if index < 0 or index >= len(statuses):
-                    return await ctx.send(f"❌ Nomor tidak valid! Pilih 1-{len(statuses)}", ephemeral=True)
-                
-                valid_types = ["playing", "listening", "watching", "competing", "streaming", "custom"]
-                if status_type not in valid_types:
-                    return await ctx.send(f"❌ Type tidak valid! Pilih dari: {', '.join(valid_types)}", ephemeral=True)
-                
-                old_status = statuses[index]
-                statuses[index] = {
-                    "type": status_type,
-                    "name": status_name[:100],
-                    "details": status_details[:100],
-                    "state": status_state[:100]
-                }
-                self.status_config["statuses"] = statuses
-                save_status_config(self.status_config)
-                
-                await ctx.send(f"✅ **Status #{index+1} diedit:**\n"
-                              f"**Dari:** `{old_status.get('type')}` - `{old_status.get('name', 'N/A')}`\n"
-                              f"**Menjadi:** `{status_type}` - `{status_name[:50]}`", ephemeral=True)
-                
-            except ValueError:
-                await ctx.send("❌ Nomor harus angka!", ephemeral=True)
-                
-        elif action == "list":
-            statuses = self.status_config.get("statuses", [])
-            if not statuses:
-                return await ctx.send("❌ Tidak ada status yang tersedia!", ephemeral=True)
-            
-            embed = discord.Embed(
-                title="📋 Daftar Custom Status",
-                description=f"Total: {len(statuses)} status\n",
-                color=discord.Color.green()
-            )
-            
-            for i, status in enumerate(statuses):
-                type_emoji = {
-                    "playing": "🎮",
-                    "listening": "🎵", 
-                    "watching": "👀",
-                    "competing": "🏆",
-                    "streaming": "📺",
-                    "custom": "🔧"
-                }.get(status.get("type", "playing"), "🎮")
-                
-                embed.add_field(
-                    name=f"#{i+1} {type_emoji} {status.get('type', 'playing').title()} - {status.get('name', 'N/A')}",
-                    value=f"**Details:** {status.get('details', 'N/A')}\n"
-                          f"**State:** {status.get('state', 'N/A')}",
-                    inline=False
-                )
-            
-            await ctx.send(embed=embed, ephemeral=True)
-            
-        else:
-            await ctx.send("❌ Action tidak dikenali! Gunakan `!resstatus` untuk melihat bantuan.", ephemeral=True)
-
-    @commands.command(name="setactivity", help="[ADMIN] Set activity status bot secara manual")
-    @commands.has_permissions(administrator=True)
-    async def set_activity_manual(self, ctx, activity_type: str, name: str, *, details_and_state: str = None):
-        valid_types = ["playing", "listening", "watching", "competing", "streaming", "custom"]
-        
-        if activity_type.lower() not in valid_types:
-            await ctx.send(f"❌ Type activity tidak valid! Pilih dari: {', '.join(valid_types)}", ephemeral=True)
-            return
-        
-        details = None
-        state = None
-        
-        if details_and_state:
-            parts = details_and_state.split("|", 1)
-            if len(parts) == 2:
-                details = parts[0].strip()
-                state = parts[1].strip()
+    @commands.command(name="resprandom")
+    async def personal_random(self, ctx, *urls):
+        if not ctx.voice_client:
+            await ctx.invoke(self.join)
+            if not ctx.voice_client:
+                return await ctx.send("Gagal bergabung ke voice channel.", ephemeral=True)
+        await ctx.defer()
+        is_spotify_request = False
+        if urls and self.spotify and ("open.spotify.com" in urls[0] or "spotify:" in urls[0]):
+            is_spotify_request = True
+            await ctx.send(f"🎧 Mengambil lagu dari {len(urls)} playlist/album Spotify...", ephemeral=True)
+            search_queries = []
+            for url in urls:
+                try:
+                    if "track" in url:
+                        track = self.spotify.track(url)
+                        search_queries.append(f"{track['name']} {track['artists'][0]['name']}")
+                    elif "playlist" in url:
+                        results = self.spotify.playlist_tracks(url)
+                        for item in results['items']:
+                            track = item['track']
+                            if track:
+                                search_queries.append(f"{track['name']} {track['artists'][0]['name']}")
+                    elif "album" in url:
+                        results = self.spotify.album_tracks(url)
+                        for item in results['items']:
+                            track = item
+                            if track:
+                                search_queries.append(f"{track['name']} {track['artists'][0]['name']}")
+                except Exception:
+                    continue
+            new_urls = []
+            for query in search_queries:
+                try:
+                    info = await asyncio.to_thread(lambda: ytdl.extract_info(query, download=False, process=True))
+                    if 'entries' in info and isinstance(info.get('entries'), list):
+                        new_urls.append(info['entries'][0]['webpage_url'])
+                except Exception:
+                    pass
+            queue = self.get_queue(ctx.guild.id)
+            queue.extend(new_urls)
+            await ctx.send(f"🎧 Menambahkan {len(new_urls)} lagu dari Spotify ke antrean.", ephemeral=True)
+            if not ctx.voice_client.is_playing() and not ctx.voice_client.is_paused():
+                await self.play_next(ctx)
             else:
-                details = details_and_state.strip()
-        
-        success = await self.set_manual_activity(
-            activity_type.lower(), 
-            name, 
-            details, 
-            state
-        )
-        
-        if success:
-            message = f"✅ **Activity manual diatur:**\nType: `{activity_type}`\nName: `{name}`"
-            if details:
-                message += f"\nDetails: `{details}`"
-            if state:
-                message += f"\nState: `{state}`"
-            message += "\n\nActivity ini akan aktif sampai bot mulai memutar musik atau Anda menggunakan `!resetactivity`."
+                await self._update_music_message_from_ctx(ctx)
+            return
+        await self.refill_queue_for_random(ctx, num_songs=10)
+        queue = self.get_queue(ctx.guild.id)
+        if not queue:
+            return await ctx.send("❌ Tidak dapat menemukan lagu untuk dimainkan. Pastikan riwayat Anda tidak kosong, atau coba lagi nanti.", ephemeral=True)
+        if not ctx.voice_client.is_playing() and not ctx.voice_client.is_paused():
+            await ctx.send("🎧 Memulai mode acak pribadi. Menambahkan 10 lagu ke antrean.", ephemeral=True)
+            await self.play_next(ctx)
+        else:
+            await ctx.send(f"🎧 Menambahkan 10 lagu acak ke antrean.", ephemeral=True)
             
-            await ctx.send(message, ephemeral=True)
-        else:
-            await ctx.send("❌ Gagal mengatur activity manual.", ephemeral=True)
-
-    @commands.command(name="resetactivity", help="[ADMIN] Reset activity ke mode otomatis")
-    @commands.has_permissions(administrator=True)
-    async def reset_activity(self, ctx):
-        success = await self.reset_to_auto_status()
-        
-        if success:
-            if self.is_playing_music and self.current_song_title:
-                await ctx.send("✅ **Activity direset ke mode musik** (karena sedang memutar musik).", ephemeral=True)
-            elif self.status_config.get("enabled", True):
-                await ctx.send("✅ **Activity direset ke mode rotasi otomatis**.", ephemeral=True)
-            else:
-                await ctx.send("✅ **Activity direset ke default**.", ephemeral=True)
-        else:
-            await ctx.send("❌ Gagal mereset activity.", ephemeral=True)
-
     @commands.command(name="settriger", help="[ADMIN] Mengatur saluran suara pemicu untuk server ini.")
     @commands.has_permissions(administrator=True)
     async def set_trigger_channel(self, ctx, channel_id: int):
@@ -2729,35 +1735,24 @@ class Music(commands.Cog):
     async def on_command_error(self, ctx, error):
         if ctx.cog != self:
             return
-        
-        try:
-            if isinstance(error, commands.CheckFailure):
-                if not ctx.author.voice or not ctx.author.voice.channel:
-                    await ctx.send("❌ Kamu harus berada di channel suara untuk menggunakan perintah ini.", ephemeral=True)
-                elif str(ctx.author.voice.channel.id) not in self.active_temp_channels:
-                    await ctx.send("❌ Kamu harus berada di channel suara pribadi yang kamu miliki untuk menggunakan perintah ini.", ephemeral=True)
-                else:
-                    await ctx.send("❌ Kamu harus menjadi pemilik channel ini untuk menggunakan perintah ini.", ephemeral=True)
-            elif isinstance(error, commands.MissingRequiredArgument):
-                await ctx.send(f"❌ Argumen tidak lengkap. Contoh penggunaan: `!{ctx.command.name} {ctx.command.signature}`", ephemeral=True)
-            elif isinstance(error, commands.BadArgument):
-                await ctx.send(f"❌ Argumen tidak valid. Pastikan kamu menyebutkan user yang benar atau angka yang valid.", ephemeral=True)
-            elif isinstance(error, discord.Forbidden):
-                await ctx.send("❌ Bot tidak memiliki izin untuk melakukan tindakan ini. Pastikan role bot berada di atas role lain dan memiliki izin yang diperlukan (misal: 'Manage Channels', 'Move Members', 'Manage Permissions').", ephemeral=True)
-            elif isinstance(error, commands.CommandInvokeError):
-                original_error = error.original
-                log.error(f"CommandInvokeError: {original_error}")
-                if "NoneType" in str(original_error) or "'NoneType' object" in str(original_error):
-                    await ctx.send("❌ Bot tidak terhubung ke voice channel. Silakan hubungkan terlebih dahulu dengan `!resjoin`.", ephemeral=True)
-                elif "4006" in str(original_error):
-                    await ctx.send("❌ **Error 4006**: Koneksi voice Discord bermasalah. Ini adalah masalah jaringan Discord. Silakan coba lagi dalam 1 menit.", ephemeral=True)
-                else:
-                    await ctx.send(f"❌ Terjadi kesalahan saat menjalankan perintah: {str(original_error)[:100]}", ephemeral=True)
+        if isinstance(error, commands.CheckFailure):
+            if not ctx.author.voice or not ctx.author.voice.channel:
+                await ctx.send("❌ Kamu harus berada di channel suara untuk menggunakan perintah ini.", ephemeral=True)
+            elif str(ctx.author.voice.channel.id) not in self.active_temp_channels:
+                await ctx.send("❌ Kamu harus berada di channel suara pribadi yang kamu miliki untuk menggunakan perintah ini.", ephemeral=True)
             else:
-                log.error(f"Unexpected error: {error}")
-                await ctx.send(f"❌ Terjadi kesalahan yang tidak terduga: {error}", ephemeral=True)
-        except Exception as e:
-            log.error(f"Error in on_command_error handler: {e}")
+                await ctx.send("❌ Kamu harus menjadi pemilik channel ini untuk menggunakan perintah ini.", ephemeral=True)
+        elif isinstance(error, commands.MissingRequiredArgument):
+            await ctx.send(f"❌ Argumen tidak lengkap. Contoh penggunaan: `!{ctx.command.name} {ctx.command.signature}`", ephemeral=True)
+        elif isinstance(error, commands.BadArgument):
+            await ctx.send(f"❌ Argumen tidak valid. Pastikan kamu menyebutkan user yang benar atau angka yang valid.", ephemeral=True)
+        elif isinstance(error, discord.Forbidden):
+            await ctx.send("❌ Bot tidak memiliki izin untuk melakukan tindakan ini. Pastikan role bot berada di atas role lain dan memiliki izin yang diperlukan (misal: 'Manage Channels', 'Move Members', 'Manage Permissions').", ephemeral=True)
+        elif isinstance(error, commands.CommandInvokeError):
+            original_error = error.original
+            await ctx.send(f"❌ Terjadi kesalahan saat menjalankan perintah: {original_error}", ephemeral=True)
+        else:
+            await ctx.send(f"❌ Terjadi kesalahan yang tidak terduga: {error}", ephemeral=True)
 
 async def setup(bot):
     if not os.path.exists("downloads"):
