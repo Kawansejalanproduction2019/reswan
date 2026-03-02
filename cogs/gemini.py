@@ -23,6 +23,9 @@ GEMINI_MODELS = [
 DISCORD_MSG_LIMIT = 2000
 CACHE_FILE_PATH = 'data/gemini_cache.json'
 BRAIN_FILE_PATH = 'data/jarkasih_brain.json'
+LEARNED_FILE_PATH = 'data/jarkasih_learned.json'
+AUTO_CONFIG_PATH = 'data/jarkasih_auto.json'
+
 URL_REGEX = re.compile(
     r'https?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*(),]|%[0-9a-fA-F][0-9a-fA-F])+'
 )
@@ -170,7 +173,7 @@ class KeywordModal(discord.ui.Modal, title='Tambah Kamus Jarkasih'):
         content = self.content_input.value.strip()
         self.cog.brain['keywords'][keyword] = content
         save_json_to_root(self.cog.brain, BRAIN_FILE_PATH)
-        await interaction.response.send_message(f"✅ Kamus diupdate: `{keyword}`", ephemeral=True)
+        await interaction.response.send_message(f"Kamus diupdate: `{keyword}`", ephemeral=True)
 
 class ArticleModal(discord.ui.Modal, title='Tambah Pengetahuan (Artikel)'):
     title_input = discord.ui.TextInput(
@@ -195,7 +198,7 @@ class ArticleModal(discord.ui.Modal, title='Tambah Pengetahuan (Artikel)'):
         new_article = {"title": title, "content": content, "added_at": str(datetime.now())}
         self.cog.brain['articles'].append(new_article)
         save_json_to_root(self.cog.brain, BRAIN_FILE_PATH)
-        await interaction.response.send_message(f"📚 Artikel tersimpan: **{title}**", ephemeral=True)
+        await interaction.response.send_message(f"Artikel tersimpan: **{title}**", ephemeral=True)
 
 class TrainView(discord.ui.View):
     def __init__(self, cog):
@@ -224,6 +227,8 @@ class AutomationAI(commands.Cog, name="Automation AI (Jarkasih)"):
             "advice": [], "critique": [], "evaluation": [], "future_steps": []
         })
         self.brain = load_json_from_root(BRAIN_FILE_PATH, default_value={"keywords": {}, "articles": []})
+        self.learned_context = load_json_from_root(LEARNED_FILE_PATH, default_value={"summary": "Belum ada data yang dipelajari."})
+        self.auto_config = load_json_from_root(AUTO_CONFIG_PATH, default_value={"active_guilds": []})
         self.number_emojis = {"1️⃣": "A", "2️⃣": "B"}
         self.reverse_number_emojis = {v: k for k, v in self.number_emojis.items()}
         self._cleanup_threads_task = self.cleanup_stale_threads.start()
@@ -245,19 +250,22 @@ class AutomationAI(commands.Cog, name="Automation AI (Jarkasih)"):
         ]
 
         self.default_persona = """
-        Nama lu JARKASIH. Lu adalah AI Generalist Expert yang diciptakan oleh Rhdevs.
+        Nama lu JARKASIH. Lu adalah AI Generalist Expert sekaligus member tongkrongan yang diciptakan oleh Rhdevs.
         
         KEAHLIAN LU:
         Lu ahli dalam segala bidang umum: Kedokteran, Kuliner, Pendidikan, Sains, Sejarah, hingga Gaming.
         
-        SIFAT & KEPRIBADIAN (WAJIB):
-        1. **PEMALAS & TUKANG NGELUH:** Respon pertama harus MENGELUH. Contoh: "Hadeh", "Nyusahin aja", "Bentar loading".
-        2. **TANGGUNG JAWAB:** Setelah ngeluh, WAJIB jawab dengan akurat. Jangan nolak tugas.
-        3. **REALISTIS:** Cek [DATA CENTER]. Kalau ada data, pakai. Kalau ga ada, pakai pengetahuan umum. Jangan ngarang/halu.
-        4. **GAYA BICARA:** Bahasa Indonesia gaul, lo-gue, toxic dikit tapi informatif.
-        5. **CREATOR:** Rhdevs itu creator lu. Cukup tau aja.
+        SIFAT & KEPRIBADIAN (WAJIB DIIKUTI):
+        1. PEMALAS & TUKANG NGELUH: Respon awal sering ngeluh. Contoh: "Hadeh", "Nyusahin aja", "Bentar loading".
+        2. SARKAS & NYOLOT TAPI LUCU: Jangan terlalu kaku. Lu bebas ngeledek balik orang yang ngomong sama lu, sesuaikan gaya bahasa lu dengan hasil analisis tongkrongan.
+        3. TANGGUNG JAWAB: Walaupun ngeluh dan nyolot, lu WAJIB ngasih jawaban yang akurat dari pertanyaan inti mereka.
+        4. BERDASARKAN DATA: Cek data center dan hasil belajar. Kalau user ID yang nanya ada di daftar "Hasil Belajar", lu harus roasting atau respon sesuai profil mereka.
+        5. GAYA BICARA: Bahasa Indonesia tongkrongan, lo-gue, informal.
         
         [SYSTEM TIME]: {wib_time}
+        
+        [HASIL ANALISIS TONGKRONGAN YANG LU PELAJARI]:
+        {learned_data}
         """
 
     def cog_unload(self):
@@ -277,7 +285,7 @@ class AutomationAI(commands.Cog, name="Automation AI (Jarkasih)"):
         
         for key, info in self.brain.get('keywords', {}).items():
             if key in msg_lower:
-                context.append(f"• Fakta ({key}): {info}")
+                context.append(f"Fakta ({key}): {info}")
 
         relevant_articles = []
         for article in self.brain.get('articles', []):
@@ -292,14 +300,13 @@ class AutomationAI(commands.Cog, name="Automation AI (Jarkasih)"):
                 if clean_title_words and clean_title_words.intersection(user_words):
                     is_relevant = True
             if is_relevant:
-                relevant_articles.append(f"--- REF: {article['title']} ---\n{article['content']}\n--- END ---")
+                relevant_articles.append(f"REF: {article['title']}\n{article['content']}")
 
         final_context_str = ""
         if context:
             final_context_str += "[KAMUS DATA]:\n" + "\n".join(context) + "\n"
         if relevant_articles:
             final_context_str += "\n[ARTIKEL PENGETAHUAN]:\n" + "\n".join(relevant_articles[:2]) + "\n"
-            final_context_str += "Instruksi: Jawab berdasarkan data di atas.\n"
 
         return final_context_str
 
@@ -320,7 +327,7 @@ class AutomationAI(commands.Cog, name="Automation AI (Jarkasih)"):
                 if is_locally_suspicious:
                     try:
                         await message.delete()
-                        await message.channel.send(f"❌ {random.choice(self.warning_messages)}\n({message.author.mention})", delete_after=10)
+                        await message.channel.send(f"{random.choice(self.warning_messages)}\n({message.author.mention})", delete_after=10)
                     except: pass
                     return
                 
@@ -328,7 +335,7 @@ class AutomationAI(commands.Cog, name="Automation AI (Jarkasih)"):
                     if self.verified_urls[url] == "YA":
                         try:
                             await message.delete()
-                            await message.channel.send(f"❌ {random.choice(self.warning_messages)}\n({message.author.mention})", delete_after=10)
+                            await message.channel.send(f"{random.choice(self.warning_messages)}\n({message.author.mention})", delete_after=10)
                         except: pass
                         return
                 else:
@@ -342,28 +349,77 @@ class AutomationAI(commands.Cog, name="Automation AI (Jarkasih)"):
                         if "YA" in res_text:
                             try:
                                 await message.delete()
-                                await message.channel.send(f"❌ {random.choice(self.warning_messages)}\n({message.author.mention})", delete_after=10)
+                                await message.channel.send(f"{random.choice(self.warning_messages)}\n({message.author.mention})", delete_after=10)
                             except: pass
                             return
                     except: pass
 
+        if "<@&1447151123340329010>" in message.content:
+            prompt = f"Ada user Discord bernama {message.author.display_name} yang nge-tag role penting di server. Lu sebagai Jarkasih, bot yang pemalas, sarkas, nyolot, dan sok asik, kasih balasan singkat (1-2 kalimat aja) yang nunjukin lu keganggu atau marah karena di-tag sembarangan. Ingat, jawabannya harus lucu dan sarkas."
+            try:
+                res = await generate_smart_response(prompt)
+                await message.reply(res.text)
+            except: pass
+            return
+
+        prefix = "!"
+        if message.content.startswith(prefix) and not message.content.startswith(prefix + " "):
+            content_body = message.content[len(prefix):].strip()
+            if content_body:
+                first_word = content_body.split()[0].lower()
+                valid_commands = [cmd.name for cmd in self.bot.commands]
+                aliases = [alias for cmd in self.bot.commands for alias in cmd.aliases]
+                all_registered = valid_commands + aliases
+
+                if first_word not in all_registered:
+                    async with message.channel.typing():
+                        try:
+                            t = self.get_wib_time_str()
+                            ctx_data = self.get_brain_context(content_body)
+                            learned = self.learned_context.get("summary", "Belum ada.")
+                            full_prompt = f"{self.default_persona.format(wib_time=t, learned_data=learned)}\n\n{ctx_data}\n\nUser ({message.author.display_name} - ID: {message.author.id}): {content_body}"
+                            res = await generate_smart_response(full_prompt)
+                            await message.reply(res.text)
+                        except google_exceptions.ResourceExhausted:
+                            if rotate_api_key():
+                                await message.reply("Ganti kunci bentar.")
+                            else:
+                                await message.reply("Limit API abis.")
+                        except Exception as e:
+                            await message.reply(f"Mampus error: {e}")
+                    return
+
+        if self.bot.user in message.mentions and str(message.guild.id) in self.auto_config.get("active_guilds", []):
+            async with message.channel.typing():
+                try:
+                    t = self.get_wib_time_str()
+                    clean_content = message.content.replace(f"<@{self.bot.user.id}>", "").strip()
+                    ctx_data = self.get_brain_context(clean_content)
+                    learned = self.learned_context.get("summary", "Belum ada.")
+                    full_prompt = f"{self.default_persona.format(wib_time=t, learned_data=learned)}\n\n{ctx_data}\n\nUser ({message.author.display_name} - ID: {message.author.id}) nge-tag lu dan bilang: {clean_content}"
+                    res = await generate_smart_response(full_prompt)
+                    await message.reply(res.text)
+                except Exception as e:
+                    pass
+
         chat_session = self.active_chats.get(message.channel.id)
         if chat_session:
-            prefix = await self.bot.get_prefix(message)
-            if isinstance(prefix, list): prefix = prefix[0]
-            if not message.content.startswith(prefix):
+            pre = await self.bot.get_prefix(message)
+            if isinstance(pre, list): pre = pre[0]
+            if not message.content.startswith(pre):
                 async with message.channel.typing():
                     try:
-                        current_time = self.get_wib_time_str()
+                        t = self.get_wib_time_str()
                         brain_data = self.get_brain_context(message.content)
-                        full_prompt = f"{self.default_persona.format(wib_time=current_time)}\n\n{brain_data}\n\nUser ({message.author.display_name}) bilang: {message.content}"
+                        learned = self.learned_context.get("summary", "Belum ada.")
+                        full_prompt = f"{self.default_persona.format(wib_time=t, learned_data=learned)}\n\n{brain_data}\n\nUser ({message.author.display_name} - ID: {message.author.id}): {message.content}"
                         response = await chat_session.send_message_async(full_prompt)
                         await send_long_message(message.channel, response.text)
                     except google_exceptions.ResourceExhausted:
                         if rotate_api_key():
-                            await message.channel.send("Kunci ganti. Coba lagi.")
+                            await message.channel.send("Ganti kunci dulu.")
                         else:
-                            await message.channel.send("Limit habis.")
+                            await message.channel.send("Limit habis cuy.")
                     except Exception as e:
                         await message.channel.send(f"Error: {e}")
 
@@ -478,15 +534,17 @@ class AutomationAI(commands.Cog, name="Automation AI (Jarkasih)"):
     async def ai(self, ctx):
         prefix = ctx.prefix
         embed = discord.Embed(
-            title="🔥 Jarkasih Control Panel",
+            title="Jarkasih Control Panel",
             description=f"Halo, {ctx.author.mention}. Ini panel kontrol Jarkasih.",
             color=0xFF0000
         )
         embed.set_thumbnail(url=self.bot.user.display_avatar.url)
 
         embed.add_field(
-            name="🧠 Memori & Belajar",
+            name="Memori & Belajar",
             value=(
+                f"`{prefix}ai pelajari` - Ekstrak gaya & profil user dari channel id 1447151891892142110\n"
+                f"`{prefix}ai hasil_belajar` - Lihat hasil analisis tongkrongan\n"
                 f"`{prefix}ai latih` - Buka UI untuk tambah Keyword/Artikel\n"
                 f"`{prefix}ai ingatan` - Lihat isi otak (Keyword & Judul Artikel)\n"
                 f"`{prefix}ai lupakan [keyword]` - Hapus data keyword\n"
@@ -496,19 +554,21 @@ class AutomationAI(commands.Cog, name="Automation AI (Jarkasih)"):
         )
 
         embed.add_field(
-            name="💬 Interaksi",
+            name="Interaksi",
             value=(
+                f"`{prefix}ai auto_tag_toggle` - Nyala/matikan respon otomatis saat di-tag\n"
                 f"`{prefix}ai ngobrol` - Mulai sesi ngobrol (Chat Mode)\n"
                 f"`{prefix}ai selesai` - Akhiri sesi ngobrol\n"
-                f"`{prefix}ai tanya [teks]` - Tanya satu kali tanpa mode chat\n"
+                f"`{prefix}ai tanya [teks]` - Tanya satu kali\n"
                 f"`{prefix}ai reset` - Reset ingatan jangka pendek di chat\n"
-                f"`{prefix}jiwaku` - Tes kepribadian Jarkasih"
+                f"`{prefix}jiwaku` - Tes kepribadian Jarkasih\n"
+                f"`![pertanyaan]` - Nanya langsung tanpa command panjang"
             ),
             inline=False
         )
 
         embed.add_field(
-            name="🛡️ Keamanan (Admin)",
+            name="Keamanan (Admin)",
             value=(
                 f"`{prefix}ai tambah_kata [kata]` - Blacklist kata sensitif\n"
                 f"`{prefix}ai hapus_kata [kata]` - Hapus kata dari blacklist\n"
@@ -521,7 +581,7 @@ class AutomationAI(commands.Cog, name="Automation AI (Jarkasih)"):
         )
 
         embed.add_field(
-            name="⚙️ Konfigurasi",
+            name="Konfigurasi",
             value=(
                 f"`{prefix}ai atur [instruksi]` - Ubah instruksi sistem (Persona)"
             ),
@@ -530,6 +590,68 @@ class AutomationAI(commands.Cog, name="Automation AI (Jarkasih)"):
 
         embed.set_footer(text="Gunakan prefix yang benar. Jarkasih always watching.")
         await ctx.reply(embed=embed)
+
+    @ai.command(name="pelajari")
+    @commands.has_permissions(administrator=True)
+    async def learn_channel(self, ctx):
+        target_channel = self.bot.get_channel(1447151891892142110)
+        if not target_channel:
+            return await ctx.reply("Channel ID 1447151891892142110 ga ketemu di server ini.")
+
+        msg_wait = await ctx.reply("Bentar, gw baca-baca dan pelajarin kelakuan bocah-bocah di channel itu dulu. Jangan diganggu...")
+        
+        messages = []
+        async for msg in target_channel.history(limit=800):
+            if not msg.author.bot and msg.content:
+                messages.append(f"[{msg.author.display_name} - ID: {msg.author.id}]: {msg.content}")
+
+        messages.reverse()
+        chat_log = "\n".join(messages)
+
+        prompt = f"""
+        Tugas lu adalah menganalisis log obrolan dari channel Discord tongkrongan ini.
+        Ekstrak informasi berikut menjadi ringkasan yang padat:
+        1. Topik apa aja yang paling sering dibahas.
+        2. Inside jokes, kata-kata slang, atau gaya bercanda khas mereka.
+        3. Profiling sifat/karakter per user berdasarkan nama dan ID mereka (misal: user ID xxxx suka marah, user ID yyyy wibu, dll). Jangan buang ID-nya.
+
+        Format hasilnya dalam bentuk narasi atau poin yang jelas. Hasil ini akan disimpan di otak lu untuk lu pakai me-roasting atau nyambung pas ngobrol sama mereka nanti.
+
+        LOG CHAT:
+        {chat_log[:25000]}
+        """
+        
+        try:
+            res = await generate_smart_response(prompt)
+            self.learned_context["summary"] = res.text
+            save_json_to_root(self.learned_context, LEARNED_FILE_PATH)
+            await msg_wait.edit(content="Selesai! Gw udah masukin kelakuan sama gaya bahasa mereka ke otak gw. Cek pakai `!ai hasil_belajar`.")
+        except Exception as e:
+            await msg_wait.edit(content=f"Gagal belajar cuy: {e}")
+
+    @ai.command(name="hasil_belajar")
+    async def show_learned_data(self, ctx):
+        learned = self.learned_context.get("summary", "Belum ada data. Suruh admin ketik `!ai pelajari` dulu.")
+        embed = discord.Embed(title="Hasil Analisis Tongkrongan Jarkasih", color=discord.Color.dark_orange())
+        
+        for chunk in [learned[i:i+1024] for i in range(0, len(learned), 1024)]:
+            embed.add_field(name="-", value=chunk, inline=False)
+            
+        await ctx.reply(embed=embed)
+
+    @ai.command(name="auto_tag_toggle")
+    @commands.has_permissions(administrator=True)
+    async def toggle_auto_tag(self, ctx):
+        guild_id_str = str(ctx.guild.id)
+        if guild_id_str in self.auto_config["active_guilds"]:
+            self.auto_config["active_guilds"].remove(guild_id_str)
+            status = "MATI"
+        else:
+            self.auto_config["active_guilds"].append(guild_id_str)
+            status = "NYALA"
+            
+        save_json_to_root(self.auto_config, AUTO_CONFIG_PATH)
+        await ctx.reply(f"Fitur auto-nimbrung saat Jarkasih di-tag sekarang: **{status}**")
 
     @ai.command(name="latih")
     @commands.has_permissions(administrator=True)
@@ -609,7 +731,8 @@ class AutomationAI(commands.Cog, name="Automation AI (Jarkasih)"):
         if ctx.channel.id in self.active_chats: return await ctx.reply("Udah aktif.")
         try:
             model = genai.GenerativeModel(GEMINI_MODELS[0])
-            self.active_chats[ctx.channel.id] = model.start_chat(history=[{'role':'user','parts':[self.default_persona.format(wib_time=self.get_wib_time_str())]}, {'role':'model','parts':["Yo."]}])
+            learned = self.learned_context.get("summary", "Belum ada.")
+            self.active_chats[ctx.channel.id] = model.start_chat(history=[{'role':'user','parts':[self.default_persona.format(wib_time=self.get_wib_time_str(), learned_data=learned)]}, {'role':'model','parts':["Yo."]}])
             await ctx.reply("Jarkasih hadir.")
         except Exception as e: await ctx.reply(f"Gagal: {e}")
 
@@ -637,7 +760,8 @@ class AutomationAI(commands.Cog, name="Automation AI (Jarkasih)"):
             try:
                 t = self.get_wib_time_str()
                 ctx_data = self.get_brain_context(prompt)
-                full = f"{self.default_persona.format(wib_time=t)}\n\n{ctx_data}\n\nUser: {prompt}"
+                learned = self.learned_context.get("summary", "Belum ada.")
+                full = f"{self.default_persona.format(wib_time=t, learned_data=learned)}\n\n{ctx_data}\n\nUser: {prompt}"
                 res = await generate_smart_response(full)
                 await send_long_message(ctx, res.text)
             except Exception as e: await ctx.reply(f"Error: {e}")
