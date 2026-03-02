@@ -128,7 +128,7 @@ def save_status_config(config):
     save_json_file(STATUS_CONFIG_FILE, config)
 
 ytdl_opts = {
-    'format': 'bestaudio/best',
+    'format': 'bestaudio[ext=opus]/bestaudio[ext=m4a]/bestaudio/best',
     'cookiefile': 'cookies.txt',
     'quiet': True,
     'default_search': 'ytsearch',
@@ -143,7 +143,6 @@ ytdl_opts = {
     'nocheckcertificate': True,
     'ignoreerrors': True,
     'no_warnings': True,
-    'extractor_args': {'youtubetab': ['skip=authcheck']}
 }
 
 FFMPEG_OPTIONS = {
@@ -170,8 +169,17 @@ class YTDLSource(discord.PCMVolumeTransformer):
     async def from_url(cls, url, *, loop=None, stream=True):
         loop = loop or asyncio.get_event_loop()
         data = await loop.run_in_executor(None, lambda: ytdl.extract_info(url, download=not stream))
+        
+        if data is None:
+            raise Exception("Data video tidak ditemukan atau dibatasi.")
+            
         if 'entries' in data:
+            if not data['entries']:
+                raise Exception("Playlist kosong.")
             data = data['entries'][0]
+            if data is None:
+                raise Exception("Video tidak tersedia.")
+                
         filename = data['url'] if stream else ytdl.prepare_filename(data)
         
         source = discord.FFmpegPCMAudio(
@@ -180,6 +188,7 @@ class YTDLSource(discord.PCMVolumeTransformer):
         )
         
         return cls(source, data=data)
+
 
 class MusicControlView(discord.ui.View):
     def __init__(self, cog_instance):
@@ -229,7 +238,7 @@ class MusicControlView(discord.ui.View):
                 info = self.cog.now_playing_info[guild_id]
                 source = vc.source
                 new_embed = discord.Embed(
-                    title="🎶 Sedang Memutar",
+                    title="ðŸŽ¶ Sedang Memutar",
                     description=f"**[{info['title']}]({info['webpage_url']})**",
                     color=discord.Color.purple()
                 )
@@ -257,16 +266,16 @@ class MusicControlView(discord.ui.View):
                 for item in updated_view.children:
                     if item.custom_id == "music:play_pause":
                         if vc.is_playing():
-                            item.emoji = "⏸️"
+                            item.emoji = "â¸ï¸"
                             item.style = discord.ButtonStyle.green
                         elif vc.is_paused():
-                            item.emoji = "▶️"
+                            item.emoji = "â–¶ï¸"
                             item.style = discord.ButtonStyle.primary
                     elif item.custom_id == "music:mute_unmute":
                         if self.cog.is_muted.get(guild_id, False):
-                            item.emoji = "🔇"
+                            item.emoji = "ðŸ”‡"
                         else:
-                            item.emoji = "🔊"
+                            item.emoji = "ðŸ”Š"
                     elif item.custom_id == "music:loop":
                         if self.cog.loop_status.get(guild_id, False):
                             item.style = discord.ButtonStyle.green
@@ -293,7 +302,7 @@ class MusicControlView(discord.ui.View):
         except Exception as e:
             log.error(f"Error in _update_music_message: {e}")
 
-    @discord.ui.button(emoji="▶️", style=discord.ButtonStyle.primary, custom_id="music:play_pause", row=0)
+    @discord.ui.button(emoji="â–¶ï¸", style=discord.ButtonStyle.primary, custom_id="music:play_pause", row=0)
     async def play_pause_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not await self._check_voice_channel(interaction):
             return
@@ -308,10 +317,10 @@ class MusicControlView(discord.ui.View):
             
             if vc.is_playing():
                 vc.pause()
-                await interaction.followup.send("⏸️ Lagu dijeda.", ephemeral=True)
+                await interaction.followup.send("â¸ï¸ Lagu dijeda.", ephemeral=True)
             elif vc.is_paused():
                 vc.resume()
-                await interaction.followup.send("▶️ Lanjut lagu.", ephemeral=True)
+                await interaction.followup.send("â–¶ï¸ Lanjut lagu.", ephemeral=True)
             else:
                 await interaction.followup.send("Tidak ada lagu yang sedang diputar/dijeda.", ephemeral=True)
             
@@ -320,7 +329,7 @@ class MusicControlView(discord.ui.View):
             log.error(f"Error in play_pause_button: {e}")
             await interaction.followup.send(f"Terjadi kesalahan: {e}", ephemeral=True)
 
-    @discord.ui.button(emoji="⏩", style=discord.ButtonStyle.secondary, custom_id="music:skip", row=0)
+    @discord.ui.button(emoji="â©", style=discord.ButtonStyle.secondary, custom_id="music:skip", row=0)
     async def skip_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not await self._check_voice_channel(interaction):
             return
@@ -339,14 +348,14 @@ class MusicControlView(discord.ui.View):
                 if queue:
                     queue.pop(0)
                 vc.stop()
-                await interaction.followup.send("⏭️ Skip lagu.", ephemeral=True)
+                await interaction.followup.send("â­ï¸ Skip lagu.", ephemeral=True)
             else:
                 await interaction.followup.send("Tidak ada lagu yang sedang diputar.", ephemeral=True)
         except Exception as e:
             log.error(f"Error in skip_button: {e}")
             await interaction.followup.send(f"Terjadi kesalahan: {e}", ephemeral=True)
             
-    @discord.ui.button(emoji="⏹️", style=discord.ButtonStyle.danger, custom_id="music:stop", row=0)
+    @discord.ui.button(emoji="â¹ï¸", style=discord.ButtonStyle.danger, custom_id="music:stop", row=0)
     async def stop_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not await self._check_voice_channel(interaction):
             return
@@ -382,12 +391,12 @@ class MusicControlView(discord.ui.View):
                 finally:
                     self.cog.current_music_message_info.pop(guild_id, None)
             
-            await interaction.followup.send("⏹️ Stop dan keluar dari voice.", ephemeral=True)
+            await interaction.followup.send("â¹ï¸ Stop dan keluar dari voice.", ephemeral=True)
         except Exception as e:
             log.error(f"Error in stop_button: {e}")
             await interaction.followup.send(f"Terjadi kesalahan: {e}", ephemeral=True)
             
-    @discord.ui.button(emoji="📜", style=discord.ButtonStyle.grey, custom_id="music:queue", row=1)
+    @discord.ui.button(emoji="ðŸ“œ", style=discord.ButtonStyle.grey, custom_id="music:queue", row=1)
     async def queue_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         try:
             queue = self.cog.get_queue(interaction.guild.id)
@@ -398,7 +407,7 @@ class MusicControlView(discord.ui.View):
                 )
                 msg = "\n".join([f"{i+1}. {q['title']}" for i, q in enumerate(display_queue_titles)])
                 embed = discord.Embed(
-                    title="🎶 Antrean Lagu",
+                    title="ðŸŽ¶ Antrean Lagu",
                     description=f"```{msg}```",
                     color=discord.Color.gold()
                 )
@@ -411,7 +420,7 @@ class MusicControlView(discord.ui.View):
             log.error(f"Error in queue_button: {e}")
             await interaction.response.send_message("Terjadi kesalahan saat mengambil antrean.", ephemeral=True)
             
-    @discord.ui.button(emoji="🔁", style=discord.ButtonStyle.grey, custom_id="music:loop", row=1)
+    @discord.ui.button(emoji="ðŸ”", style=discord.ButtonStyle.grey, custom_id="music:loop", row=1)
     async def loop_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not await self._check_voice_channel(interaction):
             return
@@ -424,16 +433,16 @@ class MusicControlView(discord.ui.View):
             self.cog.loop_status[guild_id] = not self.cog.loop_status[guild_id]
             
             if self.cog.loop_status[guild_id]:
-                await interaction.followup.send("🔁 Mode Loop **ON** (lagu saat ini akan diulang).", ephemeral=True)
+                await interaction.followup.send("ðŸ” Mode Loop **ON** (lagu saat ini akan diulang).", ephemeral=True)
             else:
-                await interaction.followup.send("🔁 Mode Loop **OFF**.", ephemeral=True)
+                await interaction.followup.send("ðŸ” Mode Loop **OFF**.", ephemeral=True)
             
             await self._update_music_message(interaction)
         except Exception as e:
             log.error(f"Error in loop_button: {e}")
             await interaction.followup.send(f"Terjadi kesalahan: {e}", ephemeral=True)
 
-    @discord.ui.button(emoji="📖", style=discord.ButtonStyle.blurple, custom_id="music:lyrics", row=1)
+    @discord.ui.button(emoji="ðŸ“–", style=discord.ButtonStyle.blurple, custom_id="music:lyrics", row=1)
     async def lyrics_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not self.cog.genius:
             await interaction.response.send_message("Fitur lirik masih beta dan akan segera dirilis nantinya.", ephemeral=True)
@@ -450,7 +459,7 @@ class MusicControlView(discord.ui.View):
             log.error(f"Error in lyrics_button: {e}")
             await interaction.followup.send(f"Terjadi kesalahan: {e}", ephemeral=True)
 
-    @discord.ui.button(emoji="➕", style=discord.ButtonStyle.secondary, custom_id="music:volume_up", row=2)
+    @discord.ui.button(emoji="âž•", style=discord.ButtonStyle.secondary, custom_id="music:volume_up", row=2)
     async def volume_up_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not await self._check_voice_channel(interaction):
             return
@@ -477,7 +486,7 @@ class MusicControlView(discord.ui.View):
             log.error(f"Error in volume_up_button: {e}")
             await interaction.response.send_message(f"Terjadi kesalahan: {e}", ephemeral=True)
 
-    @discord.ui.button(emoji="➖", style=discord.ButtonStyle.secondary, custom_id="music:volume_down", row=2)
+    @discord.ui.button(emoji="âž–", style=discord.ButtonStyle.secondary, custom_id="music:volume_down", row=2)
     async def volume_down_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not await self._check_voice_channel(interaction):
             return
@@ -507,7 +516,7 @@ class MusicControlView(discord.ui.View):
             log.error(f"Error in volume_down_button: {e}")
             await interaction.response.send_message(f"Terjadi kesalahan: {e}", ephemeral=True)
 
-    @discord.ui.button(emoji="🔊", style=discord.ButtonStyle.secondary, custom_id="music:mute_unmute", row=2)
+    @discord.ui.button(emoji="ðŸ”Š", style=discord.ButtonStyle.secondary, custom_id="music:mute_unmute", row=2)
     async def mute_unmute_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not await self._check_voice_channel(interaction):
             return
@@ -526,11 +535,11 @@ class MusicControlView(discord.ui.View):
                     self.cog.old_volume[guild_id] = vc.source.volume
                     vc.source.volume = 0.0
                     self.cog.is_muted[guild_id] = True
-                    await interaction.followup.send("🔇 Volume dimatikan.", ephemeral=True)
+                    await interaction.followup.send("ðŸ”‡ Volume dimatikan.", ephemeral=True)
                 else:
                     vc.source.volume = self.cog.old_volume.get(guild_id, 0.8)
                     self.cog.is_muted[guild_id] = False
-                    await interaction.followup.send("🔊 Volume dinyalakan.", ephemeral=True)
+                    await interaction.followup.send("ðŸ”Š Volume dinyalakan.", ephemeral=True)
                 await self._update_music_message(interaction)
             else:
                 await interaction.followup.send("Tidak ada lagu yang sedang diputar.", ephemeral=True)
@@ -538,7 +547,7 @@ class MusicControlView(discord.ui.View):
             log.error(f"Error in mute_unmute_button: {e}")
             await interaction.followup.send(f"Terjadi kesalahan: {e}", ephemeral=True)
 
-    @discord.ui.button(emoji="🔀", style=discord.ButtonStyle.grey, custom_id="music:shuffle", row=1)
+    @discord.ui.button(emoji="ðŸ”€", style=discord.ButtonStyle.grey, custom_id="music:shuffle", row=1)
     async def shuffle_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not await self._check_voice_channel(interaction):
             return
@@ -548,7 +557,7 @@ class MusicControlView(discord.ui.View):
             queue = self.cog.get_queue(guild_id)
             if len(queue) > 1:
                 random.shuffle(queue)
-                await interaction.response.send_message("🔀 Antrean lagu diacak!", ephemeral=True)
+                await interaction.response.send_message("ðŸ”€ Antrean lagu diacak!", ephemeral=True)
             else:
                 await interaction.response.send_message("Antrean terlalu pendek untuk diacak.", ephemeral=True)
             await self._update_music_message(interaction)
@@ -556,7 +565,7 @@ class MusicControlView(discord.ui.View):
             log.error(f"Error in shuffle_button: {e}")
             await interaction.response.send_message(f"Terjadi kesalahan: {e}", ephemeral=True)
 
-    @discord.ui.button(emoji="🗑️", style=discord.ButtonStyle.danger, custom_id="music:clear_queue", row=1)
+    @discord.ui.button(emoji="ðŸ—‘ï¸", style=discord.ButtonStyle.danger, custom_id="music:clear_queue", row=1)
     async def clear_queue_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not await self._check_voice_channel(interaction):
             return
@@ -566,7 +575,7 @@ class MusicControlView(discord.ui.View):
             queue = self.cog.get_queue(guild_id)
             if queue:
                 self.cog.queues[guild_id] = []
-                await interaction.response.send_message("🗑️ Antrean lagu telah dikosongkan!", ephemeral=True)
+                await interaction.response.send_message("ðŸ—‘ï¸ Antrean lagu telah dikosongkan!", ephemeral=True)
             else:
                 await interaction.response.send_message("Antrean sudah kosong.", ephemeral=True)
             await self._update_music_message(interaction)
@@ -574,7 +583,7 @@ class MusicControlView(discord.ui.View):
             log.error(f"Error in clear_queue_button: {e}")
             await interaction.response.send_message(f"Terjadi kesalahan: {e}", ephemeral=True)
 
-    @discord.ui.button(emoji="ℹ️", style=discord.ButtonStyle.blurple, custom_id="music:np_info", row=0)
+    @discord.ui.button(emoji="â„¹ï¸", style=discord.ButtonStyle.blurple, custom_id="music:np_info", row=0)
     async def now_playing_info_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not await self._check_voice_channel(interaction):
             return
@@ -591,7 +600,7 @@ class MusicControlView(discord.ui.View):
                 info = self.cog.now_playing_info[guild_id]
                 source = vc.source
                 embed = discord.Embed(
-                    title=f"🎶 Sedang Memutar: {info['title']}",
+                    title=f"ðŸŽ¶ Sedang Memutar: {info['title']}",
                     description=f"Oleh: {info['artist']}\n[Link YouTube]({info['webpage_url']})",
                     color=discord.Color.purple()
                 )
@@ -623,16 +632,16 @@ class RenameVCModal(discord.ui.Modal, title="Ganti Nama Channel Suara"):
         self.cog = cog_instance
     async def on_submit(self, interaction: discord.Interaction):
         if not self.cog.is_owner_vc_by_interaction(interaction):
-            return await interaction.response.send_message("❌ Kamu bukan pemilik channel ini!", ephemeral=True)
+            return await interaction.response.send_message("âŒ Kamu bukan pemilik channel ini!", ephemeral=True)
         vc = interaction.user.voice.channel
         new_name = self.new_name.value
         try:
             await vc.edit(name=new_name, reason=f"User {interaction.user.display_name} renamed VC via UI.")
-            await interaction.response.send_message(f"✅ Nama channelmu diubah menjadi **{new_name}**.", ephemeral=True)
+            await interaction.response.send_message(f"âœ… Nama channelmu diubah menjadi **{new_name}**.", ephemeral=True)
         except discord.Forbidden:
-            await interaction.response.send_message("❌ Bot tidak memiliki izin untuk mengubah nama channel ini.", ephemeral=True)
+            await interaction.response.send_message("âŒ Bot tidak memiliki izin untuk mengubah nama channel ini.", ephemeral=True)
         except Exception as e:
-            await interaction.response.send_message(f"❌ Terjadi kesalahan: {e}", ephemeral=True)
+            await interaction.response.send_message(f"âŒ Terjadi kesalahan: {e}", ephemeral=True)
 
 class VCControlView(discord.ui.View):
     def __init__(self, cog_instance):
@@ -656,62 +665,62 @@ class VCControlView(discord.ui.View):
 
     async def _check_owner(self, interaction: discord.Interaction):
         if not self.cog.is_owner_vc_by_interaction(interaction):
-            await interaction.response.send_message("❌ Kamu bukan pemilik channel ini!", ephemeral=True)
+            await interaction.response.send_message("âŒ Kamu bukan pemilik channel ini!", ephemeral=True)
             return False
         return True
 
-    @discord.ui.button(emoji="➕", label="Batas User +1", style=discord.ButtonStyle.secondary, custom_id="vc:limit_plus", row=0)
+    @discord.ui.button(emoji="âž•", label="Batas User +1", style=discord.ButtonStyle.secondary, custom_id="vc:limit_plus", row=0)
     async def limit_plus_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not await self._check_owner(interaction): return
         vc = interaction.user.voice.channel
         new_limit = min(vc.user_limit + 1, 99)
         try:
             await vc.edit(user_limit=new_limit, reason=f"User {interaction.user.display_name} increased user limit.")
-            await interaction.response.send_message(f"✅ Batas user channel diatur ke: **{new_limit}**.", ephemeral=True)
+            await interaction.response.send_message(f"âœ… Batas user channel diatur ke: **{new_limit}**.", ephemeral=True)
         except discord.Forbidden:
-            await interaction.response.send_message("❌ Bot tidak memiliki izin untuk mengubah batas user.", ephemeral=True)
+            await interaction.response.send_message("âŒ Bot tidak memiliki izin untuk mengubah batas user.", ephemeral=True)
     
-    @discord.ui.button(emoji="➖", label="Batas User -1", style=discord.ButtonStyle.secondary, custom_id="vc:limit_minus", row=0)
+    @discord.ui.button(emoji="âž–", label="Batas User -1", style=discord.ButtonStyle.secondary, custom_id="vc:limit_minus", row=0)
     async def limit_minus_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not await self._check_owner(interaction): return
         vc = interaction.user.voice.channel
         new_limit = max(vc.user_limit - 1, 0)
         try:
             await vc.edit(user_limit=new_limit, reason=f"User {interaction.user.display_name} decreased user limit.")
-            await interaction.response.send_message(f"✅ Batas user channel diatur ke: **{new_limit if new_limit > 0 else 'tak terbatas'}**.", ephemeral=True)
+            await interaction.response.send_message(f"âœ… Batas user channel diatur ke: **{new_limit if new_limit > 0 else 'tak terbatas'}**.", ephemeral=True)
         except discord.Forbidden:
-            await interaction.response.send_message("❌ Bot tidak memiliki izin untuk mengubah batas user.", ephemeral=True)
+            await interaction.response.send_message("âŒ Bot tidak memiliki izin untuk mengubah batas user.", ephemeral=True)
 
-    @discord.ui.button(emoji="📝", label="Ganti Nama", style=discord.ButtonStyle.secondary, custom_id="vc:rename", row=1)
+    @discord.ui.button(emoji="ðŸ“", label="Ganti Nama", style=discord.ButtonStyle.secondary, custom_id="vc:rename", row=1)
     async def rename_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not await self._check_owner(interaction): return
         await interaction.response.send_modal(RenameVCModal(self.cog))
 
-    @discord.ui.button(emoji="🔒", label="Kunci Channel", style=discord.ButtonStyle.secondary, custom_id="vc:lock", row=1)
+    @discord.ui.button(emoji="ðŸ”’", label="Kunci Channel", style=discord.ButtonStyle.secondary, custom_id="vc:lock", row=1)
     async def lock_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not await self._check_owner(interaction): return
         vc = interaction.user.voice.channel
         try:
             await vc.set_permissions(interaction.guild.default_role, connect=False, reason=f"User {interaction.user.display_name} locked VC via UI.")
             button.label = "Buka Channel"
-            button.emoji = "🔓"
-            await interaction.response.send_message(f"✅ Channel **{vc.name}** telah dikunci.", ephemeral=True)
+            button.emoji = "ðŸ”“"
+            await interaction.response.send_message(f"âœ… Channel **{vc.name}** telah dikunci.", ephemeral=True)
         except discord.Forbidden:
-            await interaction.response.send_message("❌ Bot tidak memiliki izin untuk mengunci channel ini.", ephemeral=True)
+            await interaction.response.send_message("âŒ Bot tidak memiliki izin untuk mengunci channel ini.", ephemeral=True)
     
-    @discord.ui.button(emoji="🔓", label="Buka Channel", style=discord.ButtonStyle.secondary, custom_id="vc:unlock", row=1)
+    @discord.ui.button(emoji="ðŸ”“", label="Buka Channel", style=discord.ButtonStyle.secondary, custom_id="vc:unlock", row=1)
     async def unlock_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not await self._check_owner(interaction): return
         vc = interaction.user.voice.channel
         try:
             await vc.set_permissions(interaction.guild.default_role, connect=True, reason=f"User {interaction.user.display_name} unlocked VC via UI.")
             button.label = "Kunci Channel"
-            button.emoji = "🔒"
-            await interaction.response.send_message(f"✅ Channel **{vc.name}** telah dibuka.", ephemeral=True)
+            button.emoji = "ðŸ”’"
+            await interaction.response.send_message(f"âœ… Channel **{vc.name}** telah dibuka.", ephemeral=True)
         except discord.Forbidden:
-            await interaction.response.send_message("❌ Bot tidak memiliki izin untuk membuka kunci channel ini.", ephemeral=True)
+            await interaction.response.send_message("âŒ Bot tidak memiliki izin untuk membuka kunci channel ini.", ephemeral=True)
 
-    @discord.ui.button(emoji="👀", label="Sembunyikan", style=discord.ButtonStyle.secondary, custom_id="vc:toggle_visibility", row=2)
+    @discord.ui.button(emoji="ðŸ‘€", label="Sembunyikan", style=discord.ButtonStyle.secondary, custom_id="vc:toggle_visibility", row=2)
     async def toggle_visibility_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not await self._check_owner(interaction): return
         vc = interaction.user.voice.channel
@@ -729,23 +738,23 @@ class VCControlView(discord.ui.View):
                 await interaction.response.edit_message(view=self)
                 await interaction.followup.send("Channel berhasil ditampilkan.", ephemeral=True)
         except discord.Forbidden:
-            await interaction.response.send_message("❌ Bot tidak memiliki izin untuk mengubah visibilitas channel ini.", ephemeral=True)
+            await interaction.response.send_message("âŒ Bot tidak memiliki izin untuk mengubah visibilitas channel ini.", ephemeral=True)
         except Exception as e:
-            await interaction.response.send_message(f"❌ Terjadi kesalahan: {e}", ephemeral=True)
+            await interaction.response.send_message(f"âŒ Terjadi kesalahan: {e}", ephemeral=True)
     
-    @discord.ui.button(emoji="🔗", label="Invite", style=discord.ButtonStyle.blurple, custom_id="vc:invite", row=2)
+    @discord.ui.button(emoji="ðŸ”—", label="Invite", style=discord.ButtonStyle.blurple, custom_id="vc:invite", row=2)
     async def invite_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not await self._check_owner(interaction): return
         vc = interaction.user.voice.channel
         try:
             invite = await vc.create_invite(max_age=3600, max_uses=1, unique=True, reason=f"Invite created by VC owner {interaction.user.display_name} via UI.")
-            await interaction.response.send_message(f"🔗 Ini link undanganmu untuk channel **{vc.name}**: {invite.url}", ephemeral=True)
+            await interaction.response.send_message(f"ðŸ”— Ini link undanganmu untuk channel **{vc.name}**: {invite.url}", ephemeral=True)
         except discord.Forbidden:
-            await interaction.response.send_message("❌ Bot tidak memiliki izin untuk membuat link undangan di channel ini.", ephemeral=True)
+            await interaction.response.send_message("âŒ Bot tidak memiliki izin untuk membuat link undangan di channel ini.", ephemeral=True)
         except Exception as e:
-            await interaction.response.send_message(f"❌ Terjadi kesalahan saat membuat undangan: {e}", ephemeral=True)
+            await interaction.response.send_message(f"âŒ Terjadi kesalahan saat membuat undangan: {e}", ephemeral=True)
 
-    @discord.ui.button(emoji="🗑️", label="Hapus Channel", style=discord.ButtonStyle.danger, custom_id="vc:delete", row=2)
+    @discord.ui.button(emoji="ðŸ—‘ï¸", label="Hapus Channel", style=discord.ButtonStyle.danger, custom_id="vc:delete", row=2)
     async def delete_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not await self._check_owner(interaction): return
         vc = interaction.user.voice.channel
@@ -755,13 +764,13 @@ class VCControlView(discord.ui.View):
             save_temp_channels(self.cog.active_temp_channels)
         try:
             await vc.delete(reason=f"VC deleted by owner {interaction.user.display_name} via UI.")
-            await interaction.response.send_message(f"✅ Channel **{vc.name}** telah dihapus.", ephemeral=True)
+            await interaction.response.send_message(f"âœ… Channel **{vc.name}** telah dihapus.", ephemeral=True)
         except discord.NotFound:
             await interaction.response.send_message("Channel ini sudah terhapus.", ephemeral=True)
         except discord.Forbidden:
-            await interaction.response.send_message("❌ Bot tidak memiliki izin untuk menghapus channel ini.", ephemeral=True)
+            await interaction.response.send_message("âŒ Bot tidak memiliki izin untuk menghapus channel ini.", ephemeral=True)
         except Exception as e:
-            await interaction.response.send_message(f"❌ Terjadi kesalahan saat menghapus channel: {e}", ephemeral=True)
+            await interaction.response.send_message(f"âŒ Terjadi kesalahan saat menghapus channel: {e}", ephemeral=True)
 
 class Music(commands.Cog):
     def __init__(self, bot):
@@ -981,9 +990,9 @@ class Music(commands.Cog):
                 end_time = now.replace(hour=CREATION_END_TIME[0], minute=CREATION_END_TIME[1], second=0, microsecond=0)
                 if CREATION_END_TIME < CREATION_START_TIME:
                     if now < start_time and now > end_time:
-                        return await self.send_scheduled_message(member, "❌ Maaf, pembuatan channel pribadi hanya tersedia pada waktu yang ditentukan.")
+                        return await self.send_scheduled_message(member, "âŒ Maaf, pembuatan channel pribadi hanya tersedia pada waktu yang ditentukan.")
                 elif not (start_time <= now <= end_time):
-                    return await self.send_scheduled_message(member, "❌ Maaf, pembuatan channel pribadi hanya tersedia pada waktu yang ditentukan.")
+                    return await self.send_scheduled_message(member, "âŒ Maaf, pembuatan channel pribadi hanya tersedia pada waktu yang ditentukan.")
             
             for ch_id_str, ch_info in list(self.active_temp_channels.items()):
                 if not isinstance(ch_info, dict):
@@ -1004,7 +1013,7 @@ class Music(commands.Cog):
             guild = member.guild
             category = guild.get_channel(target_cat_id)
             if not category or not isinstance(category, discord.CategoryChannel):
-                try: await member.send("❌ Gagal membuat channel suara pribadi: Kategori tujuan tidak ditemukan atau tidak valid. Hubungi admin server.")
+                try: await member.send("âŒ Gagal membuat channel suara pribadi: Kategori tujuan tidak ditemukan atau tidak valid. Hubungi admin server.")
                 except discord.Forbidden: pass
                 try: await member.move_to(None, reason="Target category invalid.")
                 except: pass
@@ -1055,7 +1064,7 @@ class Music(commands.Cog):
                 save_temp_channels(self.active_temp_channels)
                 
                 embed = discord.Embed(
-                    title="🎉 Channel Pribadimu Dibuat!",
+                    title="ðŸŽ‰ Channel Pribadimu Dibuat!",
                     description=f"Selamat welcome di **{new_vc.name}**, {member.mention}! Kamu adalah pemilik channel ini.\n"
                                  f"**Bitrate diatur maksimal ({bitrate_kbps} kbps)** dan **Region diatur ke {TARGET_REGION.upper()}**.\n"
                                  f"Gunakan tombol di bawah untuk mengelola channelmu tanpa perintah teks.\n"
@@ -1065,17 +1074,17 @@ class Music(commands.Cog):
                 embed.add_field(name="User Limit (Batas Pengguna)", value="""
                 Secara default, batas pengguna diatur ke **tak terbatas** (**0**). 
                 Ini berarti siapa pun yang Anda izinkan dapat bergabung. 
-                Gunakan tombol `➕` dan `➖` untuk mengubahnya, atau `!vcsetlimit <angka>` untuk mengatur batas tertentu.
+                Gunakan tombol `âž•` dan `âž–` untuk mengubahnya, atau `!vcsetlimit <angka>` untuk mengatur batas tertentu.
                 """, inline=False)
                 view = VCControlView(self)
                 await new_vc.send(embed=embed, view=view)
             except discord.Forbidden:
-                try: await member.send(f"❌ Gagal membuat channel suara pribadi: Bot tidak memiliki izin yang cukup (Manage Channels atau Move Members). Hubungi admin server.")
+                try: await member.send(f"âŒ Gagal membuat channel suara pribadi: Bot tidak memiliki izin yang cukup (Manage Channels atau Move Members). Hubungi admin server.")
                 except discord.Forbidden: pass
                 try: await member.move_to(None, reason="Bot lacks permissions.")
                 except: pass
             except Exception as e:
-                try: await member.send(f"❌ Terjadi kesalahan saat memindahkan Anda ke channel pribadi Anda: {e}. Hubungi admin server.")
+                try: await member.send(f"âŒ Terjadi kesalahan saat memindahkan Anda ke channel pribadi Anda: {e}. Hubungi admin server.")
                 except discord.Forbidden: pass
                 try: await member.move_to(None, reason="Unexpected error.")
                 except: pass
@@ -1130,18 +1139,25 @@ class Music(commands.Cog):
     async def get_song_info_from_url(self, url):
         try:
             info = await asyncio.to_thread(lambda: ytdl.extract_info(url, download=False, process=False))
+            
+            if not info:
+                return {'title': url, 'artist': 'Unknown Artist', 'webpage_url': url}
+                
             title = info.get('title', url)
-            artist = info.get('artist') or info.get('uploader', 'Unknown Artist')
-            if "Vevo" in artist or "Official" in artist or "Topic" in artist or "Channel" in artist:
+            artist = info.get('artist') or info.get('uploader') or 'Unknown Artist'
+            
+            if artist and any(x in artist for x in ["Vevo", "Official", "Topic", "Channel"]):
                 if ' - ' in title:
                     parts = title.split(' - ')
                     if len(parts) > 1:
                         potential_artist = parts[-1].strip()
                         if len(potential_artist) < 30 and "channel" not in potential_artist.lower() and "topic" not in potential_artist.lower():
                             artist = potential_artist
+                            
             return {'title': title, 'artist': artist, 'webpage_url': info.get('webpage_url', url)}
         except Exception as e:
             return {'title': url, 'artist': 'Unknown Artist', 'webpage_url': url}
+
 
     async def _send_lyrics(self, interaction_or_ctx, song_name_override=None):
         if not self.genius:
@@ -1288,7 +1304,7 @@ class Music(commands.Cog):
             )
             
             embed = discord.Embed(
-                title="🎶 Sedang Memutar",
+                title="ðŸŽ¶ Sedang Memutar",
                 description=f"**[{self.now_playing_info[guild_id]['title']}]({self.now_playing_info[guild_id]['webpage_url']})**",
                 color=discord.Color.purple()
             )
@@ -1376,7 +1392,7 @@ class Music(commands.Cog):
                 info = self.now_playing_info[guild_id]
                 source = vc.source
                 embed_to_send = discord.Embed(
-                    title="🎶 Sedang Memutar",
+                    title="ðŸŽ¶ Sedang Memutar",
                     description=f"**[{info['title']}]({info['webpage_url']})**",
                     color=discord.Color.purple()
                 )
@@ -1400,16 +1416,16 @@ class Music(commands.Cog):
                 for item in updated_view.children:
                     if item.custom_id == "music:play_pause":
                         if vc.is_playing():
-                            item.emoji = "⏸️"
+                            item.emoji = "â¸ï¸"
                             item.style = discord.ButtonStyle.green
                         elif vc.is_paused():
-                            item.emoji = "▶️"
+                            item.emoji = "â–¶ï¸"
                             item.style = discord.ButtonStyle.primary
                     elif item.custom_id == "music:mute_unmute":
                         if self.is_muted.get(guild_id, False):
-                            item.emoji = "🔇"
+                            item.emoji = "ðŸ”‡"
                         else:
-                            item.emoji = "🔊"
+                            item.emoji = "ðŸ”Š"
                     elif item.custom_id == "music:loop":
                         if self.loop_status.get(guild_id, False):
                             item.style = discord.ButtonStyle.green
@@ -1460,19 +1476,19 @@ class Music(commands.Cog):
                 }
                 search_query = f"{track['name']} {track['artists'][0]['name']} audio"
                 info = await asyncio.to_thread(lambda: ytdl.extract_info(search_query, download=False, process=True))
-                if 'entries' in info and isinstance(info.get('entries'), list) and len(info['entries']) > 0:
+                if info and 'entries' in info and isinstance(info.get('entries'), list) and len(info['entries']) > 0:
                     urls.append(info['entries'][0]['webpage_url'])
                 else:
-                    raise Exception(f"Tidak dapat menemukan audio untuk track Spotify: {track['name']}")
+                    raise Exception(f"Tidak menemukan audio untuk: {track['name']}")
             elif "playlist" in query:
                 results = self.spotify.playlist_tracks(query)
                 for item in results['items']:
-                    track = item['track']
+                    track = item.get('track')
                     if track:
                         search_query = f"{track['name']} {track['artists'][0]['name']} audio"
                         try:
                             info = await asyncio.to_thread(lambda: ytdl.extract_info(search_query, download=False, process=True))
-                            if 'entries' in info and isinstance(info.get('entries'), list) and len(info['entries']) > 0:
+                            if info and 'entries' in info and isinstance(info.get('entries'), list) and len(info['entries']) > 0:
                                 urls.append(info['entries'][0]['webpage_url'])
                         except Exception:
                             continue
@@ -1484,15 +1500,15 @@ class Music(commands.Cog):
                         search_query = f"{track['name']} {track['artists'][0]['name']} audio"
                         try:
                             info = await asyncio.to_thread(lambda: ytdl.extract_info(search_query, download=False, process=True))
-                            if 'entries' in info and isinstance(info.get('entries'), list) and len(info['entries']) > 0:
+                            if info and 'entries' in info and isinstance(info.get('entries'), list) and len(info['entries']) > 0:
                                 urls.append(info['entries'][0]['webpage_url'])
                         except Exception:
                             continue
             
             return urls, spotify_track_info
         except Exception as e:
-            log.error(f"Error processing Spotify URL: {e}")
-            raise Exception(f"Gagal memproses link Spotify. Coba gunakan link Deezer atau SoundCloud sebagai alternatif. Error: {str(e)[:100]}")
+            raise Exception(f"Gagal memproses Spotify: {str(e)[:100]}")
+
 
     async def process_deezer_url(self, query, ctx):
         try:
@@ -1507,31 +1523,31 @@ class Music(commands.Cog):
                 return [], None
             
             info = await asyncio.to_thread(lambda: ytdl.extract_info(search_query, download=False, process=True))
-            if 'entries' in info and isinstance(info.get('entries'), list):
-                urls = [entry['webpage_url'] for entry in info['entries']]
+            if info and 'entries' in info and isinstance(info.get('entries'), list):
+                urls = [entry['webpage_url'] for entry in info['entries'] if entry]
                 return urls, None
-            elif 'webpage_url' in info:
+            elif info and 'webpage_url' in info:
                 return [info['webpage_url']], None
             else:
                 raise Exception("Tidak dapat memproses link Deezer")
         except Exception as e:
-            log.error(f"Error processing Deezer URL: {e}")
             raise Exception(f"Gagal memproses link Deezer. Error: {str(e)[:100]}")
+
 
     async def process_soundcloud_url(self, query, ctx):
         try:
             search_query = query
             info = await asyncio.to_thread(lambda: ytdl.extract_info(search_query, download=False, process=True))
-            if 'entries' in info and isinstance(info.get('entries'), list):
-                urls = [entry['webpage_url'] for entry in info['entries']]
+            if info and 'entries' in info and isinstance(info.get('entries'), list):
+                urls = [entry['webpage_url'] for entry in info['entries'] if entry]
                 return urls, None
-            elif 'webpage_url' in info:
+            elif info and 'webpage_url' in info:
                 return [info['webpage_url']], None
             else:
                 raise Exception("Tidak dapat memproses link SoundCloud")
         except Exception as e:
-            log.error(f"Error processing SoundCloud URL: {e}")
             raise Exception(f"Gagal memproses link SoundCloud. Error: {str(e)[:100]}")
+
 
     async def auto_deafen_bot(self, voice_channel):
         try:
@@ -1540,7 +1556,7 @@ class Music(commands.Cog):
             bot_member = voice_channel.guild.get_member(self.bot.user.id)
             if bot_member and bot_member.voice:
                 await bot_member.edit(deafen=True)
-                log.info(f"✅ Bot auto-deafen di {voice_channel.name}")
+                log.info(f"âœ… Bot auto-deafen di {voice_channel.name}")
         except Exception as e:
             log.error(f"Error auto-deafen: {e}")
 
@@ -1555,14 +1571,14 @@ class Music(commands.Cog):
                 activity = discord.Activity(
                     type=discord.ActivityType.listening,
                     name=f"{song_title[:100]}",
-                    details="🎵 Playing Music",
+                    details="ðŸŽµ Playing Music",
                     state="Type !reshelp for commands"
                 )
                 await self.bot.change_presence(
                     activity=activity,
                     status=discord.Status.online
                 )
-                log.info(f"🎵 Activity status: Listening to {song_title[:30]}...")
+                log.info(f"ðŸŽµ Activity status: Listening to {song_title[:30]}...")
             else:
                 self.is_playing_music = False
                 self.current_song_title = None
@@ -1612,7 +1628,7 @@ class Music(commands.Cog):
                 status=discord.Status.online
             )
             
-            log.info(f"✅ Manual activity set: {activity_type} - {name}")
+            log.info(f"âœ… Manual activity set: {activity_type} - {name}")
             return True
             
         except Exception as e:
@@ -1639,7 +1655,7 @@ class Music(commands.Cog):
                 )
                 await self.bot.change_presence(activity=activity)
                 
-            log.info("✅ Status kembali ke mode otomatis")
+            log.info("âœ… Status kembali ke mode otomatis")
             return True
             
         except Exception as e:
@@ -1668,7 +1684,7 @@ class Music(commands.Cog):
                 )
                 
                 await self.auto_deafen_bot(vc)
-                log.info(f"✅ Connected to voice channel: {ctx.author.voice.channel.name}")
+                log.info(f"âœ… Connected to voice channel: {ctx.author.voice.channel.name}")
                 
                 self.voice_retry_attempts.pop(guild_id, None)
                 return vc
@@ -1739,36 +1755,36 @@ class Music(commands.Cog):
                     timeout=5
                 )
                 version_line = result.stdout.split('\n')[0]
-                tests.append(f"✅ **FFmpeg**: {version_line}")
+                tests.append(f"âœ… **FFmpeg**: {version_line}")
                 
                 if 'libopus' in result.stdout:
-                    tests.append("✅ **Opus codec**: Supported")
+                    tests.append("âœ… **Opus codec**: Supported")
                 else:
-                    tests.append("⚠️ **Opus codec**: Not found")
+                    tests.append("âš ï¸ **Opus codec**: Not found")
             except Exception as e:
-                tests.append(f"❌ **FFmpeg test failed**: {str(e)[:100]}")
+                tests.append(f"âŒ **FFmpeg test failed**: {str(e)[:100]}")
         else:
-            tests.append(f"❌ **FFmpeg not found at**: {ffmpeg_path}")
+            tests.append(f"âŒ **FFmpeg not found at**: {ffmpeg_path}")
         
         try:
             import discord
-            tests.append(f"✅ **discord.py**: {discord.__version__}")
+            tests.append(f"âœ… **discord.py**: {discord.__version__}")
         except Exception as e:
-            tests.append(f"❌ **discord.py**: {str(e)[:100]}")
+            tests.append(f"âŒ **discord.py**: {str(e)[:100]}")
         
         try:
             import yt_dlp
-            tests.append(f"✅ **yt-dlp**: {yt_dlp.version.__version__}")
+            tests.append(f"âœ… **yt-dlp**: {yt_dlp.version.__version__}")
         except Exception as e:
-            tests.append(f"❌ **yt-dlp**: {str(e)[:100]}")
+            tests.append(f"âŒ **yt-dlp**: {str(e)[:100]}")
         
         if ctx.voice_client and ctx.voice_client.is_connected():
-            tests.append(f"🎵 **Voice status**: Connected to {ctx.voice_client.channel.name}")
+            tests.append(f"ðŸŽµ **Voice status**: Connected to {ctx.voice_client.channel.name}")
         else:
-            tests.append("🔇 **Voice status**: Not connected")
+            tests.append("ðŸ”‡ **Voice status**: Not connected")
         
         embed = discord.Embed(
-            title="🔊 Audio System Test",
+            title="ðŸ”Š Audio System Test",
             description="\n".join(tests),
             color=discord.Color.blue()
         )
@@ -1792,17 +1808,17 @@ class Music(commands.Cog):
                 reconnect=True,
                 self_deaf=True
             )
-            await ctx.send(f"✅ Bergabung ke **{ctx.author.voice.channel.name}**")
+            await ctx.send(f"âœ… Bergabung ke **{ctx.author.voice.channel.name}**")
             
             # Tunggu sedikit sebelum mulai play
             await asyncio.sleep(1)
             
         except asyncio.TimeoutError:
-            await ctx.send("❌ Timeout saat mencoba bergabung ke voice channel.")
+            await ctx.send("âŒ Timeout saat mencoba bergabung ke voice channel.")
         except discord.ClientException as e:
-            await ctx.send(f"❌ Error: {e}")
+            await ctx.send(f"âŒ Error: {e}")
         except Exception as e:
-            await ctx.send(f"❌ Gagal bergabung: {type(e).__name__}: {str(e)[:200]}")
+            await ctx.send(f"âŒ Gagal bergabung: {type(e).__name__}: {str(e)[:200]}")
 
     @commands.command(name="resp", aliases=["p", "play"])
     async def play(self, ctx, *, query):
@@ -1812,18 +1828,18 @@ class Music(commands.Cog):
             
             guild_id = ctx.guild.id
             if not self.can_retry_voice(guild_id):
-                return await ctx.send("❌ Voice connection sedang bermasalah. Coba lagi dalam 1 menit.", ephemeral=True)
+                return await ctx.send("âŒ Voice connection sedang bermasalah. Coba lagi dalam 1 menit.", ephemeral=True)
             
             if not ctx.voice_client or not ctx.voice_client.is_connected():
                 try:
                     vc = await ctx.author.voice.channel.connect(timeout=60.0, reconnect=True)
-                    await ctx.send(f"✅ Bergabung ke **{ctx.author.voice.channel.name}**")
+                    await ctx.send(f"âœ… Bergabung ke **{ctx.author.voice.channel.name}**")
                     await asyncio.sleep(1)
                 except discord.errors.ConnectionClosed as e:
-                    return await ctx.send("❌ **Error 4006**: Gagal terhubung ke server voice Discord. Ini adalah masalah jaringan Discord. Silakan coba lagi nanti.")
+                    return await ctx.send("âŒ **Error 4006**: Gagal terhubung ke server voice Discord. Ini adalah masalah jaringan Discord. Silakan coba lagi nanti.")
                 except Exception as e:
                     log.error(f"Error connecting to voice: {e}")
-                    await ctx.send(f"❌ Gagal bergabung ke voice channel: {e}")
+                    await ctx.send(f"âŒ Gagal bergabung ke voice channel: {e}")
                     return
         
             await ctx.defer()
@@ -1838,30 +1854,30 @@ class Music(commands.Cog):
                 try:
                     urls, spotify_track_info = await self.process_spotify_url(query, ctx)
                     if not urls:
-                        await ctx.send("⚠️ Link Spotify saat ini sedang mengalami masalah hak cipta. Coba gunakan link Deezer atau SoundCloud sebagai alternatif.", ephemeral=True)
+                        await ctx.send("âš ï¸ Link Spotify saat ini sedang mengalami masalah hak cipta. Coba gunakan link Deezer atau SoundCloud sebagai alternatif.", ephemeral=True)
                         return
                 except Exception as e:
-                    await ctx.send(f"⚠️ {str(e)}", ephemeral=True)
+                    await ctx.send(f"âš ï¸ {str(e)}", ephemeral=True)
                     return
             elif "deezer.com" in query:
                 is_deezer_request = True
                 try:
                     urls, _ = await self.process_deezer_url(query, ctx)
                     if not urls:
-                        await ctx.send("❌ Gagal memproses link Deezer.", ephemeral=True)
+                        await ctx.send("âŒ Gagal memproses link Deezer.", ephemeral=True)
                         return
                 except Exception as e:
-                    await ctx.send(f"❌ {str(e)}", ephemeral=True)
+                    await ctx.send(f"âŒ {str(e)}", ephemeral=True)
                     return
             elif "soundcloud.com" in query:
                 is_soundcloud_request = True
                 try:
                     urls, _ = await self.process_soundcloud_url(query, ctx)
                     if not urls:
-                        await ctx.send("❌ Gagal memproses link SoundCloud.", ephemeral=True)
+                        await ctx.send("âŒ Gagal memproses link SoundCloud.", ephemeral=True)
                         return
                 except Exception as e:
-                    await ctx.send(f"❌ {str(e)}", ephemeral=True)
+                    await ctx.send(f"âŒ {str(e)}", ephemeral=True)
                     return
             else:
                 urls.append(query)
@@ -1902,7 +1918,7 @@ class Music(commands.Cog):
                     self.add_song_to_history(ctx.author.id, self.now_playing_info[ctx.guild.id])
                     
                     embed = discord.Embed(
-                        title="🎶 Sedang Memutar",
+                        title="ðŸŽ¶ Sedang Memutar",
                         description=f"**[{self.now_playing_info[ctx.guild.id]['title']}]({self.now_playing_info[ctx.guild.id]['webpage_url']})**",
                         color=discord.Color.purple()
                     )
@@ -1924,7 +1940,7 @@ class Music(commands.Cog):
                     if self.is_muted.get(ctx.guild.id, False):
                         for item in view_instance.children:
                             if item.custom_id == "music:mute_unmute":
-                                item.emoji = "🔇"
+                                item.emoji = "ðŸ”‡"
                                 break
                     
                     if ctx.guild.id in self.current_music_message_info:
@@ -1945,7 +1961,7 @@ class Music(commands.Cog):
                         }
                 
                 except discord.errors.ConnectionClosed as e:
-                    await ctx.send("❌ **Error 4006**: Koneksi voice terputus saat memutar musik. Silakan coba lagi.")
+                    await ctx.send("âŒ **Error 4006**: Koneksi voice terputus saat memutar musik. Silakan coba lagi.")
                     log.error(f"ConnectionClosed error while playing: {e}")
                     self.voice_retry_attempts[ctx.guild.id] = datetime.now()
                     return
@@ -1972,7 +1988,7 @@ class Music(commands.Cog):
                     await self._update_music_message_from_ctx(ctx)
         
         except discord.errors.ConnectionClosed as e:
-            await ctx.send("❌ **Error 4006**: Koneksi voice Discord bermasalah. Silakan coba lagi nanti.")
+            await ctx.send("âŒ **Error 4006**: Koneksi voice Discord bermasalah. Silakan coba lagi nanti.")
             log.error(f"ConnectionClosed error in play command: {e}")
             self.voice_retry_attempts[ctx.guild.id] = datetime.now()
             
@@ -1995,7 +2011,7 @@ class Music(commands.Cog):
                 queue.pop(0)
             
             ctx.voice_client.stop()
-            await ctx.send("⏭️ Skip lagu.", ephemeral=True)
+            await ctx.send("â­ï¸ Skip lagu.", ephemeral=True)
         
         except Exception as e:
             log.error(f"Error in skip_cmd: {e}")
@@ -2009,7 +2025,7 @@ class Music(commands.Cog):
             
             if ctx.voice_client.is_playing():
                 ctx.voice_client.pause()
-                await ctx.send("⏸️ Lagu dijeda.", ephemeral=True)
+                await ctx.send("â¸ï¸ Lagu dijeda.", ephemeral=True)
                 if ctx.guild.id in self.current_music_message_info:
                     await self._update_music_message_from_ctx(ctx)
             else:
@@ -2027,7 +2043,7 @@ class Music(commands.Cog):
             
             if ctx.voice_client.is_paused():
                 ctx.voice_client.resume()
-                await ctx.send("▶️ Lanjut lagu.", ephemeral=True)
+                await ctx.send("â–¶ï¸ Lanjut lagu.", ephemeral=True)
                 if ctx.guild.id in self.current_music_message_info:
                     await self._update_music_message_from_ctx(ctx)
             else:
@@ -2069,7 +2085,7 @@ class Music(commands.Cog):
             self.old_volume.pop(guild_id, None)
             self.now_playing_info.pop(guild_id, None)
             
-            await ctx.send("⏹️ Stop dan keluar dari voice.", ephemeral=True)
+            await ctx.send("â¹ï¸ Stop dan keluar dari voice.", ephemeral=True)
         
         except Exception as e:
             log.error(f"Error in stop_cmd: {e}")
@@ -2083,7 +2099,7 @@ class Music(commands.Cog):
                 display_queue_titles = [await self.get_song_info_from_url(q) for q in queue[:15]]
                 msg = "\n".join([f"{i+1}. {q['title']}" for i, q in enumerate(display_queue_titles)])
                 embed = discord.Embed(
-                    title="🎶 Antrean Lagu",
+                    title="ðŸŽ¶ Antrean Lagu",
                     description=f"```{msg}```",
                     color=discord.Color.gold()
                 )
@@ -2107,7 +2123,7 @@ class Music(commands.Cog):
             self.loop_status[guild_id] = not self.loop_status[guild_id]
             status_msg = "ON" if self.loop_status[guild_id] else "OFF"
             
-            await ctx.send(f"🔁 Mode Loop **{status_msg}** (lagu saat ini akan diulang).", ephemeral=True)
+            await ctx.send(f"ðŸ” Mode Loop **{status_msg}** (lagu saat ini akan diulang).", ephemeral=True)
             if ctx.guild.id in self.current_music_message_info:
                 await self._update_music_message_from_ctx(ctx)
         
@@ -2168,7 +2184,7 @@ class Music(commands.Cog):
             queue = self.get_queue(ctx.guild.id)
             if len(queue) > 1:
                 random.shuffle(queue)
-                await ctx.send("🔀 Antrean lagu diacak!", ephemeral=True)
+                await ctx.send("ðŸ”€ Antrean lagu diacak!", ephemeral=True)
                 if ctx.guild.id in self.current_music_message_info:
                     await self._update_music_message_from_ctx(ctx)
             else:
@@ -2184,7 +2200,7 @@ class Music(commands.Cog):
             queue = self.get_queue(ctx.guild.id)
             if queue:
                 self.queues[ctx.guild.id] = []
-                await ctx.send("🗑️ Antrean lagu telah dikosongkan!", ephemeral=True)
+                await ctx.send("ðŸ—‘ï¸ Antrean lagu telah dikosongkan!", ephemeral=True)
                 if ctx.guild.id in self.current_music_message_info:
                     await self._update_music_message_from_ctx(ctx)
             else:
@@ -2198,7 +2214,7 @@ class Music(commands.Cog):
     @commands.has_permissions(administrator=True)
     async def manage_status(self, ctx, action: str = None, *, args: str = None):
         embed = discord.Embed(
-            title="🎮 Custom Status Manager",
+            title="ðŸŽ® Custom Status Manager",
             color=discord.Color.blue()
         )
         
@@ -2207,20 +2223,20 @@ class Music(commands.Cog):
             enabled = self.status_config.get("enabled", True)
             interval = self.status_config.get("interval", 30)
             
-            embed.description = f"**Status Rotasi:** {'✅ ON' if enabled else '❌ OFF'}\n"
+            embed.description = f"**Status Rotasi:** {'âœ… ON' if enabled else 'âŒ OFF'}\n"
             embed.description += f"**Interval:** {interval} detik\n"
             embed.description += f"**Jumlah Status:** {len(statuses)}\n\n"
             
             if statuses:
                 for i, status in enumerate(statuses):
                     type_emoji = {
-                        "playing": "🎮",
-                        "listening": "🎵", 
-                        "watching": "👀",
-                        "competing": "🏆",
-                        "streaming": "📺",
-                        "custom": "🔧"
-                    }.get(status.get("type", "playing"), "🎮")
+                        "playing": "ðŸŽ®",
+                        "listening": "ðŸŽµ", 
+                        "watching": "ðŸ‘€",
+                        "competing": "ðŸ†",
+                        "streaming": "ðŸ“º",
+                        "custom": "ðŸ”§"
+                    }.get(status.get("type", "playing"), "ðŸŽ®")
                     
                     embed.add_field(
                         name=f"{type_emoji} Status #{i+1}",
@@ -2232,7 +2248,7 @@ class Music(commands.Cog):
                     )
             
             embed.add_field(
-                name="📖 Perintah",
+                name="ðŸ“– Perintah",
                 value="`!resstatus add <type> <name> | <details> | <state>` - Tambah status baru\n"
                       "`!resstatus remove <number>` - Hapus status\n"
                       "`!resstatus edit <number> <type> <name> | <details> | <state>` - Edit status\n"
@@ -2252,7 +2268,7 @@ class Music(commands.Cog):
             self.status_config["enabled"] = True
             save_status_config(self.status_config)
             self.status_rotation_task.restart()
-            await ctx.send("✅ **Rotasi status diaktifkan!**", ephemeral=True)
+            await ctx.send("âœ… **Rotasi status diaktifkan!**", ephemeral=True)
             
         elif action == "off":
             self.status_config["enabled"] = False
@@ -2264,41 +2280,41 @@ class Music(commands.Cog):
                 details="Status rotation disabled"
             )
             await self.bot.change_presence(activity=activity)
-            await ctx.send("❌ **Rotasi status dinonaktifkan!**", ephemeral=True)
+            await ctx.send("âŒ **Rotasi status dinonaktifkan!**", ephemeral=True)
             
         elif action == "interval":
             try:
                 if not args or not args.isdigit():
-                    return await ctx.send("❌ Gunakan: `!resstatus interval <detik>`", ephemeral=True)
+                    return await ctx.send("âŒ Gunakan: `!resstatus interval <detik>`", ephemeral=True)
                 
                 interval = int(args)
                 if interval < 5:
-                    return await ctx.send("❌ Interval minimal 5 detik", ephemeral=True)
+                    return await ctx.send("âŒ Interval minimal 5 detik", ephemeral=True)
                 if interval > 300:
-                    return await ctx.send("❌ Interval maksimal 300 detik (5 menit)", ephemeral=True)
+                    return await ctx.send("âŒ Interval maksimal 300 detik (5 menit)", ephemeral=True)
                 
                 self.status_config["interval"] = interval
                 save_status_config(self.status_config)
                 self.status_rotation_task.change_interval(seconds=interval)
-                await ctx.send(f"✅ **Interval diubah menjadi {interval} detik!**", ephemeral=True)
+                await ctx.send(f"âœ… **Interval diubah menjadi {interval} detik!**", ephemeral=True)
                 
             except ValueError:
-                await ctx.send("❌ Interval harus angka!", ephemeral=True)
+                await ctx.send("âŒ Interval harus angka!", ephemeral=True)
                 
         elif action == "add":
             if not args:
-                return await ctx.send("❌ Gunakan: `!resstatus add <type> <name> | <details> | <state>`\n"
+                return await ctx.send("âŒ Gunakan: `!resstatus add <type> <name> | <details> | <state>`\n"
                                     "Contoh: `!resstatus add playing Roblox | Playing with friends | Level 99`", ephemeral=True)
             
             # Parse arguments with | separator
             parts = args.split("|", 2)
             if len(parts) < 1:
-                return await ctx.send("❌ Format salah! Gunakan: `!resstatus add <type> <name> | <details> | <state>`", ephemeral=True)
+                return await ctx.send("âŒ Format salah! Gunakan: `!resstatus add <type> <name> | <details> | <state>`", ephemeral=True)
             
             first_part = parts[0].strip()
             type_parts = first_part.split(" ", 1)
             if len(type_parts) < 2:
-                return await ctx.send("❌ Format salah! Gunakan: `!resstatus add <type> <name> | <details> | <state>`", ephemeral=True)
+                return await ctx.send("âŒ Format salah! Gunakan: `!resstatus add <type> <name> | <details> | <state>`", ephemeral=True)
             
             status_type = type_parts[0].lower()
             status_name = type_parts[1].strip()
@@ -2307,7 +2323,7 @@ class Music(commands.Cog):
             
             valid_types = ["playing", "listening", "watching", "competing", "streaming", "custom"]
             if status_type not in valid_types:
-                return await ctx.send(f"❌ Type tidak valid! Pilih dari: {', '.join(valid_types)}", ephemeral=True)
+                return await ctx.send(f"âŒ Type tidak valid! Pilih dari: {', '.join(valid_types)}", ephemeral=True)
             
             if "statuses" not in self.status_config:
                 self.status_config["statuses"] = []
@@ -2320,7 +2336,7 @@ class Music(commands.Cog):
             })
             
             save_status_config(self.status_config)
-            await ctx.send(f"✅ **Status berhasil ditambahkan!**\n"
+            await ctx.send(f"âœ… **Status berhasil ditambahkan!**\n"
                           f"Type: `{status_type}`\n"
                           f"Name: `{status_name[:50]}`\n"
                           f"Details: `{status_details[:50] if status_details else 'N/A'}`\n"
@@ -2329,13 +2345,13 @@ class Music(commands.Cog):
         elif action == "remove":
             try:
                 if not args or not args.isdigit():
-                    return await ctx.send("❌ Gunakan: `!resstatus remove <nomor>`", ephemeral=True)
+                    return await ctx.send("âŒ Gunakan: `!resstatus remove <nomor>`", ephemeral=True)
                 
                 index = int(args) - 1
                 statuses = self.status_config.get("statuses", [])
                 
                 if index < 0 or index >= len(statuses):
-                    return await ctx.send(f"❌ Nomor tidak valid! Pilih 1-{len(statuses)}", ephemeral=True)
+                    return await ctx.send(f"âŒ Nomor tidak valid! Pilih 1-{len(statuses)}", ephemeral=True)
                 
                 removed = statuses.pop(index)
                 self.status_config["statuses"] = statuses
@@ -2344,26 +2360,26 @@ class Music(commands.Cog):
                 if self.current_status_index >= len(statuses):
                     self.current_status_index = 0
                 
-                await ctx.send(f"✅ **Status #{index+1} dihapus:**\n"
+                await ctx.send(f"âœ… **Status #{index+1} dihapus:**\n"
                               f"Type: `{removed.get('type')}`\n"
                               f"Name: `{removed.get('name', 'N/A')}`", ephemeral=True)
                 
             except ValueError:
-                await ctx.send("❌ Nomor harus angka!", ephemeral=True)
+                await ctx.send("âŒ Nomor harus angka!", ephemeral=True)
                 
         elif action == "edit":
             if not args:
-                return await ctx.send("❌ Gunakan: `!resstatus edit <nomor> <type> <name> | <details> | <state>`", ephemeral=True)
+                return await ctx.send("âŒ Gunakan: `!resstatus edit <nomor> <type> <name> | <details> | <state>`", ephemeral=True)
             
             # Parse arguments with | separator
             parts = args.split("|", 2)
             if len(parts) < 1:
-                return await ctx.send("❌ Format salah! Gunakan: `!resstatus edit <nomor> <type> <name> | <details> | <state>`", ephemeral=True)
+                return await ctx.send("âŒ Format salah! Gunakan: `!resstatus edit <nomor> <type> <name> | <details> | <state>`", ephemeral=True)
             
             first_part = parts[0].strip()
             first_parts = first_part.split(" ", 2)
             if len(first_parts) < 3:
-                return await ctx.send("❌ Format salah! Gunakan: `!resstatus edit <nomor> <type> <name> | <details> | <state>`", ephemeral=True)
+                return await ctx.send("âŒ Format salah! Gunakan: `!resstatus edit <nomor> <type> <name> | <details> | <state>`", ephemeral=True)
             
             try:
                 index = int(first_parts[0]) - 1
@@ -2374,11 +2390,11 @@ class Music(commands.Cog):
                 
                 statuses = self.status_config.get("statuses", [])
                 if index < 0 or index >= len(statuses):
-                    return await ctx.send(f"❌ Nomor tidak valid! Pilih 1-{len(statuses)}", ephemeral=True)
+                    return await ctx.send(f"âŒ Nomor tidak valid! Pilih 1-{len(statuses)}", ephemeral=True)
                 
                 valid_types = ["playing", "listening", "watching", "competing", "streaming", "custom"]
                 if status_type not in valid_types:
-                    return await ctx.send(f"❌ Type tidak valid! Pilih dari: {', '.join(valid_types)}", ephemeral=True)
+                    return await ctx.send(f"âŒ Type tidak valid! Pilih dari: {', '.join(valid_types)}", ephemeral=True)
                 
                 old_status = statuses[index]
                 statuses[index] = {
@@ -2390,33 +2406,33 @@ class Music(commands.Cog):
                 self.status_config["statuses"] = statuses
                 save_status_config(self.status_config)
                 
-                await ctx.send(f"✅ **Status #{index+1} diedit:**\n"
+                await ctx.send(f"âœ… **Status #{index+1} diedit:**\n"
                               f"**Dari:** `{old_status.get('type')}` - `{old_status.get('name', 'N/A')}`\n"
                               f"**Menjadi:** `{status_type}` - `{status_name[:50]}`", ephemeral=True)
                 
             except ValueError:
-                await ctx.send("❌ Nomor harus angka!", ephemeral=True)
+                await ctx.send("âŒ Nomor harus angka!", ephemeral=True)
                 
         elif action == "list":
             statuses = self.status_config.get("statuses", [])
             if not statuses:
-                return await ctx.send("❌ Tidak ada status yang tersedia!", ephemeral=True)
+                return await ctx.send("âŒ Tidak ada status yang tersedia!", ephemeral=True)
             
             embed = discord.Embed(
-                title="📋 Daftar Custom Status",
+                title="ðŸ“‹ Daftar Custom Status",
                 description=f"Total: {len(statuses)} status\n",
                 color=discord.Color.green()
             )
             
             for i, status in enumerate(statuses):
                 type_emoji = {
-                    "playing": "🎮",
-                    "listening": "🎵", 
-                    "watching": "👀",
-                    "competing": "🏆",
-                    "streaming": "📺",
-                    "custom": "🔧"
-                }.get(status.get("type", "playing"), "🎮")
+                    "playing": "ðŸŽ®",
+                    "listening": "ðŸŽµ", 
+                    "watching": "ðŸ‘€",
+                    "competing": "ðŸ†",
+                    "streaming": "ðŸ“º",
+                    "custom": "ðŸ”§"
+                }.get(status.get("type", "playing"), "ðŸŽ®")
                 
                 embed.add_field(
                     name=f"#{i+1} {type_emoji} {status.get('type', 'playing').title()} - {status.get('name', 'N/A')}",
@@ -2428,7 +2444,7 @@ class Music(commands.Cog):
             await ctx.send(embed=embed, ephemeral=True)
             
         else:
-            await ctx.send("❌ Action tidak dikenali! Gunakan `!resstatus` untuk melihat bantuan.", ephemeral=True)
+            await ctx.send("âŒ Action tidak dikenali! Gunakan `!resstatus` untuk melihat bantuan.", ephemeral=True)
 
     @commands.command(name="setactivity", help="[ADMIN] Set activity status bot secara manual")
     @commands.has_permissions(administrator=True)
@@ -2436,7 +2452,7 @@ class Music(commands.Cog):
         valid_types = ["playing", "listening", "watching", "competing", "streaming", "custom"]
         
         if activity_type.lower() not in valid_types:
-            await ctx.send(f"❌ Type activity tidak valid! Pilih dari: {', '.join(valid_types)}", ephemeral=True)
+            await ctx.send(f"âŒ Type activity tidak valid! Pilih dari: {', '.join(valid_types)}", ephemeral=True)
             return
         
         details = None
@@ -2458,7 +2474,7 @@ class Music(commands.Cog):
         )
         
         if success:
-            message = f"✅ **Activity manual diatur:**\nType: `{activity_type}`\nName: `{name}`"
+            message = f"âœ… **Activity manual diatur:**\nType: `{activity_type}`\nName: `{name}`"
             if details:
                 message += f"\nDetails: `{details}`"
             if state:
@@ -2467,7 +2483,7 @@ class Music(commands.Cog):
             
             await ctx.send(message, ephemeral=True)
         else:
-            await ctx.send("❌ Gagal mengatur activity manual.", ephemeral=True)
+            await ctx.send("âŒ Gagal mengatur activity manual.", ephemeral=True)
 
     @commands.command(name="resetactivity", help="[ADMIN] Reset activity ke mode otomatis")
     @commands.has_permissions(administrator=True)
@@ -2476,13 +2492,13 @@ class Music(commands.Cog):
         
         if success:
             if self.is_playing_music and self.current_song_title:
-                await ctx.send("✅ **Activity direset ke mode musik** (karena sedang memutar musik).", ephemeral=True)
+                await ctx.send("âœ… **Activity direset ke mode musik** (karena sedang memutar musik).", ephemeral=True)
             elif self.status_config.get("enabled", True):
-                await ctx.send("✅ **Activity direset ke mode rotasi otomatis**.", ephemeral=True)
+                await ctx.send("âœ… **Activity direset ke mode rotasi otomatis**.", ephemeral=True)
             else:
-                await ctx.send("✅ **Activity direset ke default**.", ephemeral=True)
+                await ctx.send("âœ… **Activity direset ke default**.", ephemeral=True)
         else:
-            await ctx.send("❌ Gagal mereset activity.", ephemeral=True)
+            await ctx.send("âŒ Gagal mereset activity.", ephemeral=True)
 
     @commands.command(name="settriger", help="[ADMIN] Mengatur saluran suara pemicu untuk server ini.")
     @commands.has_permissions(administrator=True)
@@ -2490,15 +2506,15 @@ class Music(commands.Cog):
         try:
             channel = ctx.guild.get_channel(channel_id) or await ctx.guild.fetch_channel(channel_id)
             if not isinstance(channel, discord.VoiceChannel):
-                return await ctx.send("❌ ID yang diberikan bukan saluran suara.", ephemeral=True)
+                return await ctx.send("âŒ ID yang diberikan bukan saluran suara.", ephemeral=True)
             self.guild_config[str(ctx.guild.id)] = self.guild_config.get(str(ctx.guild.id), {})
             self.guild_config[str(ctx.guild.id)]['trigger_vc_id'] = channel_id
             save_guild_config(self.guild_config)
-            await ctx.send(f"✅ Saluran pemicu untuk server ini telah diatur ke **{channel.name}**.", ephemeral=True)
+            await ctx.send(f"âœ… Saluran pemicu untuk server ini telah diatur ke **{channel.name}**.", ephemeral=True)
         except (discord.NotFound, discord.Forbidden):
-            await ctx.send("❌ Saluran tidak ditemukan atau bot tidak memiliki izin untuk melihatnya.", ephemeral=True)
+            await ctx.send("âŒ Saluran tidak ditemukan atau bot tidak memiliki izin untuk melihatnya.", ephemeral=True)
         except Exception as e:
-            await ctx.send(f"❌ Terjadi kesalahan: {e}", ephemeral=True)
+            await ctx.send(f"âŒ Terjadi kesalahan: {e}", ephemeral=True)
 
     @commands.command(name="setcat", help="[ADMIN] Mengatur kategori target untuk saluran sementara.")
     @commands.has_permissions(administrator=True)
@@ -2506,15 +2522,15 @@ class Music(commands.Cog):
         try:
             category = ctx.guild.get_channel(category_id) or await ctx.guild.fetch_channel(category_id)
             if not isinstance(category, discord.CategoryChannel):
-                return await ctx.send("❌ ID yang diberikan bukan kategori.", ephemeral=True)
+                return await ctx.send("âŒ ID yang diberikan bukan kategori.", ephemeral=True)
             self.guild_config[str(ctx.guild.id)] = self.guild_config.get(str(ctx.guild.id), {})
             self.guild_config[str(ctx.guild.id)]['target_category_id'] = category_id
             save_guild_config(self.guild_config)
-            await ctx.send(f"✅ Kategori target untuk saluran sementara telah diatur ke **{category.name}**.", ephemeral=True)
+            await ctx.send(f"âœ… Kategori target untuk saluran sementara telah diatur ke **{category.name}**.", ephemeral=True)
         except (discord.NotFound, discord.Forbidden):
-            await ctx.send("❌ Kategori tidak ditemukan atau bot tidak memiliki izin untuk melihatnya.", ephemeral=True)
+            await ctx.send("âŒ Kategori tidak ditemukan atau bot tidak memiliki izin untuk melihatnya.", ephemeral=True)
         except Exception as e:
-            await ctx.send(f"❌ Terjadi kesalahan: {e}", ephemeral=True)
+            await ctx.send(f"âŒ Terjadi kesalahan: {e}", ephemeral=True)
 
     @commands.command(name="vclock", help="Kunci channel pribadimu (hanya bisa masuk via invite/grant).")
     @commands.check(lambda ctx: ctx.cog.is_owner_vc(ctx))
@@ -2522,11 +2538,11 @@ class Music(commands.Cog):
         try:
             vc = ctx.author.voice.channel
             await vc.set_permissions(ctx.guild.default_role, connect=False, reason=f"User {ctx.author.display_name} locked VC.")
-            await ctx.send(f"✅ Channel **{vc.name}** telah dikunci. Hanya user dengan izin khusus yang bisa bergabung.", ephemeral=True)
+            await ctx.send(f"âœ… Channel **{vc.name}** telah dikunci. Hanya user dengan izin khusus yang bisa bergabung.", ephemeral=True)
         except discord.Forbidden:
-            await ctx.send("❌ Bot tidak memiliki izin untuk mengunci channel ini. Pastikan bot memiliki izin 'Manage Permissions'.", ephemeral=True)
+            await ctx.send("âŒ Bot tidak memiliki izin untuk mengunci channel ini. Pastikan bot memiliki izin 'Manage Permissions'.", ephemeral=True)
         except Exception as e:
-            await ctx.send(f"❌ Terjadi kesalahan: {e}", ephemeral=True)
+            await ctx.send(f"âŒ Terjadi kesalahan: {e}", ephemeral=True)
 
     @commands.command(name="vcunlock", help="Buka kunci channel pribadimu.")
     @commands.check(lambda ctx: ctx.cog.is_owner_vc(ctx))
@@ -2534,87 +2550,87 @@ class Music(commands.Cog):
         try:
             vc = ctx.author.voice.channel
             await vc.set_permissions(ctx.guild.default_role, connect=True, reason=f"User {ctx.author.display_name} unlocked VC.")
-            await ctx.send(f"✅ Channel **{vc.name}** telah dibuka. Sekarang siapa pun bisa bergabung.", ephemeral=True)
+            await ctx.send(f"âœ… Channel **{vc.name}** telah dibuka. Sekarang siapa pun bisa bergabung.", ephemeral=True)
         except discord.Forbidden:
-            await ctx.send("❌ Bot tidak memiliki izin untuk membuka kunci channel ini. Pastikan bot memiliki izin 'Manage Permissions'.", ephemeral=True)
+            await ctx.send("âŒ Bot tidak memiliki izin untuk membuka kunci channel ini. Pastikan bot memiliki izin 'Manage Permissions'.", ephemeral=True)
         except Exception as e:
-            await ctx.send(f"❌ Terjadi kesalahan: {e}", ephemeral=True)
+            await ctx.send(f"âŒ Terjadi kesalahan: {e}", ephemeral=True)
 
     @commands.command(name="vcsetlimit", help="Atur batas user di channel suara pribadimu (0 untuk tak terbatas).")
     @commands.check(lambda ctx: ctx.cog.is_owner_vc(ctx))
     async def vc_set_limit(self, ctx, limit: int):
         if limit < 0 or limit > 99:
-            return await ctx.send("❌ Batas user harus antara 0 (tak terbatas) hingga 99.", ephemeral=True)
+            return await ctx.send("âŒ Batas user harus antara 0 (tak terbatas) hingga 99.", ephemeral=True)
         try:
             vc = ctx.author.voice.channel
             await vc.edit(user_limit=limit, reason=f"User {ctx.author.display_name} set user limit.")
-            await ctx.send(f"✅ Batas user channelmu diatur ke: **{limit if limit > 0 else 'tak terbatas'}**.", ephemeral=True)
+            await ctx.send(f"âœ… Batas user channelmu diatur ke: **{limit if limit > 0 else 'tak terbatas'}**.", ephemeral=True)
         except discord.Forbidden:
-            await ctx.send("❌ Bot tidak memiliki izin untuk mengubah batas user channel ini. Pastikan bot memiliki izin 'Manage Channels'.", ephemeral=True)
+            await ctx.send("âŒ Bot tidak memiliki izin untuk mengubah batas user channel ini. Pastikan bot memiliki izin 'Manage Channels'.", ephemeral=True)
         except Exception as e:
-            await ctx.send(f"❌ Terjadi kesalahan: {e}", ephemeral=True)
+            await ctx.send(f"âŒ Terjadi kesalahan: {e}", ephemeral=True)
 
     @commands.command(name="vcrename", help="Ubah nama channel pribadimu.")
     @commands.check(lambda ctx: ctx.cog.is_owner_vc(ctx))
     async def vc_rename(self, ctx, *, new_name: str):
         if len(new_name) < 2 or len(new_name) > 100:
-            return await ctx.send("❌ Nama channel harus antara 2 hingga 100 karakter.", ephemeral=True)
+            return await ctx.send("âŒ Nama channel harus antara 2 hingga 100 karakter.", ephemeral=True)
         try:
             vc = ctx.author.voice.channel
             old_name = vc.name
             await vc.edit(name=new_name, reason=f"User {ctx.author.display_name} renamed VC.")
-            await ctx.send(f"✅ Nama channelmu diubah dari **{old_name}** menjadi **{new_name}**.", ephemeral=True)
+            await ctx.send(f"âœ… Nama channelmu diubah dari **{old_name}** menjadi **{new_name}**.", ephemeral=True)
         except discord.Forbidden:
-            await ctx.send("❌ Bot tidak memiliki izin untuk mengubah nama channel ini. Pastikan bot memiliki izin 'Manage Channels'.", ephemeral=True)
+            await ctx.send("âŒ Bot tidak memiliki izin untuk mengubah nama channel ini. Pastikan bot memiliki izin 'Manage Channels'.", ephemeral=True)
         except Exception as e:
-            await ctx.send(f"❌ Terjadi kesalahan: {e}", ephemeral=True)
+            await ctx.send(f"âŒ Terjadi kesalahan: {e}", ephemeral=True)
 
     @commands.command(name="vckick", help="Tendang user dari channel suara pribadimu.")
     @commands.check(lambda ctx: ctx.cog.is_owner_vc(ctx))
     async def vc_kick(self, ctx, member: discord.Member):
         if member.id == ctx.author.id:
-            return await ctx.send("❌ Kamu tidak bisa menendang dirimu sendiri dari channelmu!", ephemeral=True)
+            return await ctx.send("âŒ Kamu tidak bisa menendang dirimu sendiri dari channelmu!", ephemeral=True)
         if member.bot:
-            return await ctx.send("❌ Kamu tidak bisa menendang bot.", ephemeral=True)
+            return await ctx.send("âŒ Kamu tidak bisa menendang bot.", ephemeral=True)
         vc = ctx.author.voice.channel
         if member.voice and member.voice.channel == vc:
             try:
                 await member.move_to(None, reason=f"Kicked by VC owner {ctx.author.display_name}.")
-                await ctx.send(f"✅ **{member.display_name}** telah ditendang dari channelmu.", ephemeral=True)
+                await ctx.send(f"âœ… **{member.display_name}** telah ditendang dari channelmu.", ephemeral=True)
             except discord.Forbidden:
-                await ctx.send("❌ Bot tidak memiliki izin untuk menendang pengguna ini. Pastikan bot memiliki izin 'Move Members'.", ephemeral=True)
+                await ctx.send("âŒ Bot tidak memiliki izin untuk menendang pengguna ini. Pastikan bot memiliki izin 'Move Members'.", ephemeral=True)
             except Exception as e:
-                await ctx.send(f"❌ Terjadi kesalahan: {e}", ephemeral=True)
+                await ctx.send(f"âŒ Terjadi kesalahan: {e}", ephemeral=True)
         else:
-            await ctx.send("❌ Pengguna tersebut tidak berada di channelmu.", ephemeral=True)
+            await ctx.send("âŒ Pengguna tersebut tidak berada di channelmu.", ephemeral=True)
 
     @commands.command(name="vcgrant", help="Berikan user izin masuk channelmu yang terkunci.")
     @commands.check(lambda ctx: ctx.cog.is_owner_vc(ctx))
     async def vc_grant(self, ctx, member: discord.Member):
         if member.bot:
-            return await ctx.send("❌ Kamu tidak bisa memberikan izin ke bot.", ephemeral=True)
+            return await ctx.send("âŒ Kamu tidak bisa memberikan izin ke bot.", ephemeral=True)
         try:
             vc = ctx.author.voice.channel
             await vc.set_permissions(member, connect=True, reason=f"VC owner {ctx.author.display_name} granted access.")
-            await ctx.send(f"✅ **{member.display_name}** sekarang memiliki izin untuk bergabung ke channelmu.", ephemeral=True)
+            await ctx.send(f"âœ… **{member.display_name}** sekarang memiliki izin untuk bergabung ke channelmu.", ephemeral=True)
         except discord.Forbidden:
-            await ctx.send("❌ Bot tidak memiliki izin untuk memberikan izin di channel ini. Pastikan bot memiliki izin 'Manage Permissions'.", ephemeral=True)
+            await ctx.send("âŒ Bot tidak memiliki izin untuk memberikan izin di channel ini. Pastikan bot memiliki izin 'Manage Permissions'.", ephemeral=True)
         except Exception as e:
-            await ctx.send(f"❌ Terjadi kesalahan: {e}", ephemeral=True)
+            await ctx.send(f"âŒ Terjadi kesalahan: {e}", ephemeral=True)
 
     @commands.command(name="vcrevoke")
     @commands.check(lambda ctx: ctx.cog.is_owner_vc(ctx))
     async def vc_revoke(self, ctx, member: discord.Member):
         if member.bot:
-            return await ctx.send("❌ Kamu tidak bisa mencabut izin dari bot.", ephemeral=True)
+            return await ctx.send("âŒ Kamu tidak bisa mencabut izin dari bot.", ephemeral=True)
         try:
             vc = ctx.author.voice.channel
             await vc.set_permissions(member, connect=False, reason=f"VC owner {ctx.author.display_name} revoked access.")
-            await ctx.send(f"✅ Izin **{member.display_name}** untuk bergabung ke channelmu telah dicabut.", ephemeral=True)
+            await ctx.send(f"âœ… Izin **{member.display_name}** untuk bergabung ke channelmu telah dicabut.", ephemeral=True)
         except discord.Forbidden:
-            await ctx.send("❌ Bot tidak memiliki izin untuk mencabut izin di channel ini. Pastikan bot memiliki izin 'Manage Permissions'.", ephemeral=True)
+            await ctx.send("âŒ Bot tidak memiliki izin untuk mencabut izin di channel ini. Pastikan bot memiliki izin 'Manage Permissions'.", ephemeral=True)
         except Exception as e:
-            await ctx.send(f"❌ Terjadi kesalahan: {e}", ephemeral=True)
+            await ctx.send(f"âŒ Terjadi kesalahan: {e}", ephemeral=True)
 
     @commands.command(name="vcowner")
     @commands.check(lambda ctx: ctx.cog.is_owner_vc(ctx))
@@ -2622,12 +2638,12 @@ class Music(commands.Cog):
         vc = ctx.author.voice.channel
         vc_id_str = str(vc.id)
         if new_owner.bot:
-            return await ctx.send("❌ Kamu tidak bisa mentransfer kepemilikan ke bot.", ephemeral=True)
+            return await ctx.send("âŒ Kamu tidak bisa mentransfer kepemilikan ke bot.", ephemeral=True)
         if new_owner.id == ctx.author.id:
-            return await ctx.send("❌ Kamu sudah menjadi pemilik channel ini!", ephemeral=True)
+            return await ctx.send("âŒ Kamu sudah menjadi pemilik channel ini!", ephemeral=True)
         try:
             if vc_id_str not in self.active_temp_channels or not isinstance(self.active_temp_channels[vc_id_str], dict):
-                return await ctx.send("❌ Terjadi kesalahan internal. Data channelmu rusak.", ephemeral=True)
+                return await ctx.send("âŒ Terjadi kesalahan internal. Data channelmu rusak.", ephemeral=True)
             self.active_temp_channels[vc_id_str]["owner_id"] = str(new_owner.id)
             save_temp_channels(self.active_temp_channels)
             old_owner_overwrites = vc.overwrites_for(ctx.author)
@@ -2644,28 +2660,28 @@ class Music(commands.Cog):
             new_owner_overwrites.deafen_members = True
             new_owner_overwrites.move_members = True
             await vc.set_permissions(new_owner, overwrite=new_owner_overwrites, reason=f"Transfer ownership to {new_owner.display_name}.")
-            await ctx.send(f"✅ Kepemilikan channel **{vc.name}** telah ditransfer dari {ctx.author.mention} ke {new_owner.mention}!", ephemeral=True)
+            await ctx.send(f"âœ… Kepemilikan channel **{vc.name}** telah ditransfer dari {ctx.author.mention} ke {new_owner.mention}!", ephemeral=True)
             try:
                 await new_owner.send(
-                    f"🎉 Selamat! Anda sekarang adalah pemilik channel suara **{vc.name}** di server **{ctx.guild.name}**!\n"
+                    f"ðŸŽ‰ Selamat! Anda sekarang adalah pemilik channel suara **{vc.name}** di server **{ctx.guild.name}**!\n"
                     f"Gunakan perintah `!vchelp` untuk melihat cara mengelola channel ini."
                 )
             except discord.Forbidden:
                 pass
         except discord.Forbidden:
-            await ctx.send("❌ Bot tidak memiliki izin untuk mengalihkan kepemilikan channel ini. Pastikan bot memiliki izin 'Manage Permissions' dan 'Manage Channels'.", ephemeral=True)
+            await ctx.send("âŒ Bot tidak memiliki izin untuk mengalihkan kepemilikan channel ini. Pastikan bot memiliki izin 'Manage Permissions' dan 'Manage Channels'.", ephemeral=True)
         except Exception as e:
-            await ctx.send(f"❌ Terjadi kesalahan saat mengalihkan kepemilikan: {e}", ephemeral=True)
+            await ctx.send(f"âŒ Terjadi kesalahan saat mengalihkan kepemilikan: {e}", ephemeral=True)
 
     @commands.command(name="adminvcowner", help="[ADMIN] Mengatur pemilik saluran suara sementara mana pun.")
     @commands.has_permissions(administrator=True)
     async def admin_vc_transfer_owner(self, ctx, channel: discord.VoiceChannel, new_owner: discord.Member):
         channel_id_str = str(channel.id)
         if channel_id_str not in self.active_temp_channels or not isinstance(self.active_temp_channels[channel_id_str], dict):
-            await ctx.send("❌ Saluran ini bukan saluran suara sementara yang terdaftar atau datanya rusak.", ephemeral=True)
+            await ctx.send("âŒ Saluran ini bukan saluran suara sementara yang terdaftar atau datanya rusak.", ephemeral=True)
             return
         if new_owner.bot:
-            await ctx.send("❌ Tidak bisa mengalihkan kepemilikan ke bot.", ephemeral=True)
+            await ctx.send("âŒ Tidak bisa mengalihkan kepemilikan ke bot.", ephemeral=True)
             return
         old_owner_id = self.active_temp_channels[channel_id_str].get('owner_id')
         old_owner = ctx.guild.get_member(int(old_owner_id)) if old_owner_id else None
@@ -2687,16 +2703,16 @@ class Music(commands.Cog):
             new_owner_overwrites.deafen_members = True
             new_owner_overwrites.move_members = True
             await channel.set_permissions(new_owner, overwrite=new_owner_overwrites, reason=f"Admin transfer ownership to {new_owner.display_name}.")
-            await ctx.send(f"✅ Kepemilikan saluran {channel.mention} telah dialihkan ke {new_owner.mention} (oleh admin).", ephemeral=True)
+            await ctx.send(f"âœ… Kepemilikan saluran {channel.mention} telah dialihkan ke {new_owner.mention} (oleh admin).", ephemeral=True)
         except discord.Forbidden:
-            await ctx.send("❌ Bot tidak memiliki izin untuk mengalihkan kepemilikan channel ini. Pastikan bot memiliki izin 'Manage Permissions' dan 'Manage Channels'.", ephemeral=True)
+            await ctx.send("âŒ Bot tidak memiliki izin untuk mengalihkan kepemilikan channel ini. Pastikan bot memiliki izin 'Manage Permissions' dan 'Manage Channels'.", ephemeral=True)
         except Exception as e:
-            await ctx.send(f"❌ Terjadi kesalahan saat mengalihkan kepemilikan (admin command): {e}", ephemeral=True)
+            await ctx.send(f"âŒ Terjadi kesalahan saat mengalihkan kepemilikan (admin command): {e}", ephemeral=True)
 
     @commands.command(name="vchelp")
     async def vc_help(self, ctx):
         embed = discord.Embed(
-            title="🎧 Panduan Channel Suara Pribadi 🎧",
+            title="ðŸŽ§ Panduan Channel Suara Pribadi ðŸŽ§",
             description="""
             Saat kamu bergabung ke **Channel Khusus Buat VC Baru**, bot akan otomatis membuat channel suara baru untukmu!
             Kamu akan menjadi pemilik channel tersebut dan punya kendali penuh atasnya.
@@ -2726,29 +2742,29 @@ class Music(commands.Cog):
         try:
             if isinstance(error, commands.CheckFailure):
                 if not ctx.author.voice or not ctx.author.voice.channel:
-                    await ctx.send("❌ Kamu harus berada di channel suara untuk menggunakan perintah ini.", ephemeral=True)
+                    await ctx.send("âŒ Kamu harus berada di channel suara untuk menggunakan perintah ini.", ephemeral=True)
                 elif str(ctx.author.voice.channel.id) not in self.active_temp_channels:
-                    await ctx.send("❌ Kamu harus berada di channel suara pribadi yang kamu miliki untuk menggunakan perintah ini.", ephemeral=True)
+                    await ctx.send("âŒ Kamu harus berada di channel suara pribadi yang kamu miliki untuk menggunakan perintah ini.", ephemeral=True)
                 else:
-                    await ctx.send("❌ Kamu harus menjadi pemilik channel ini untuk menggunakan perintah ini.", ephemeral=True)
+                    await ctx.send("âŒ Kamu harus menjadi pemilik channel ini untuk menggunakan perintah ini.", ephemeral=True)
             elif isinstance(error, commands.MissingRequiredArgument):
-                await ctx.send(f"❌ Argumen tidak lengkap. Contoh penggunaan: `!{ctx.command.name} {ctx.command.signature}`", ephemeral=True)
+                await ctx.send(f"âŒ Argumen tidak lengkap. Contoh penggunaan: `!{ctx.command.name} {ctx.command.signature}`", ephemeral=True)
             elif isinstance(error, commands.BadArgument):
-                await ctx.send(f"❌ Argumen tidak valid. Pastikan kamu menyebutkan user yang benar atau angka yang valid.", ephemeral=True)
+                await ctx.send(f"âŒ Argumen tidak valid. Pastikan kamu menyebutkan user yang benar atau angka yang valid.", ephemeral=True)
             elif isinstance(error, discord.Forbidden):
-                await ctx.send("❌ Bot tidak memiliki izin untuk melakukan tindakan ini. Pastikan role bot berada di atas role lain dan memiliki izin yang diperlukan (misal: 'Manage Channels', 'Move Members', 'Manage Permissions').", ephemeral=True)
+                await ctx.send("âŒ Bot tidak memiliki izin untuk melakukan tindakan ini. Pastikan role bot berada di atas role lain dan memiliki izin yang diperlukan (misal: 'Manage Channels', 'Move Members', 'Manage Permissions').", ephemeral=True)
             elif isinstance(error, commands.CommandInvokeError):
                 original_error = error.original
                 log.error(f"CommandInvokeError: {original_error}")
                 if "NoneType" in str(original_error) or "'NoneType' object" in str(original_error):
-                    await ctx.send("❌ Bot tidak terhubung ke voice channel. Silakan hubungkan terlebih dahulu dengan `!resjoin`.", ephemeral=True)
+                    await ctx.send("âŒ Bot tidak terhubung ke voice channel. Silakan hubungkan terlebih dahulu dengan `!resjoin`.", ephemeral=True)
                 elif "4006" in str(original_error):
-                    await ctx.send("❌ **Error 4006**: Koneksi voice Discord bermasalah. Ini adalah masalah jaringan Discord. Silakan coba lagi dalam 1 menit.", ephemeral=True)
+                    await ctx.send("âŒ **Error 4006**: Koneksi voice Discord bermasalah. Ini adalah masalah jaringan Discord. Silakan coba lagi dalam 1 menit.", ephemeral=True)
                 else:
-                    await ctx.send(f"❌ Terjadi kesalahan saat menjalankan perintah: {str(original_error)[:100]}", ephemeral=True)
+                    await ctx.send(f"âŒ Terjadi kesalahan saat menjalankan perintah: {str(original_error)[:100]}", ephemeral=True)
             else:
                 log.error(f"Unexpected error: {error}")
-                await ctx.send(f"❌ Terjadi kesalahan yang tidak terduga: {error}", ephemeral=True)
+                await ctx.send(f"âŒ Terjadi kesalahan yang tidak terduga: {error}", ephemeral=True)
         except Exception as e:
             log.error(f"Error in on_command_error handler: {e}")
 
