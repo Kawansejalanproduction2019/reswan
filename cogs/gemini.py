@@ -370,6 +370,19 @@ class AutomationAI(commands.Cog, name="Automation AI (Jarkasih)"):
     async def before_daily_learning(self):
         await self.bot.wait_until_ready()
 
+    @tasks.loop(minutes=30)
+    async def cleanup_stale_threads(self):
+        for uid in list(self.active_sessions.keys()):
+            session = self.active_sessions.get(uid)
+            try: 
+                await self.bot.fetch_channel(session['thread'].id)
+            except: 
+                del self.active_sessions[uid]
+
+    @cleanup_stale_threads.before_loop
+    async def before_cleanup_threads(self):
+        await self.bot.wait_until_ready()
+
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
         if message.author.bot: return
@@ -468,6 +481,16 @@ class AutomationAI(commands.Cog, name="Automation AI (Jarkasih)"):
                         await send_long_message(message.channel, text)
                     except Exception as e:
                         await message.channel.send(f"Error: {e}")
+
+    @commands.Cog.listener()
+    async def on_reaction_add(self, reaction, user):
+        if user.bot or user.id not in self.active_sessions: return
+        session = self.active_sessions[user.id]
+        if reaction.message.id != session.get('message_for_reaction_vote', {}).get('id'): return
+        chosen = self.number_emojis.get(str(reaction.emoji))
+        if not chosen or session['answered_this_question']: return
+        session['answered_this_question'] = True
+        await self._process_answer(user.id, chosen, reaction.message, user)
 
     @commands.group(name="ai", invoke_without_command=True)
     async def ai(self, ctx):
