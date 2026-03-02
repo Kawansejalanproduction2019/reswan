@@ -128,7 +128,7 @@ def save_status_config(config):
     save_json_file(STATUS_CONFIG_FILE, config)
 
 ytdl_opts = {
-    'format': 'bestaudio[ext=opus]/bestaudio[ext=m4a]/bestaudio/best',
+    'format': 'bestaudio/best',
     'cookiefile': 'cookies.txt',
     'quiet': True,
     'default_search': 'ytsearch',
