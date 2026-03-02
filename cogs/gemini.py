@@ -517,11 +517,20 @@ class AutomationAI(commands.Cog, name="Automation AI (Jarkasih)"):
 
         messages.reverse()
         chat_log = "\n".join(messages)
+        current_memory = self.learned_context.get("summary", "")
 
-        prompt = f"Tugas lu menganalisis log chat ini.\nEkstrak info: 1. Topik bahas. 2. Inside jokes. 3. Profil sifat user per ID.\nFormat narasi/poin padat.\nLOG CHAT:\n{chat_log[:25000]}"
+        prompt = f"""
+        Lu adalah analis data. Ini log chat terbaru dari tongkrongan:
+        {chat_log[:15000]}
+        
+        Ini memori lu sebelumnya tentang mereka:
+        {current_memory}
+        
+        Tugas lu: GABUNGKAN informasi terbaru dari log chat ke memori lama. JANGAN MENGHAPUS informasi lama. Tambahkan hal baru, topik baru, atau update profil user jika ada yang relevan. Susun kembali menjadi ringkasan yang solid dalam format narasi/poin padat.
+        """
         try:
             res = await generate_smart_response(prompt)
-            self.learned_context["summary"] = res.text
+            self.learned_context["summary"] = res.text.strip()
             save_json_to_root(self.learned_context, LEARNED_FILE_PATH)
             await msg_wait.edit(content="Selesai! Gw udah masukin kelakuan mereka ke otak gw. Cek pakai `!ai hasil_belajar`.")
         except Exception as e:
@@ -540,10 +549,10 @@ class AutomationAI(commands.Cog, name="Automation AI (Jarkasih)"):
     @ai.command(name="hasil_belajar")
     async def show_learned_data(self, ctx):
         learned = self.learned_context.get("summary", "Belum ada data.")
-        embed = discord.Embed(title="Hasil Analisis Tongkrongan Jarkasih", color=discord.Color.dark_orange())
-        for chunk in [learned[i:i+1024] for i in range(0, len(learned), 1024)]:
-            embed.add_field(name="-", value=chunk, inline=False)
-        await ctx.reply(embed=embed)
+        try:
+            await send_long_message(ctx, f"**Hasil Analisis Tongkrongan Jarkasih:**\n\n{learned}")
+        except Exception as e:
+            await ctx.reply(f"Gagal menampilkan data: {e}")
 
     @ai.command(name="auto_tag_toggle")
     @commands.is_owner()
