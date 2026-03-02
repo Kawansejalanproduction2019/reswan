@@ -143,6 +143,7 @@ ytdl_opts = {
     'nocheckcertificate': True,
     'ignoreerrors': True,
     'no_warnings': True,
+    'extractor_args': {'youtubetab': ['skip=authcheck']}
 }
 
 FFMPEG_OPTIONS = {
