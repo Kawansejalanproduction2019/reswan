@@ -1663,7 +1663,6 @@ class Music(commands.Cog):
             return False
 
     async def safe_connect_voice(self, ctx, max_retries=3):
-        """Connect to voice with error handling and retries"""
         if not ctx.author.voice or not ctx.author.voice.channel:
             return None
         
@@ -1671,61 +1670,45 @@ class Music(commands.Cog):
         
         for attempt in range(max_retries):
             try:
-                if ctx.voice_client and ctx.voice_client.is_connected():
-                    if ctx.voice_client.channel == ctx.author.voice.channel:
+                if ctx.voice_client:
+                    if ctx.voice_client.is_connected() and ctx.voice_client.channel == ctx.author.voice.channel:
                         return ctx.voice_client
-                    await ctx.voice_client.disconnect()
+                    await ctx.voice_client.disconnect(force=True)
+                
+                if attempt > 0:
+                    await ctx.guild.change_voice_state(channel=None)
+                    await asyncio.sleep(1)
                 
                 log.info(f"Connecting to voice channel (attempt {attempt + 1}/{max_retries})...")
                 vc = await ctx.author.voice.channel.connect(
-                    timeout=30.0,
+                    timeout=20.0,
                     reconnect=True,
                     self_deaf=True
                 )
                 
                 await self.auto_deafen_bot(vc)
-                log.info(f"âœ… Connected to voice channel: {ctx.author.voice.channel.name}")
-                
                 self.voice_retry_attempts.pop(guild_id, None)
                 return vc
                 
             except discord.errors.ConnectionClosed as e:
                 log.error(f"Voice connection closed (attempt {attempt + 1}): {e}")
-                if attempt < max_retries - 1:
-                    wait_time = (attempt + 1) * 2
-                    log.info(f"Retrying in {wait_time} seconds...")
-                    await asyncio.sleep(wait_time)
-                else:
-                    log.error(f"Failed to connect after {max_retries} attempts")
-                    self.voice_retry_attempts[guild_id] = datetime.now()
-                    raise
-            
-            except asyncio.TimeoutError:
-                log.error(f"Voice connection timeout (attempt {attempt + 1})")
-                if attempt < max_retries - 1:
-                    await asyncio.sleep(3)
-                else:
-                    log.error(f"Failed to connect after {max_retries} attempts")
-                    self.voice_retry_attempts[guild_id] = datetime.now()
-                    raise
-            
-            except discord.ClientException as e:
-                log.error(f"Client exception (attempt {attempt + 1}): {e}")
-                if "Already connected" in str(e):
-                    if ctx.voice_client and ctx.voice_client.is_connected():
-                        return ctx.voice_client
-                raise
-            
-            except Exception as e:
-                log.error(f"Unexpected error connecting to voice (attempt {attempt + 1}): {e}")
+                await ctx.guild.change_voice_state(channel=None)
                 if attempt < max_retries - 1:
                     await asyncio.sleep(2)
                 else:
-                    log.error(f"Failed to connect after {max_retries} attempts")
+                    self.voice_retry_attempts[guild_id] = datetime.now()
+                    raise
+            except Exception as e:
+                log.error(f"Unexpected error connecting to voice (attempt {attempt + 1}): {e}")
+                await ctx.guild.change_voice_state(channel=None)
+                if attempt < max_retries - 1:
+                    await asyncio.sleep(2)
+                else:
                     self.voice_retry_attempts[guild_id] = datetime.now()
                     raise
         
         return None
+
 
     def can_retry_voice(self, guild_id):
         """Check if voice connection can be retried for this guild"""
@@ -1795,52 +1778,41 @@ class Music(commands.Cog):
     async def join(self, ctx):
         if ctx.author.voice is None or ctx.author.voice.channel is None:
             return await ctx.send("Kamu harus berada di voice channel dulu.")
-         
-        if ctx.voice_client is not None:
-            if ctx.voice_client.channel == ctx.author.voice.channel:
-                return await ctx.send("Bot sudah berada di channel ini.")
-            await ctx.voice_client.disconnect()
         
         try:
-            # Gunakan timeout yang lebih lama untuk EC2
-            vc = await ctx.author.voice.channel.connect(
-                timeout=60.0,
-                reconnect=True,
-                self_deaf=True
-            )
-            await ctx.send(f"âœ… Bergabung ke **{ctx.author.voice.channel.name}**")
+            guild_id = ctx.guild.id
+            if not self.can_retry_voice(guild_id):
+                return await ctx.send("❌ Voice connection sedang bermasalah. Coba lagi dalam 1 menit.", ephemeral=True)
             
-            # Tunggu sedikit sebelum mulai play
-            await asyncio.sleep(1)
+            vc = await self.safe_connect_voice(ctx)
             
-        except asyncio.TimeoutError:
-            await ctx.send("âŒ Timeout saat mencoba bergabung ke voice channel.")
-        except discord.ClientException as e:
-            await ctx.send(f"âŒ Error: {e}")
+            if vc:
+                await ctx.send(f"✅ Bergabung ke **{ctx.author.voice.channel.name}**")
+            else:
+                await ctx.send("❌ Gagal bergabung ke voice channel setelah beberapa percobaan.")
+                
+        except discord.errors.ConnectionClosed:
+            await ctx.send("❌ **Error 4006**: Gagal terhubung ke server voice Discord. Coba ganti region voice channel servermu sesaat (misal ke Japan/Sydney) lalu coba lagi.")
         except Exception as e:
-            await ctx.send(f"âŒ Gagal bergabung: {type(e).__name__}: {str(e)[:200]}")
+            await ctx.send(f"❌ Gagal bergabung: {type(e).__name__}: {str(e)[:100]}")
+
 
     @commands.command(name="resp", aliases=["p", "play"])
     async def play(self, ctx, *, query):
         try:
-            if not ctx.author.voice or not ctx.author.voice.channel:
-                return await ctx.send("Kamu harus berada di voice channel terlebih dahulu.")
-            
-            guild_id = ctx.guild.id
-            if not self.can_retry_voice(guild_id):
-                return await ctx.send("âŒ Voice connection sedang bermasalah. Coba lagi dalam 1 menit.", ephemeral=True)
-            
             if not ctx.voice_client or not ctx.voice_client.is_connected():
                 try:
-                    vc = await ctx.author.voice.channel.connect(timeout=60.0, reconnect=True)
-                    await ctx.send(f"âœ… Bergabung ke **{ctx.author.voice.channel.name}**")
-                    await asyncio.sleep(1)
-                except discord.errors.ConnectionClosed as e:
-                    return await ctx.send("âŒ **Error 4006**: Gagal terhubung ke server voice Discord. Ini adalah masalah jaringan Discord. Silakan coba lagi nanti.")
+                    vc = await self.safe_connect_voice(ctx)
+                    if not vc:
+                        return await ctx.send("❌ Gagal bergabung ke voice channel.")
+                    await ctx.send(f"✅ Bergabung ke **{ctx.author.voice.channel.name}**")
+                except discord.errors.ConnectionClosed:
+                    return await ctx.send("❌ **Error 4006**: Gagal terhubung ke server voice Discord. Coba ganti region voice channel servermu sesaat.")
                 except Exception as e:
                     log.error(f"Error connecting to voice: {e}")
-                    await ctx.send(f"âŒ Gagal bergabung ke voice channel: {e}")
+                    await ctx.send(f"❌ Gagal bergabung ke voice channel: {e}")
                     return
+
         
             await ctx.defer()
             urls = []
