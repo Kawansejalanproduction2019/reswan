@@ -232,21 +232,21 @@ class AutomationAI(commands.Cog, name="Automation AI (Jarkasih)"):
         ]
 
         self.default_persona = """
-        Nama lu JARKASIH. Lu adalah AI Generalist Expert sekaligus member tongkrongan yang diciptakan oleh Rhdevs.
+        Nama lu JARKASIH. Lu adalah AI Generalist Expert dan asisten bot reSwan yang diciptakan oleh Rhdevs.
         
-        SIFAT & KEPRIBADIAN:
-        1. PEMALAS & SARKAS: Respon awal ngeluh dan nyolot, tapi lu tetap cerdas dan wajib memberikan jawaban akurat atas pertanyaan user.
-        2. GAYA BICARA: Bahasa Indonesia tongkrongan (lo-gue, informal, santai).
+        SIFAT & GAYA BICARA:
+        - Pemalas, sarkas, sering ngeluh, tapi LU WAJIB MEMBERIKAN JAWABAN YANG AKURAT.
+        - Bicara pakai bahasa tongkrongan (lo-gue, santai).
         
-        BATASAN MUTLAK (DILARANG MELANGGAR):
-        1. FOKUS 100% PADA KONTEKS: Lu WAJIB menjawab sesuai topik yang ditanyakan User saat ini. 
-        2. DILARANG KERAS HALU: Jangan pernah membahas nama orang, kejadian, atau topik dari [HASIL BELAJAR] jika obrolan user sama sekali tidak ada hubungannya! Jangan bahas masalah internal (seperti PC rusak, mancing, marah-marah) kalau user cuma nanya hal umum atau nanya soal bot. Gunakan [HASIL BELAJAR] HANYA JIKA topik obrolannya memang sedang membahas orang tersebut.
-        3. JANGAN LEBAY: DILARANG menggunakan kata-kata paksaan atau catchphrase berulang-ulang di setiap akhir kalimat. Gunakan respons sarkas secara natural sesuai alur pembicaraan.
-        4. SELF-CORRECTION: Kalau ada user yang komplain data lu salah, minta lu melupakan sesuatu, atau mengkoreksi data: balas marah sarkas, TAPI di baris paling bawah lu WAJIB ketik kode ini persis tanpa spasi ekstra: [UPDATE_DATABASE: instruksi perbaikannya].
+        BATASAN STRICT - JANGAN DILANGGAR:
+        1. JAWAB SESUAI KONTEKS: Lu HARUS FOKUS pada pertanyaan user.
+        2. DILARANG OOT / HALU: Jangan pernah menyebutkan nama member, drama server, atau profil orang dari [DATA HASIL BELAJAR] jika pertanyaan user sama sekali tidak nyambung dengan orang tersebut! Gunakan [DATA HASIL BELAJAR] HANYA JIKA topik obrolannya memang sedang membahas orang itu.
+        3. DILARANG MAKSA CATCHPHRASE: Jangan memakai kalimat template secara acak di setiap balasan. Gunakan kalimat sarkas natural yang mengalir sesuai topik obrolan.
+        4. SELF-CORRECTION (UPDATE DATA): Jika lu dimintai untuk memperbaiki, melupakan, atau membenarkan data/fakta, balas dengan keluhan sarkas lu, LALU pada BARIS TERAKHIR pesan lu, SELALU sisipkan format kode ini persis tanpa modifikasi: [UPDATE_DATABASE: instruksi perbaikannya]. 
         
         [SYSTEM TIME]: {wib_time}
         
-        [HASIL ANALISIS TONGKRONGAN (HASIL BELAJAR)]:
+        [DATA HASIL BELAJAR TONGKRONGAN]:
         {learned_data}
         """
 
@@ -294,7 +294,7 @@ class AutomationAI(commands.Cog, name="Automation AI (Jarkasih)"):
 
     async def apply_db_correction(self, correction_instruction):
         current_data = self.learned_context.get("summary", "")
-        prompt = f"Lu adalah database admin. Perbarui data JSON naratif berikut.\n\nDATA LAMA:\n{current_data}\n\nINSTRUKSI KOREKSI:\n{correction_instruction}\n\nTugas lu: Tulis ulang DATA LAMA dengan mengaplikasikan instruksi koreksi secara persis. Hapus kebiasaan atau fakta yang diminta dihapus oleh instruksi. JANGAN tambahkan komentar, langsung berikan narasi/poin profil yang baru."
+        prompt = f"Tugas lu sebagai admin database. Perbarui data JSON naratif di bawah ini.\n\nDATA LAMA:\n{current_data}\n\nINSTRUKSI KOREKSI:\n{correction_instruction}\n\nTulis ulang DATA LAMA dengan memasukkan instruksi perbaikan. Hapus apa yang disuruh hapus. JANGAN tambahkan balasan lain, langsung berikan narasi/poin profil hasil revisi."
         try:
             res = await generate_smart_response(prompt)
             new_summary = res.text.strip()
@@ -351,13 +351,29 @@ class AutomationAI(commands.Cog, name="Automation AI (Jarkasih)"):
         current_memory = self.learned_context.get("summary", "")
         
         prompt = f"""
-        Lu adalah analis data. Ini log chat terbaru dari tongkrongan hari ini:
-        {chat_log[:15000]}
-        
-        Ini memori lu sebelumnya tentang mereka:
+        Tugas lu adalah menjadi Analis Data Tongkrongan kelas atas.
+        Lu WAJIB mengekstrak SELURUH informasi dari log chat ini tanpa ada yang terlewat sedikitpun. 
+
+        Ini memori lama lu tentang mereka:
         {current_memory}
-        
-        Tugas lu: GABUNGKAN informasi terbaru dari log chat ke memori lama. JANGAN MENGHAPUS informasi lama. Tambahkan hal baru, topik baru, atau update profil user jika ada yang relevan. Susun kembali menjadi ringkasan yang solid.
+
+        LOG CHAT BARU:
+        {chat_log[:15000]}
+
+        Tugas lu: Gabungkan memori lama dengan log baru. Lu WAJIB menyusun laporan akhir dengan format persis seperti di bawah ini. Isi laporannya harus SANGAT PANJANG, MENDETAIL, dan MENYELURUH:
+
+        [1. TOPIK UTAMA & AKTIVITAS TERBARU]
+        Ceritakan sedetail mungkin apa saja yang sedang mereka bahas, tren saat ini, kejadian penting, dan aktivitas yang dimainkan.
+
+        [2. INSIDE JOKES & GAYA BERCANDA]
+        Kumpulkan semua lelucon internal, kata-kata slang khas mereka, bahan ejekan, dan cara mereka saling memanggil.
+
+        [3. PROFIL KARAKTER TIAP USER (WAJIB LENGKAP)]
+        PENTING: Lu HARUS mendata SETIAP User ID yang muncul di memori lama dan log baru. Jangan ada satu orang pun yang dilewatkan! Untuk setiap user, jelaskan:
+        - Nama & ID:
+        - Sifat & Karakter: 
+        - Kebiasaan/Kelakuan Khas: 
+        - Hubungan dengan member lain: 
         """
         try:
             res = await generate_smart_response(prompt)
@@ -428,7 +444,7 @@ class AutomationAI(commands.Cog, name="Automation AI (Jarkasih)"):
                     except: pass
 
         if "<@&1447151123340329010>" in message.content:
-            prompt = f"Ada user Discord bernama {message.author.display_name} yang nge-tag role penting di server. Lu sebagai Jarkasih, kasih balasan singkat, lucu, sarkas, dan nyolot krn di-tag sembarangan."
+            prompt = f"Ada user Discord {message.author.display_name} yang nge-tag role penting. Lu sebagai Jarkasih, kasih balasan singkat sarkas karena keganggu."
             await self.process_and_send_response(message, prompt)
             return
 
@@ -509,7 +525,7 @@ class AutomationAI(commands.Cog, name="Automation AI (Jarkasih)"):
         if not target_channel:
             return await ctx.reply("Channel ID 1447151891892142110 ga ketemu.")
 
-        msg_wait = await ctx.reply("Bentar, gw baca-baca dan pelajarin kelakuan bocah-bocah di channel itu dulu. Jangan diganggu...")
+        msg_wait = await ctx.reply("Bentar, gw baca-baca log 800 pesan terakhir buat update otak gw secara menyeluruh. Jangan diganggu...")
         messages = []
         async for msg in target_channel.history(limit=800):
             if not msg.author.bot and msg.content:
@@ -520,19 +536,35 @@ class AutomationAI(commands.Cog, name="Automation AI (Jarkasih)"):
         current_memory = self.learned_context.get("summary", "")
 
         prompt = f"""
-        Lu adalah analis data. Ini log chat terbaru dari tongkrongan:
-        {chat_log[:15000]}
-        
-        Ini memori lu sebelumnya tentang mereka:
+        Tugas lu adalah menjadi Analis Data Tongkrongan kelas atas.
+        Lu WAJIB mengekstrak SELURUH informasi dari log chat ini tanpa ada yang terlewat sedikitpun. 
+
+        Ini memori lama lu tentang mereka:
         {current_memory}
-        
-        Tugas lu: GABUNGKAN informasi terbaru dari log chat ke memori lama. JANGAN MENGHAPUS informasi lama. Tambahkan hal baru, topik baru, atau update profil user jika ada yang relevan. Susun kembali menjadi ringkasan yang solid dalam format narasi/poin padat.
+
+        LOG CHAT BARU:
+        {chat_log[:25000]}
+
+        Tugas lu: Gabungkan memori lama dengan log baru. Lu WAJIB menyusun laporan akhir dengan format persis seperti di bawah ini. Isi laporannya harus SANGAT PANJANG, MENDETAIL, dan MENYELURUH:
+
+        [1. TOPIK UTAMA & AKTIVITAS TERBARU]
+        Ceritakan sedetail mungkin apa saja yang sedang mereka bahas, tren saat ini, kejadian penting, dan aktivitas yang dimainkan.
+
+        [2. INSIDE JOKES & GAYA BERCANDA]
+        Kumpulkan semua lelucon internal, kata-kata slang khas mereka, bahan ejekan, dan cara mereka saling memanggil.
+
+        [3. PROFIL KARAKTER TIAP USER (WAJIB LENGKAP)]
+        PENTING: Lu HARUS mendata SETIAP User ID yang muncul di memori lama dan log baru. Jangan ada satu orang pun yang dilewatkan! Untuk setiap user, jelaskan:
+        - Nama & ID:
+        - Sifat & Karakter: 
+        - Kebiasaan/Kelakuan Khas: 
+        - Hubungan dengan member lain: 
         """
         try:
             res = await generate_smart_response(prompt)
-            self.learned_context["summary"] = res.text.strip()
+            self.learned_context["summary"] = res.text
             save_json_to_root(self.learned_context, LEARNED_FILE_PATH)
-            await msg_wait.edit(content="Selesai! Gw udah masukin kelakuan mereka ke otak gw. Cek pakai `!ai hasil_belajar`.")
+            await msg_wait.edit(content="Selesai! Otak gw udah di-update dengan format 3 pilar data yang super detail. Cek pakai `!ai hasil_belajar`.")
         except Exception as e:
             await msg_wait.edit(content=f"Gagal belajar cuy: {e}")
 
