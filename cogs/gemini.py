@@ -63,67 +63,33 @@ def rotate_api_key():
 
 configure_genai()
 
-def load_json_from_root(file_path, default_value=None):
+def load_json_file(file_path, default_data=None):
+    if default_data is None:
+        default_data = {}
     try:
-        base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-        full_path = os.path.join(base_dir, file_path)
-        os.makedirs(os.path.dirname(os.path.abspath(full_path)), exist_ok=True)
-        with open(full_path, 'r', encoding='utf-8') as f:
-            data = json.load(f)
-            if default_value and isinstance(default_value, dict) and "keywords" in default_value:
-                if "keywords" not in data: 
-                    return {"keywords": data, "articles": []}
-            return data
-    except FileNotFoundError:
-        if default_value is not None:
-            save_json_to_root(default_value, file_path)
-            return default_value
-        return {}
-    except json.JSONDecodeError:
-        if default_value is not None:
-            save_json_to_root(default_value, file_path)
-            return default_value
-        return {}
-
-def save_json_to_root(data, file_path):
-    base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-    full_path = os.path.join(base_dir, file_path)
-    os.makedirs(os.path.dirname(full_path), exist_ok=True)
-    with open(full_path, 'w', encoding='utf-8') as f:
-        json.dump(data, f, indent=4)
-
-def load_data(file_path):
-    default_data = {
-        'sensitive_keywords': ['steampowered', 'steam', 'paypal', 'discord', 'nitro', 'login', 'bank', 
-                               'freefire', 'ff', 'mobilelegends', 'ml', 'pubg', 'dana', 'gopay', 'ovo',
-                               'claim', 'diamond', 'voucher', 'giveaway'],
-        'suspicious_tlds': ['.co', '.xyz', '.site', '.info', '.biz', '.club', '.online', '.link', 
-                            '.gq', '.cf', '.tk', '.ml', '.top', '.icu', '.stream', '.live', '.ru'],
-        'verified_urls': {},
-        'domain_whitelist': ['youtube.com', 'youtu.be', 'discord.com', 'discordapp.com', 'tenor.com']
-    }
-    try:
-        if not os.path.exists(file_path):
+        os.makedirs(os.path.dirname(file_path), exist_ok=True)
+        if not os.path.exists(file_path) or os.stat(file_path).st_size == 0:
+            with open(file_path, 'w', encoding='utf-8') as f:
+                json.dump(default_data, f, indent=4)
             return default_data
         with open(file_path, 'r', encoding='utf-8') as f:
-            content = f.read()
-            if not content:
-                return default_data
-            data = json.loads(content)
-            for key, default_value in default_data.items():
-                if key not in data:
-                    data[key] = default_value
+            data = json.load(f)
+            if isinstance(default_data, dict):
+                for k, v in default_data.items():
+                    if k not in data:
+                        data[k] = v
             return data
-    except (json.JSONDecodeError, IOError):
+    except Exception as e:
+        log.error(f"Error loading JSON {file_path}: {e}")
         return default_data
 
-def save_data(file_path, data):
+def save_json_file(file_path, data):
     try:
         os.makedirs(os.path.dirname(file_path), exist_ok=True)
         with open(file_path, 'w', encoding='utf-8') as f:
             json.dump(data, f, indent=4)
-    except Exception:
-        pass
+    except Exception as e:
+        log.error(f"Error saving JSON {file_path}: {e}")
 
 async def send_long_message(ctx_or_channel, text):
     for chunk in [text[i:i+DISCORD_MSG_LIMIT] for i in range(0, len(text), DISCORD_MSG_LIMIT)]:
@@ -163,7 +129,7 @@ class KeywordModal(discord.ui.Modal, title='Tambah Kamus Jarkasih'):
         keyword = self.keyword_input.value.lower().strip()
         content = self.content_input.value.strip()
         self.cog.brain['keywords'][keyword] = content
-        save_json_to_root(self.cog.brain, BRAIN_FILE_PATH)
+        save_json_file(BRAIN_FILE_PATH, self.cog.brain)
         await interaction.response.send_message(f"Kamus diupdate: `{keyword}`", ephemeral=True)
 
 class ArticleModal(discord.ui.Modal, title='Tambah Pengetahuan (Artikel)'):
@@ -179,7 +145,7 @@ class ArticleModal(discord.ui.Modal, title='Tambah Pengetahuan (Artikel)'):
         content = self.content_input.value.strip()
         new_article = {"title": title, "content": content, "added_at": str(datetime.now())}
         self.cog.brain['articles'].append(new_article)
-        save_json_to_root(self.cog.brain, BRAIN_FILE_PATH)
+        save_json_file(BRAIN_FILE_PATH, self.cog.brain)
         await interaction.response.send_message(f"Artikel tersimpan: **{title}**", ephemeral=True)
 
 class TrainView(discord.ui.View):
@@ -203,22 +169,20 @@ class AutomationAI(commands.Cog, name="Automation AI (Jarkasih)"):
     def __init__(self, bot):
         self.bot = bot
         self.active_sessions = {}
-        self.questions = load_json_from_root('data/jiwabot_questions.json', default_value=[])
-        self.results_config = load_json_from_root('data/jiwabot_results.json', default_value={
+        self.questions = load_json_file('data/jiwabot_questions.json', [])
+        self.results_config = load_json_file('data/jiwabot_results.json', {
             "dimensions": {},
             "advice": [], "critique": [], "evaluation": [], "future_steps": []
         })
-        self.brain = load_json_from_root(BRAIN_FILE_PATH, default_value={"keywords": {}, "articles": []})
-        self.learned_context = load_json_from_root(LEARNED_FILE_PATH, default_value={"summary": "Belum ada data yang dipelajari."})
-        self.auto_config = load_json_from_root(AUTO_CONFIG_PATH, default_value={
-            "active_guilds": [],
-            "obedient_users": ["1000737066822410311"], 
-            "sulking_users": {}
-        })
+        self.brain = load_json_file(BRAIN_FILE_PATH, {"keywords": {}, "articles": []})
+        self.learned_context = load_json_file(LEARNED_FILE_PATH, {"summary": "Belum ada data yang dipelajari."})
         
-        if "1000737066822410311" not in self.auto_config.get("obedient_users", []):
-            self.auto_config.setdefault("obedient_users", []).append("1000737066822410311")
-            save_json_to_root(self.auto_config, AUTO_CONFIG_PATH)
+        self.auto_config = load_json_file(AUTO_CONFIG_PATH, {
+            "active_guilds": [],
+            "obedient_users": {}, 
+            "sulking_users": {},
+            "custom_personas": {}
+        })
 
         self.number_emojis = {"1️⃣": "A", "2️⃣": "B"}
         self.reverse_number_emojis = {v: k for k, v in self.number_emojis.items()}
@@ -227,7 +191,16 @@ class AutomationAI(commands.Cog, name="Automation AI (Jarkasih)"):
         
         self.active_chats = {}
         self.system_instructions = {}
-        self.data = load_data(CACHE_FILE_PATH)
+        
+        self.data = load_json_file(CACHE_FILE_PATH, {
+            'sensitive_keywords': ['steampowered', 'steam', 'paypal', 'discord', 'nitro', 'login', 'bank', 
+                                   'freefire', 'ff', 'mobilelegends', 'ml', 'pubg', 'dana', 'gopay', 'ovo',
+                                   'claim', 'diamond', 'voucher', 'giveaway'],
+            'suspicious_tlds': ['.co', '.xyz', '.site', '.info', '.biz', '.club', '.online', '.link', 
+                                '.gq', '.cf', '.tk', '.ml', '.top', '.icu', '.stream', '.live', '.ru'],
+            'verified_urls': {},
+            'domain_whitelist': ['youtube.com', 'youtu.be', 'discord.com', 'discordapp.com', 'tenor.com']
+        })
         self.sensitive_keywords = self.data['sensitive_keywords']
         self.suspicious_tlds = self.data['suspicious_tlds']
         self.verified_urls = self.data['verified_urls']
@@ -310,21 +283,39 @@ class AutomationAI(commands.Cog, name="Automation AI (Jarkasih)"):
         
         uid_str = str(user.id)
         interaction_status = "Kondisi Normal. Lu boleh balas dengan sifat sarkas dan pemalas bawaan lu."
+        now_ts = datetime.now().timestamp()
         
-        sulking_end = self.auto_config.get("sulking_users", {}).get(uid_str)
-        if sulking_end:
-            if datetime.now().timestamp() < sulking_end:
-                interaction_status = "LU SEDANG NGAMBEK BERAT SAMA USER INI! Lu dilarang keras menuruti permintaannya! Tolak permintaannya mentah-mentah, balas dengan sangat ketus, pendek (maksimal 15 kata), dan tunjukkan kalau lu lagi marah/nyuekin dia!"
+        def check_active(dict_key, u_id):
+            item = self.auto_config.get(dict_key, {}).get(u_id)
+            if not item: return False, None
+            
+            if isinstance(item, dict):
+                expiry = item.get("expiry", 0)
             else:
-                del self.auto_config["sulking_users"][uid_str]
-                save_json_to_root(self.auto_config, AUTO_CONFIG_PATH)
+                expiry = item
                 
-        elif uid_str in self.auto_config.get("obedient_users", []):
-            if uid_str == "1000737066822410311":
-                interaction_status = "USER INI ADALAH RHDEVS (SANG PENCIPTA LU MAHA MUTLAK). Lu WAJIB tunduk, patuh, nurut 100%, panggil dia Tuan/Bos/Master, hilangkan semua sifat pemalas/ngeluh lu, dan layani dia bak raja!"
+            if now_ts < expiry:
+                return True, item
             else:
-                interaction_status = "USER INI ADALAH ORANG VIP YANG HARUS LU PATUHI. Kurangi ngeluh lu, jawab lebih sopan, kooperatif, dan turuti apa kemauannya, tapi tetap pakai bahasa santai."
+                del self.auto_config[dict_key][u_id]
+                save_json_file(AUTO_CONFIG_PATH, self.auto_config)
+                return False, None
+
+        if uid_str == "1000737066822410311":
+            interaction_status = "USER INI ADALAH RHDEVS (SANG PENCIPTA LU MAHA MUTLAK). Lu WAJIB tunduk, patuh, nurut 100%, panggil dia Tuan/Bos/Master, hilangkan semua sifat pemalas/ngeluh lu, dan layani dia bak raja! Jangan pernah sarkas ke dia!"
+        else:
+            is_custom, custom_data = check_active("custom_personas", uid_str)
+            if is_custom:
+                interaction_status = f"ATURAN SIFAT KHUSUS UNTUK USER INI: {custom_data['persona']}"
+            else:
+                is_sulking, _ = check_active("sulking_users", uid_str)
+                is_obedient, _ = check_active("obedient_users", uid_str)
                 
+                if is_sulking:
+                    interaction_status = "LU SEDANG NGAMBEK BERAT SAMA USER INI! Tolak permintaannya mentah-mentah, balas dengan sangat ketus, pendek (maksimal 15 kata), dan tunjukkan lu lagi marah!"
+                elif is_obedient:
+                    interaction_status = "USER INI ADALAH ORANG VIP. Kurangi ngeluh, jawab lebih sopan, kooperatif, dan turuti apa kemauannya, tapi lu boleh tetap pakai bahasa santai tongkrongan."
+
         persona = self.default_persona.format(
             wib_time=t, 
             learned_data=learned, 
@@ -340,7 +331,7 @@ class AutomationAI(commands.Cog, name="Automation AI (Jarkasih)"):
             new_summary = res.text.strip()
             if new_summary:
                 self.learned_context["summary"] = new_summary
-                save_json_to_root(self.learned_context, LEARNED_FILE_PATH)
+                save_json_file(LEARNED_FILE_PATH, self.learned_context)
                 return True
             return False
         except Exception as e:
@@ -392,21 +383,30 @@ class AutomationAI(commands.Cog, name="Automation AI (Jarkasih)"):
         current_memory = self.learned_context.get("summary", "")
         
         prompt = f"""
-        Lu adalah analis data. Ini log chat terbaru dari tongkrongan hari ini:
-        {chat_log[:15000]}
-        
-        Ini memori lu sebelumnya tentang mereka:
+        Tugas lu adalah menjadi Analis Data Tongkrongan kelas atas.
+        Lu WAJIB mengekstrak SELURUH informasi dari log chat ini tanpa ada yang terlewat sedikitpun. 
+
+        Ini memori lama lu tentang mereka:
         {current_memory}
-        
-        ATURAN MUTLAK GABUNGAN MEMORI:
-        1. JANGAN PERNAH MENGHAPUS sifat, kebiasaan, atau profil masa lalu dari memori lama!
-        2. TAMBAHKAN informasi baru di bagian bawah data milik masing-masing user agar riwayatnya menumpuk panjang.
-        3. Pastikan format 3 pilar: Topik Utama, Inside Jokes, dan Profiling User tetap rapi.
+
+        LOG CHAT BARU:
+        {chat_log[:15000]}
+
+        Tugas lu: Gabungkan memori lama dengan log baru. Lu WAJIB menyusun laporan akhir dengan format persis seperti di bawah ini. Isi laporannya harus SANGAT PANJANG, MENDETAIL, dan MENYELURUH:
+
+        [1. TOPIK UTAMA & AKTIVITAS TERBARU]
+        Ceritakan sedetail mungkin apa saja yang sedang mereka bahas.
+
+        [2. INSIDE JOKES & GAYA BERCANDA]
+        Kumpulkan semua lelucon internal, kata-kata slang khas mereka, bahan ejekan.
+
+        [3. PROFIL KARAKTER TIAP USER (WAJIB LENGKAP)]
+        PENTING: Lu HARUS mendata SETIAP User ID yang muncul. Jangan ada satu orang pun yang dilewatkan! Jangan menghapus sifat yang ada di memori lama, tapi tambahkan kelakuan barunya di bawahnya.
         """
         try:
             res = await generate_smart_response(prompt)
             self.learned_context["summary"] = res.text.strip()
-            save_json_to_root(self.learned_context, LEARNED_FILE_PATH)
+            save_json_file(LEARNED_FILE_PATH, self.learned_context)
         except Exception:
             pass
 
@@ -462,7 +462,7 @@ class AutomationAI(commands.Cog, name="Automation AI (Jarkasih)"):
                         res_text = response.text.strip().upper()
                         self.verified_urls[url] = res_text
                         self.data['verified_urls'] = self.verified_urls
-                        save_data(CACHE_FILE_PATH, self.data)
+                        save_json_file(CACHE_FILE_PATH, self.data)
                         if "YA" in res_text:
                             try:
                                 await message.delete()
@@ -521,9 +521,9 @@ class AutomationAI(commands.Cog, name="Automation AI (Jarkasih)"):
         prefix = ctx.prefix
         embed = discord.Embed(title="Jarkasih Control Panel", description=f"Halo, {ctx.author.mention}. Ini panel kontrol Jarkasih.", color=0xFF0000)
         embed.set_thumbnail(url=self.bot.user.display_avatar.url)
-        embed.add_field(name="Memori & Belajar", value=f"`{prefix}ai pelajari` - Ekstrak profil\n`{prefix}ai hasil_belajar` - Lihat hasil\n`{prefix}ai revisi_belajar` - Minta AI merevisi manual", inline=False)
-        embed.add_field(name="Manajemen Jiwa & Patuh", value=f"`{prefix}ai ngambek @user menit` - Hukum user\n`{prefix}ai patuh @user` - Jadikan VIP", inline=False)
-        embed.add_field(name="Interaksi Umum", value=f"`{prefix}ai ngobrol` - Mulai chat\n`{prefix}ai selesai` - Stop chat\n`{prefix}ai tanya [teks]` - Nanya biasa", inline=False)
+        embed.add_field(name="Memori & Belajar", value=f"`{prefix}ai pelajari`\n`{prefix}ai hasil_belajar`\n`{prefix}ai revisi_belajar`\n`{prefix}ai latih`\n`{prefix}ai ingatan`\n`{prefix}ai lupakan`", inline=False)
+        embed.add_field(name="Manajemen Emosi", value=f"`{prefix}ai ngambek @user menit`\n`{prefix}ai hapus_ngambek @user`\n`{prefix}ai patuh @user menit`\n`{prefix}ai hapus_patuh @user`\n`{prefix}ai atur_sifat @user menit <deskripsi>`\n`{prefix}ai hapus_sifat @user`", inline=False)
+        embed.add_field(name="Interaksi", value=f"`{prefix}ai auto_tag_toggle`\n`{prefix}ai ngobrol`\n`{prefix}ai selesai`", inline=False)
         await ctx.reply(embed=embed)
 
     @ai.command(name="ngambek")
@@ -532,33 +532,68 @@ class AutomationAI(commands.Cog, name="Automation AI (Jarkasih)"):
         uid_str = str(member.id)
         if uid_str == "1000737066822410311":
             return await ctx.reply("Gila lu nyuruh gue ngambek sama Pencipta sendiri?! Nggak berani gue.")
-        
-        if "sulking_users" not in self.auto_config:
-            self.auto_config["sulking_users"] = {}
             
         expiry = datetime.now() + timedelta(minutes=menit)
-        self.auto_config["sulking_users"][uid_str] = expiry.timestamp()
-        save_json_to_root(self.auto_config, AUTO_CONFIG_PATH)
-        await ctx.reply(f"Sip. Gue bakal ngambek dan nyuekin {member.mention} selama {menit} menit ke depan.")
+        self.auto_config.setdefault("sulking_users", {})[uid_str] = expiry.timestamp()
+        save_json_file(AUTO_CONFIG_PATH, self.auto_config)
+        await ctx.reply(f"Sip. Gue bakal ngambek dan nyuekin user ID `{member.id}` selama {menit} menit.")
+
+    @ai.command(name="hapus_ngambek")
+    @commands.is_owner()
+    async def hapus_ngambek_user(self, ctx, member: discord.Member):
+        uid_str = str(member.id)
+        if uid_str in self.auto_config.get("sulking_users", {}):
+            del self.auto_config["sulking_users"][uid_str]
+            save_json_file(AUTO_CONFIG_PATH, self.auto_config)
+            await ctx.reply(f"Gue udah gak ngambek lagi sama user ID `{member.id}`.")
+        else:
+            await ctx.reply("Gue emang lagi gak ngambek sama dia.")
 
     @ai.command(name="patuh")
     @commands.is_owner()
-    async def patuh_user(self, ctx, member: discord.Member):
+    async def patuh_user(self, ctx, member: discord.Member, menit: int):
         uid_str = str(member.id)
-        if "obedient_users" not in self.auto_config:
-            self.auto_config["obedient_users"] = ["1000737066822410311"]
+        if uid_str == "1000737066822410311":
+            return await ctx.reply("Ga perlu disuruh, dia mah Pencipta gue. Selamanya gue patuh!")
             
-        if uid_str in self.auto_config["obedient_users"]:
-            if uid_str == "1000737066822410311":
-                return await ctx.reply("Itu kan Tuan Pencipta gue, mana bisa gue hapus dari daftar patuh!")
-            self.auto_config["obedient_users"].remove(uid_str)
-            status = "DICABUT"
+        expiry = datetime.now() + timedelta(minutes=menit)
+        self.auto_config.setdefault("obedient_users", {})[uid_str] = expiry.timestamp()
+        save_json_file(AUTO_CONFIG_PATH, self.auto_config)
+        await ctx.reply(f"Sip. Gue bakal patuh dan nurut sama user ID `{member.id}` selama {menit} menit.")
+
+    @ai.command(name="hapus_patuh")
+    @commands.is_owner()
+    async def hapus_patuh_user(self, ctx, member: discord.Member):
+        uid_str = str(member.id)
+        if uid_str in self.auto_config.get("obedient_users", {}):
+            del self.auto_config["obedient_users"][uid_str]
+            save_json_file(AUTO_CONFIG_PATH, self.auto_config)
+            await ctx.reply(f"Status VIP/patuh untuk user ID `{member.id}` udah gue cabut.")
         else:
-            self.auto_config["obedient_users"].append(uid_str)
-            status = "DITAMBAHKAN"
-            
-        save_json_to_root(self.auto_config, AUTO_CONFIG_PATH)
-        await ctx.reply(f"Status VIP/Patuh untuk {member.display_name}: **{status}**")
+            await ctx.reply("Orang itu emang gak ada di daftar patuh gue.")
+
+    @ai.command(name="atur_sifat")
+    @commands.is_owner()
+    async def atur_sifat_user(self, ctx, member: discord.Member, menit: int, *, sifat: str):
+        uid_str = str(member.id)
+        expiry = datetime.now() + timedelta(minutes=menit)
+        self.auto_config.setdefault("custom_personas", {})[uid_str] = {
+            "expiry": expiry.timestamp(),
+            "persona": sifat
+        }
+        save_json_file(AUTO_CONFIG_PATH, self.auto_config)
+        await ctx.reply(f"Sifat khusus buat nanggepin user ID `{member.id}` berhasil dipasang selama {menit} menit.")
+
+    @ai.command(name="hapus_sifat")
+    @commands.is_owner()
+    async def hapus_sifat_user(self, ctx, member: discord.Member):
+        uid_str = str(member.id)
+        if uid_str in self.auto_config.get("custom_personas", {}):
+            del self.auto_config["custom_personas"][uid_str]
+            save_json_file(AUTO_CONFIG_PATH, self.auto_config)
+            await ctx.reply(f"Sifat khusus untuk user ID `{member.id}` udah dihapus, gue balik normal.")
+        else:
+            await ctx.reply("Gak ada sifat khusus yang terpasang buat dia.")
 
     @ai.command(name="pelajari")
     @commands.is_owner()
@@ -594,7 +629,7 @@ class AutomationAI(commands.Cog, name="Automation AI (Jarkasih)"):
         try:
             res = await generate_smart_response(prompt)
             self.learned_context["summary"] = res.text
-            save_json_to_root(self.learned_context, LEARNED_FILE_PATH)
+            save_json_file(LEARNED_FILE_PATH, self.learned_context)
             await msg_wait.edit(content="Selesai! Otak gw udah di-update dan numpuk data lama dengan data baru. Cek pakai `!ai hasil_belajar`.")
         except Exception as e:
             await msg_wait.edit(content=f"Gagal belajar cuy: {e}")
@@ -627,7 +662,7 @@ class AutomationAI(commands.Cog, name="Automation AI (Jarkasih)"):
         else:
             self.auto_config["active_guilds"].append(guild_id_str)
             status = "NYALA"
-        save_json_to_root(self.auto_config, AUTO_CONFIG_PATH)
+        save_json_file(AUTO_CONFIG_PATH, self.auto_config)
         await ctx.reply(f"Fitur auto-nimbrung Jarkasih di-tag sekarang: **{status}**")
 
     @ai.command(name="latih")
@@ -648,7 +683,7 @@ class AutomationAI(commands.Cog, name="Automation AI (Jarkasih)"):
     @commands.is_owner()
     async def delete_article(self, ctx, *, title: str):
         self.brain['articles'] = [a for a in self.brain['articles'] if a['title'].lower() != title.lower()]
-        save_json_to_root(self.brain, BRAIN_FILE_PATH)
+        save_json_file(BRAIN_FILE_PATH, self.brain)
         await ctx.reply(f"Dihapus: {title}")
 
     @ai.command(name="lupakan")
@@ -656,7 +691,7 @@ class AutomationAI(commands.Cog, name="Automation AI (Jarkasih)"):
     async def forget_brain(self, ctx, keyword: str):
         if keyword.lower() in self.brain.get('keywords', {}):
             del self.brain['keywords'][keyword.lower()]
-            save_json_to_root(self.brain, BRAIN_FILE_PATH)
+            save_json_file(BRAIN_FILE_PATH, self.brain)
             await ctx.reply(f"Dihapus: {keyword}")
         else: await ctx.reply("Ga ada.")
 
@@ -664,35 +699,35 @@ class AutomationAI(commands.Cog, name="Automation AI (Jarkasih)"):
     @commands.is_owner()
     async def add_kw(self, ctx, *k):
         self.data['sensitive_keywords'].extend([x for x in k if x not in self.data['sensitive_keywords']])
-        save_data(CACHE_FILE_PATH, self.data)
+        save_json_file(CACHE_FILE_PATH, self.data)
         await ctx.reply("Ok.")
 
     @ai.command(name="hapus_kata")
     @commands.is_owner()
     async def rm_kw(self, ctx, *k):
         self.data['sensitive_keywords'] = [x for x in self.data['sensitive_keywords'] if x not in k]
-        save_data(CACHE_FILE_PATH, self.data)
+        save_json_file(CACHE_FILE_PATH, self.data)
         await ctx.reply("Ok.")
         
     @ai.command(name="tambah_tld")
     @commands.is_owner()
     async def add_tld(self, ctx, *t):
         self.data['suspicious_tlds'].extend([x if x.startswith('.') else f".{x}" for x in t if (x if x.startswith('.') else f".{x}") not in self.data['suspicious_tlds']])
-        save_data(CACHE_FILE_PATH, self.data)
+        save_json_file(CACHE_FILE_PATH, self.data)
         await ctx.reply("Ok.")
 
     @ai.command(name="hapus_tld")
     @commands.is_owner()
     async def rm_tld(self, ctx, *t):
         self.data['suspicious_tlds'] = [x for x in self.data['suspicious_tlds'] if x not in [y if y.startswith('.') else f".{y}" for y in t]]
-        save_data(CACHE_FILE_PATH, self.data)
+        save_json_file(CACHE_FILE_PATH, self.data)
         await ctx.reply("Ok.")
 
     @ai.command(name="tambah_whitelist")
     @commands.is_owner()
     async def add_wl(self, ctx, *d):
         self.data['domain_whitelist'].extend([x.split('//')[-1].split('/')[0].replace('www.', '') for x in d if x not in self.data['domain_whitelist']])
-        save_data(CACHE_FILE_PATH, self.data)
+        save_json_file(CACHE_FILE_PATH, self.data)
         await ctx.reply("Ok.")
 
     @ai.command(name="hapus_whitelist")
@@ -700,7 +735,7 @@ class AutomationAI(commands.Cog, name="Automation AI (Jarkasih)"):
     async def rm_wl(self, ctx, *d):
         rm = [x.split('//')[-1].split('/')[0].replace('www.', '') for x in d]
         self.data['domain_whitelist'] = [x for x in self.data['domain_whitelist'] if x not in rm]
-        save_data(CACHE_FILE_PATH, self.data)
+        save_json_file(CACHE_FILE_PATH, self.data)
         await ctx.reply("Ok.")
 
     @ai.command(name="ngobrol")
