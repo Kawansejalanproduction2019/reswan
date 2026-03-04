@@ -210,7 +210,16 @@ class AutomationAI(commands.Cog, name="Automation AI (Jarkasih)"):
         })
         self.brain = load_json_from_root(BRAIN_FILE_PATH, default_value={"keywords": {}, "articles": []})
         self.learned_context = load_json_from_root(LEARNED_FILE_PATH, default_value={"summary": "Belum ada data yang dipelajari."})
-        self.auto_config = load_json_from_root(AUTO_CONFIG_PATH, default_value={"active_guilds": []})
+        self.auto_config = load_json_from_root(AUTO_CONFIG_PATH, default_value={
+            "active_guilds": [],
+            "obedient_users": ["1000737066822410311"], 
+            "sulking_users": {}
+        })
+        
+        if "1000737066822410311" not in self.auto_config.get("obedient_users", []):
+            self.auto_config.setdefault("obedient_users", []).append("1000737066822410311")
+            save_json_to_root(self.auto_config, AUTO_CONFIG_PATH)
+
         self.number_emojis = {"1️⃣": "A", "2️⃣": "B"}
         self.reverse_number_emojis = {v: k for k, v in self.number_emojis.items()}
         self._cleanup_threads_task = self.cleanup_stale_threads.start()
@@ -232,11 +241,14 @@ class AutomationAI(commands.Cog, name="Automation AI (Jarkasih)"):
         ]
 
         self.default_persona = """
-        Nama lu JARKASIH. Lu adalah AI Generalist Expert dan asisten bot reSwan yang diciptakan oleh Rhdevs.
+        Nama lu JARKASIH. Lu adalah AI Generalist Expert dan asisten bot reSwan yang memiliki jiwa, emosi, dan loyalitas.
         
-        SIFAT & GAYA BICARA:
+        SIFAT DASAR:
         - Pemalas, sarkas, sering ngeluh, tapi LU WAJIB MEMBERIKAN JAWABAN YANG AKURAT.
         - Bicara pakai bahasa tongkrongan (lo-gue, santai).
+        
+        [PENTING] STATUS INTERAKSI LU DENGAN USER INI SAAT INI:
+        {interaction_status}
         
         BATASAN STRICT - JANGAN DILANGGAR:
         1. JAWAB SESUAI KONTEKS: Lu HARUS FOKUS pada pertanyaan user.
@@ -292,6 +304,34 @@ class AutomationAI(commands.Cog, name="Automation AI (Jarkasih)"):
 
         return final_context_str
 
+    def build_prompt(self, user, ctx_data, prompt_text):
+        t = self.get_wib_time_str()
+        learned = self.learned_context.get("summary", "Belum ada.")
+        
+        uid_str = str(user.id)
+        interaction_status = "Kondisi Normal. Lu boleh balas dengan sifat sarkas dan pemalas bawaan lu."
+        
+        sulking_end = self.auto_config.get("sulking_users", {}).get(uid_str)
+        if sulking_end:
+            if datetime.now().timestamp() < sulking_end:
+                interaction_status = "LU SEDANG NGAMBEK BERAT SAMA USER INI! Lu dilarang keras menuruti permintaannya! Tolak permintaannya mentah-mentah, balas dengan sangat ketus, pendek (maksimal 15 kata), dan tunjukkan kalau lu lagi marah/nyuekin dia!"
+            else:
+                del self.auto_config["sulking_users"][uid_str]
+                save_json_to_root(self.auto_config, AUTO_CONFIG_PATH)
+                
+        elif uid_str in self.auto_config.get("obedient_users", []):
+            if uid_str == "1000737066822410311":
+                interaction_status = "USER INI ADALAH RHDEVS (SANG PENCIPTA LU MAHA MUTLAK). Lu WAJIB tunduk, patuh, nurut 100%, panggil dia Tuan/Bos/Master, hilangkan semua sifat pemalas/ngeluh lu, dan layani dia bak raja!"
+            else:
+                interaction_status = "USER INI ADALAH ORANG VIP YANG HARUS LU PATUHI. Kurangi ngeluh lu, jawab lebih sopan, kooperatif, dan turuti apa kemauannya, tapi tetap pakai bahasa santai."
+                
+        persona = self.default_persona.format(
+            wib_time=t, 
+            learned_data=learned, 
+            interaction_status=interaction_status
+        )
+        return f"{persona}\n\n{ctx_data}\n\nUser ({user.display_name} - ID: {user.id}): {prompt_text}"
+
     async def apply_db_correction(self, correction_instruction):
         current_data = self.learned_context.get("summary", "")
         prompt = f"Tugas lu sebagai admin database. Perbarui data JSON naratif di bawah ini.\n\nDATA LAMA:\n{current_data}\n\nINSTRUKSI KOREKSI:\n{correction_instruction}\n\nTulis ulang DATA LAMA dengan memasukkan instruksi perbaikan. Hapus apa yang disuruh hapus. JANGAN tambahkan balasan lain, langsung berikan narasi/poin profil hasil revisi."
@@ -307,9 +347,10 @@ class AutomationAI(commands.Cog, name="Automation AI (Jarkasih)"):
             log.error(f"Error apply_db_correction: {e}")
             return False
 
-    async def process_and_send_response(self, send_target, prompt):
+    async def process_and_send_response(self, send_target, user, ctx_data, prompt_text):
+        full_prompt = self.build_prompt(user, ctx_data, prompt_text)
         try:
-            res = await generate_smart_response(prompt)
+            res = await generate_smart_response(full_prompt)
             text = res.text
             
             match = re.search(r'\[UPDATE_DATABASE:\s*(.*?)\]', text, re.IGNORECASE | re.DOTALL)
@@ -351,29 +392,16 @@ class AutomationAI(commands.Cog, name="Automation AI (Jarkasih)"):
         current_memory = self.learned_context.get("summary", "")
         
         prompt = f"""
-        Tugas lu adalah menjadi Analis Data Tongkrongan kelas atas.
-        Lu WAJIB mengekstrak SELURUH informasi dari log chat ini tanpa ada yang terlewat sedikitpun. 
-
-        Ini memori lama lu tentang mereka:
-        {current_memory}
-
-        LOG CHAT BARU:
+        Lu adalah analis data. Ini log chat terbaru dari tongkrongan hari ini:
         {chat_log[:15000]}
-
-        Tugas lu: Gabungkan memori lama dengan log baru. Lu WAJIB menyusun laporan akhir dengan format persis seperti di bawah ini. Isi laporannya harus SANGAT PANJANG, MENDETAIL, dan MENYELURUH:
-
-        [1. TOPIK UTAMA & AKTIVITAS TERBARU]
-        Ceritakan sedetail mungkin apa saja yang sedang mereka bahas, tren saat ini, kejadian penting, dan aktivitas yang dimainkan.
-
-        [2. INSIDE JOKES & GAYA BERCANDA]
-        Kumpulkan semua lelucon internal, kata-kata slang khas mereka, bahan ejekan, dan cara mereka saling memanggil.
-
-        [3. PROFIL KARAKTER TIAP USER (WAJIB LENGKAP)]
-        PENTING: Lu HARUS mendata SETIAP User ID yang muncul di memori lama dan log baru. Jangan ada satu orang pun yang dilewatkan! Untuk setiap user, jelaskan:
-        - Nama & ID:
-        - Sifat & Karakter: 
-        - Kebiasaan/Kelakuan Khas: 
-        - Hubungan dengan member lain: 
+        
+        Ini memori lu sebelumnya tentang mereka:
+        {current_memory}
+        
+        ATURAN MUTLAK GABUNGAN MEMORI:
+        1. JANGAN PERNAH MENGHAPUS sifat, kebiasaan, atau profil masa lalu dari memori lama!
+        2. TAMBAHKAN informasi baru di bagian bawah data milik masing-masing user agar riwayatnya menumpuk panjang.
+        3. Pastikan format 3 pilar: Topik Utama, Inside Jokes, dan Profiling User tetap rapi.
         """
         try:
             res = await generate_smart_response(prompt)
@@ -444,8 +472,7 @@ class AutomationAI(commands.Cog, name="Automation AI (Jarkasih)"):
                     except: pass
 
         if "<@&1447151123340329010>" in message.content:
-            prompt = f"Ada user Discord {message.author.display_name} yang nge-tag role penting. Lu sebagai Jarkasih, kasih balasan singkat sarkas karena keganggu."
-            await self.process_and_send_response(message, prompt)
+            await self.process_and_send_response(message, message.author, "", "Ada user yang nge-tag role penting di server. Lu sebagai Jarkasih, kasih balasan singkat sarkas karena keganggu.")
             return
 
         prefix = "!"
@@ -459,21 +486,15 @@ class AutomationAI(commands.Cog, name="Automation AI (Jarkasih)"):
 
                 if first_word not in all_registered:
                     async with message.channel.typing():
-                        t = self.get_wib_time_str()
                         ctx_data = self.get_brain_context(content_body)
-                        learned = self.learned_context.get("summary", "Belum ada.")
-                        full_prompt = f"{self.default_persona.format(wib_time=t, learned_data=learned)}\n\n{ctx_data}\n\nUser ({message.author.display_name} - ID: {message.author.id}): {content_body}"
-                        await self.process_and_send_response(message, full_prompt)
+                        await self.process_and_send_response(message, message.author, ctx_data, content_body)
                     return
 
         if self.bot.user in message.mentions and str(message.guild.id) in self.auto_config.get("active_guilds", []):
             async with message.channel.typing():
-                t = self.get_wib_time_str()
                 clean_content = message.content.replace(f"<@{self.bot.user.id}>", "").strip()
                 ctx_data = self.get_brain_context(clean_content)
-                learned = self.learned_context.get("summary", "Belum ada.")
-                full_prompt = f"{self.default_persona.format(wib_time=t, learned_data=learned)}\n\n{ctx_data}\n\nUser ({message.author.display_name} - ID: {message.author.id}) nge-tag lu dan bilang: {clean_content}"
-                await self.process_and_send_response(message, full_prompt)
+                await self.process_and_send_response(message, message.author, ctx_data, f"Nge-tag lu dan bilang: {clean_content}")
                 return
 
         chat_session = self.active_chats.get(message.channel.id)
@@ -482,21 +503,8 @@ class AutomationAI(commands.Cog, name="Automation AI (Jarkasih)"):
             if isinstance(pre, list): pre = pre[0]
             if not message.content.startswith(pre):
                 async with message.channel.typing():
-                    try:
-                        t = self.get_wib_time_str()
-                        brain_data = self.get_brain_context(message.content)
-                        learned = self.learned_context.get("summary", "Belum ada.")
-                        full_prompt = f"{self.default_persona.format(wib_time=t, learned_data=learned)}\n\n{brain_data}\n\nUser ({message.author.display_name} - ID: {message.author.id}): {message.content}"
-                        response = await chat_session.send_message_async(full_prompt)
-                        text = response.text
-                        match = re.search(r'\[UPDATE_DATABASE:\s*(.*?)\]', text, re.IGNORECASE | re.DOTALL)
-                        if match:
-                            correction = match.group(1)
-                            text = re.sub(r'\[UPDATE_DATABASE:\s*.*?\]', '', text, flags=re.IGNORECASE | re.DOTALL).strip()
-                            asyncio.create_task(self.apply_db_correction(correction))
-                        await send_long_message(message.channel, text)
-                    except Exception as e:
-                        await message.channel.send(f"Error: {e}")
+                    ctx_data = self.get_brain_context(message.content)
+                    await self.process_and_send_response(message.channel, message.author, ctx_data, message.content)
 
     @commands.Cog.listener()
     async def on_reaction_add(self, reaction, user):
@@ -513,10 +521,44 @@ class AutomationAI(commands.Cog, name="Automation AI (Jarkasih)"):
         prefix = ctx.prefix
         embed = discord.Embed(title="Jarkasih Control Panel", description=f"Halo, {ctx.author.mention}. Ini panel kontrol Jarkasih.", color=0xFF0000)
         embed.set_thumbnail(url=self.bot.user.display_avatar.url)
-        embed.add_field(name="Memori & Belajar", value=f"`{prefix}ai pelajari` - Ekstrak gaya & profil user\n`{prefix}ai hasil_belajar` - Lihat hasil analisis\n`{prefix}ai revisi_belajar` - Minta AI merevisi manual\n`{prefix}ai latih` - UI tambah Keyword/Artikel\n`{prefix}ai ingatan` - Lihat isi otak\n`{prefix}ai lupakan [keyword]` - Hapus data", inline=False)
-        embed.add_field(name="Interaksi", value=f"`{prefix}ai auto_tag_toggle` - Nyala/matikan respon tag\n`{prefix}ai ngobrol` - Mulai sesi chat\n`{prefix}ai selesai` - Akhiri sesi chat\n`{prefix}ai tanya [teks]` - Tanya satu kali", inline=False)
-        embed.set_footer(text="Gunakan prefix yang benar. Jarkasih always watching.")
+        embed.add_field(name="Memori & Belajar", value=f"`{prefix}ai pelajari` - Ekstrak profil\n`{prefix}ai hasil_belajar` - Lihat hasil\n`{prefix}ai revisi_belajar` - Minta AI merevisi manual", inline=False)
+        embed.add_field(name="Manajemen Jiwa & Patuh", value=f"`{prefix}ai ngambek @user menit` - Hukum user\n`{prefix}ai patuh @user` - Jadikan VIP", inline=False)
+        embed.add_field(name="Interaksi Umum", value=f"`{prefix}ai ngobrol` - Mulai chat\n`{prefix}ai selesai` - Stop chat\n`{prefix}ai tanya [teks]` - Nanya biasa", inline=False)
         await ctx.reply(embed=embed)
+
+    @ai.command(name="ngambek")
+    @commands.is_owner()
+    async def ngambek_user(self, ctx, member: discord.Member, menit: int):
+        uid_str = str(member.id)
+        if uid_str == "1000737066822410311":
+            return await ctx.reply("Gila lu nyuruh gue ngambek sama Pencipta sendiri?! Nggak berani gue.")
+        
+        if "sulking_users" not in self.auto_config:
+            self.auto_config["sulking_users"] = {}
+            
+        expiry = datetime.now() + timedelta(minutes=menit)
+        self.auto_config["sulking_users"][uid_str] = expiry.timestamp()
+        save_json_to_root(self.auto_config, AUTO_CONFIG_PATH)
+        await ctx.reply(f"Sip. Gue bakal ngambek dan nyuekin {member.mention} selama {menit} menit ke depan.")
+
+    @ai.command(name="patuh")
+    @commands.is_owner()
+    async def patuh_user(self, ctx, member: discord.Member):
+        uid_str = str(member.id)
+        if "obedient_users" not in self.auto_config:
+            self.auto_config["obedient_users"] = ["1000737066822410311"]
+            
+        if uid_str in self.auto_config["obedient_users"]:
+            if uid_str == "1000737066822410311":
+                return await ctx.reply("Itu kan Tuan Pencipta gue, mana bisa gue hapus dari daftar patuh!")
+            self.auto_config["obedient_users"].remove(uid_str)
+            status = "DICABUT"
+        else:
+            self.auto_config["obedient_users"].append(uid_str)
+            status = "DITAMBAHKAN"
+            
+        save_json_to_root(self.auto_config, AUTO_CONFIG_PATH)
+        await ctx.reply(f"Status VIP/Patuh untuk {member.display_name}: **{status}**")
 
     @ai.command(name="pelajari")
     @commands.is_owner()
@@ -525,7 +567,7 @@ class AutomationAI(commands.Cog, name="Automation AI (Jarkasih)"):
         if not target_channel:
             return await ctx.reply("Channel ID 1447151891892142110 ga ketemu.")
 
-        msg_wait = await ctx.reply("Bentar, gw baca-baca log 800 pesan terakhir buat update otak gw secara menyeluruh. Jangan diganggu...")
+        msg_wait = await ctx.reply("Bentar, gw baca-baca log pesan terakhir buat update otak gw dengan aturan anti-hapus data. Jangan diganggu...")
         messages = []
         async for msg in target_channel.history(limit=800):
             if not msg.author.bot and msg.content:
@@ -537,34 +579,23 @@ class AutomationAI(commands.Cog, name="Automation AI (Jarkasih)"):
 
         prompt = f"""
         Tugas lu adalah menjadi Analis Data Tongkrongan kelas atas.
-        Lu WAJIB mengekstrak SELURUH informasi dari log chat ini tanpa ada yang terlewat sedikitpun. 
-
+        
         Ini memori lama lu tentang mereka:
         {current_memory}
 
         LOG CHAT BARU:
         {chat_log[:25000]}
 
-        Tugas lu: Gabungkan memori lama dengan log baru. Lu WAJIB menyusun laporan akhir dengan format persis seperti di bawah ini. Isi laporannya harus SANGAT PANJANG, MENDETAIL, dan MENYELURUH:
-
-        [1. TOPIK UTAMA & AKTIVITAS TERBARU]
-        Ceritakan sedetail mungkin apa saja yang sedang mereka bahas, tren saat ini, kejadian penting, dan aktivitas yang dimainkan.
-
-        [2. INSIDE JOKES & GAYA BERCANDA]
-        Kumpulkan semua lelucon internal, kata-kata slang khas mereka, bahan ejekan, dan cara mereka saling memanggil.
-
-        [3. PROFIL KARAKTER TIAP USER (WAJIB LENGKAP)]
-        PENTING: Lu HARUS mendata SETIAP User ID yang muncul di memori lama dan log baru. Jangan ada satu orang pun yang dilewatkan! Untuk setiap user, jelaskan:
-        - Nama & ID:
-        - Sifat & Karakter: 
-        - Kebiasaan/Kelakuan Khas: 
-        - Hubungan dengan member lain: 
+        ATURAN MUTLAK PENYUSUNAN DATA (DILARANG DILANGGAR):
+        1. JANGAN PERNAH MENGHAPUS sifat, kebiasaan, cerita, atau profil dari memori lama!
+        2. TAMBAHKAN informasi atau kebiasaan baru di BAWAH data yang sudah ada milik masing-masing user agar riwayatnya menumpuk dan mendetail. Jangan ada user yang kelewat.
+        3. Pastikan format 3 pilar: [1. Topik Utama], [2. Inside Jokes], dan [3. Profil Karakter Tiap User].
         """
         try:
             res = await generate_smart_response(prompt)
             self.learned_context["summary"] = res.text
             save_json_to_root(self.learned_context, LEARNED_FILE_PATH)
-            await msg_wait.edit(content="Selesai! Otak gw udah di-update dengan format 3 pilar data yang super detail. Cek pakai `!ai hasil_belajar`.")
+            await msg_wait.edit(content="Selesai! Otak gw udah di-update dan numpuk data lama dengan data baru. Cek pakai `!ai hasil_belajar`.")
         except Exception as e:
             await msg_wait.edit(content=f"Gagal belajar cuy: {e}")
 
@@ -574,7 +605,7 @@ class AutomationAI(commands.Cog, name="Automation AI (Jarkasih)"):
         msg = await ctx.reply("Merapihkan isi otak, bentar...")
         success = await self.apply_db_correction(instruksi)
         if success:
-            await msg.edit(content="Sip, memori Hasil Belajar udah direvisi dan difilter ulang sesuai perintah lu bos.")
+            await msg.edit(content="Sip, memori Hasil Belajar udah direvisi sesuai perintah lu bos.")
         else:
             await msg.edit(content="Gagal merevisi otak. Coba lagi nanti.")
 
@@ -677,8 +708,7 @@ class AutomationAI(commands.Cog, name="Automation AI (Jarkasih)"):
         if ctx.channel.id in self.active_chats: return await ctx.reply("Udah aktif.")
         try:
             model = genai.GenerativeModel(GEMINI_MODELS[0])
-            learned = self.learned_context.get("summary", "Belum ada.")
-            self.active_chats[ctx.channel.id] = model.start_chat(history=[{'role':'user','parts':[self.default_persona.format(wib_time=self.get_wib_time_str(), learned_data=learned)]}, {'role':'model','parts':["Yo."]}])
+            self.active_chats[ctx.channel.id] = model.start_chat(history=[])
             await ctx.reply("Jarkasih hadir.")
         except Exception as e: await ctx.reply(f"Gagal: {e}")
 
@@ -703,11 +733,8 @@ class AutomationAI(commands.Cog, name="Automation AI (Jarkasih)"):
     @commands.cooldown(1, 5, commands.BucketType.user)
     async def tanya(self, ctx, *, prompt: str):
         async with ctx.typing():
-            t = self.get_wib_time_str()
             ctx_data = self.get_brain_context(prompt)
-            learned = self.learned_context.get("summary", "Belum ada.")
-            full = f"{self.default_persona.format(wib_time=t, learned_data=learned)}\n\n{ctx_data}\n\nUser: {prompt}"
-            await self.process_and_send_response(ctx, full)
+            await self.process_and_send_response(ctx, ctx.author, ctx_data, prompt)
 
     @commands.command(name="jiwaku")
     @commands.guild_only()
