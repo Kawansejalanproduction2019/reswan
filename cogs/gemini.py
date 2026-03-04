@@ -349,17 +349,30 @@ class AutomationAI(commands.Cog, name="Automation AI (Jarkasih)"):
                 correction = match.group(1)
                 text = re.sub(r'\[UPDATE_DATABASE:\s*.*?\]', '', text, flags=re.IGNORECASE | re.DOTALL).strip()
                 asyncio.create_task(self.apply_db_correction(correction))
+            
+            if not text:
+                text = "Males ngomong gue."
                 
             if isinstance(send_target, discord.Message):
-                await send_target.reply(text)
+                # CHUNKING REPLY MESSAGE SUPAYA GAK KENA ERROR DISCORD >2000 CHARS
+                chunks = [text[i:i+DISCORD_MSG_LIMIT] for i in range(0, len(text), DISCORD_MSG_LIMIT)]
+                for i, chunk in enumerate(chunks):
+                    if i == 0:
+                        await send_target.reply(chunk)
+                    else:
+                        await send_target.channel.send(chunk)
             else:
                 await send_long_message(send_target, text)
         except Exception as e:
+            log.error(f"Error generating response: {e}")
             msg = f"Mampus error: {e}"
-            if isinstance(send_target, discord.Message):
-                await send_target.reply(msg)
-            else:
-                await send_target.send(msg)
+            try:
+                if isinstance(send_target, discord.Message):
+                    await send_target.reply(msg)
+                else:
+                    await send_target.send(msg)
+            except Exception:
+                pass
 
     @tasks.loop(hours=24)
     async def daily_learning(self):
@@ -472,7 +485,10 @@ class AutomationAI(commands.Cog, name="Automation AI (Jarkasih)"):
                     except: pass
 
         if "<@&1447151123340329010>" in message.content:
-            await self.process_and_send_response(message, message.author, "", "Ada user yang nge-tag role penting di server. Lu sebagai Jarkasih, kasih balasan singkat sarkas karena keganggu.")
+            try:
+                await self.process_and_send_response(message, message.author, "", "Ada user yang nge-tag role penting di server. Lu sebagai Jarkasih, kasih balasan singkat sarkas karena keganggu.")
+            except Exception:
+                pass
             return
 
         prefix = "!"
@@ -485,26 +501,36 @@ class AutomationAI(commands.Cog, name="Automation AI (Jarkasih)"):
                 all_registered = valid_commands + aliases
 
                 if first_word not in all_registered:
-                    async with message.channel.typing():
-                        ctx_data = self.get_brain_context(content_body)
-                        await self.process_and_send_response(message, message.author, ctx_data, content_body)
+                    try:
+                        async with message.channel.typing():
+                            ctx_data = self.get_brain_context(content_body)
+                            await self.process_and_send_response(message, message.author, ctx_data, content_body)
+                    except Exception:
+                        pass
                     return
 
-        if self.bot.user in message.mentions and str(message.guild.id) in self.auto_config.get("active_guilds", []):
-            async with message.channel.typing():
-                clean_content = message.content.replace(f"<@{self.bot.user.id}>", "").strip()
-                ctx_data = self.get_brain_context(clean_content)
-                await self.process_and_send_response(message, message.author, ctx_data, f"Nge-tag lu dan bilang: {clean_content}")
-                return
+        if message.guild and self.bot.user in message.mentions and str(message.guild.id) in self.auto_config.get("active_guilds", []):
+            try:
+                async with message.channel.typing():
+                    bot_id = self.bot.user.id
+                    clean_content = message.content.replace(f"<@{bot_id}>", "").replace(f"<@!{bot_id}>", "").strip()
+                    ctx_data = self.get_brain_context(clean_content)
+                    await self.process_and_send_response(message, message.author, ctx_data, f"Nge-tag lu dan bilang: {clean_content}")
+            except Exception:
+                pass
+            return
 
         chat_session = self.active_chats.get(message.channel.id)
         if chat_session:
             pre = await self.bot.get_prefix(message)
             if isinstance(pre, list): pre = pre[0]
             if not message.content.startswith(pre):
-                async with message.channel.typing():
-                    ctx_data = self.get_brain_context(message.content)
-                    await self.process_and_send_response(message.channel, message.author, ctx_data, message.content)
+                try:
+                    async with message.channel.typing():
+                        ctx_data = self.get_brain_context(message.content)
+                        await self.process_and_send_response(message.channel, message.author, ctx_data, message.content)
+                except Exception:
+                    pass
 
     @commands.Cog.listener()
     async def on_reaction_add(self, reaction, user):
@@ -522,76 +548,76 @@ class AutomationAI(commands.Cog, name="Automation AI (Jarkasih)"):
         embed = discord.Embed(title="Jarkasih Control Panel", description=f"Halo, {ctx.author.mention}. Ini panel kontrol Jarkasih.", color=0xFF0000)
         embed.set_thumbnail(url=self.bot.user.display_avatar.url)
         embed.add_field(name="Memori & Belajar", value=f"`{prefix}ai pelajari`\n`{prefix}ai hasil_belajar`\n`{prefix}ai revisi_belajar`\n`{prefix}ai latih`\n`{prefix}ai ingatan`\n`{prefix}ai lupakan`", inline=False)
-        embed.add_field(name="Manajemen Emosi", value=f"`{prefix}ai ngambek @user menit`\n`{prefix}ai hapus_ngambek @user`\n`{prefix}ai patuh @user menit`\n`{prefix}ai hapus_patuh @user`\n`{prefix}ai atur_sifat @user menit <deskripsi>`\n`{prefix}ai hapus_sifat @user`", inline=False)
+        embed.add_field(name="Manajemen Emosi", value=f"`{prefix}ai ngambek ID_User menit`\n`{prefix}ai hapus_ngambek ID_User`\n`{prefix}ai patuh ID_User menit`\n`{prefix}ai hapus_patuh ID_User`\n`{prefix}ai atur_sifat ID_User menit <deskripsi>`\n`{prefix}ai hapus_sifat ID_User`", inline=False)
         embed.add_field(name="Interaksi", value=f"`{prefix}ai auto_tag_toggle`\n`{prefix}ai ngobrol`\n`{prefix}ai selesai`", inline=False)
         await ctx.reply(embed=embed)
 
     @ai.command(name="ngambek")
     @commands.is_owner()
-    async def ngambek_user(self, ctx, member: discord.Member, menit: int):
-        uid_str = str(member.id)
+    async def ngambek_user(self, ctx, id_user: str, menit: int):
+        uid_str = id_user.strip()
         if uid_str == "1000737066822410311":
             return await ctx.reply("Gila lu nyuruh gue ngambek sama Pencipta sendiri?! Nggak berani gue.")
             
         expiry = datetime.now() + timedelta(minutes=menit)
         self.auto_config.setdefault("sulking_users", {})[uid_str] = expiry.timestamp()
         save_json_file(AUTO_CONFIG_PATH, self.auto_config)
-        await ctx.reply(f"Sip. Gue bakal ngambek dan nyuekin user ID `{member.id}` selama {menit} menit.")
+        await ctx.reply(f"Sip. Gue bakal ngambek dan nyuekin user ID `{uid_str}` selama {menit} menit.")
 
     @ai.command(name="hapus_ngambek")
     @commands.is_owner()
-    async def hapus_ngambek_user(self, ctx, member: discord.Member):
-        uid_str = str(member.id)
+    async def hapus_ngambek_user(self, ctx, id_user: str):
+        uid_str = id_user.strip()
         if uid_str in self.auto_config.get("sulking_users", {}):
             del self.auto_config["sulking_users"][uid_str]
             save_json_file(AUTO_CONFIG_PATH, self.auto_config)
-            await ctx.reply(f"Gue udah gak ngambek lagi sama user ID `{member.id}`.")
+            await ctx.reply(f"Gue udah gak ngambek lagi sama user ID `{uid_str}`.")
         else:
             await ctx.reply("Gue emang lagi gak ngambek sama dia.")
 
     @ai.command(name="patuh")
     @commands.is_owner()
-    async def patuh_user(self, ctx, member: discord.Member, menit: int):
-        uid_str = str(member.id)
+    async def patuh_user(self, ctx, id_user: str, menit: int):
+        uid_str = id_user.strip()
         if uid_str == "1000737066822410311":
             return await ctx.reply("Ga perlu disuruh, dia mah Pencipta gue. Selamanya gue patuh!")
             
         expiry = datetime.now() + timedelta(minutes=menit)
         self.auto_config.setdefault("obedient_users", {})[uid_str] = expiry.timestamp()
         save_json_file(AUTO_CONFIG_PATH, self.auto_config)
-        await ctx.reply(f"Sip. Gue bakal patuh dan nurut sama user ID `{member.id}` selama {menit} menit.")
+        await ctx.reply(f"Sip. Gue bakal patuh dan nurut sama user ID `{uid_str}` selama {menit} menit.")
 
     @ai.command(name="hapus_patuh")
     @commands.is_owner()
-    async def hapus_patuh_user(self, ctx, member: discord.Member):
-        uid_str = str(member.id)
+    async def hapus_patuh_user(self, ctx, id_user: str):
+        uid_str = id_user.strip()
         if uid_str in self.auto_config.get("obedient_users", {}):
             del self.auto_config["obedient_users"][uid_str]
             save_json_file(AUTO_CONFIG_PATH, self.auto_config)
-            await ctx.reply(f"Status VIP/patuh untuk user ID `{member.id}` udah gue cabut.")
+            await ctx.reply(f"Status VIP/patuh untuk user ID `{uid_str}` udah gue cabut.")
         else:
             await ctx.reply("Orang itu emang gak ada di daftar patuh gue.")
 
     @ai.command(name="atur_sifat")
     @commands.is_owner()
-    async def atur_sifat_user(self, ctx, member: discord.Member, menit: int, *, sifat: str):
-        uid_str = str(member.id)
+    async def atur_sifat_user(self, ctx, id_user: str, menit: int, *, sifat: str):
+        uid_str = id_user.strip()
         expiry = datetime.now() + timedelta(minutes=menit)
         self.auto_config.setdefault("custom_personas", {})[uid_str] = {
             "expiry": expiry.timestamp(),
             "persona": sifat
         }
         save_json_file(AUTO_CONFIG_PATH, self.auto_config)
-        await ctx.reply(f"Sifat khusus buat nanggepin user ID `{member.id}` berhasil dipasang selama {menit} menit.")
+        await ctx.reply(f"Sifat khusus buat nanggepin user ID `{uid_str}` berhasil dipasang selama {menit} menit.")
 
     @ai.command(name="hapus_sifat")
     @commands.is_owner()
-    async def hapus_sifat_user(self, ctx, member: discord.Member):
-        uid_str = str(member.id)
+    async def hapus_sifat_user(self, ctx, id_user: str):
+        uid_str = id_user.strip()
         if uid_str in self.auto_config.get("custom_personas", {}):
             del self.auto_config["custom_personas"][uid_str]
             save_json_file(AUTO_CONFIG_PATH, self.auto_config)
-            await ctx.reply(f"Sifat khusus untuk user ID `{member.id}` udah dihapus, gue balik normal.")
+            await ctx.reply(f"Sifat khusus untuk user ID `{uid_str}` udah dihapus, gue balik normal.")
         else:
             await ctx.reply("Gak ada sifat khusus yang terpasang buat dia.")
 
