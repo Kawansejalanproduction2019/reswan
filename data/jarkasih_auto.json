@@ -1,13 +1,31 @@
 {
     "active_guilds": [
-        "788337048997199882"
+        "1417636227179483221",
+        "788337048997199882",
+        "1039509114008649778"
     ],
-    "obedient_users": [
-        "1000737066822410311"
-    ],
+    "obedient_users": {
+        "1000737066822410311": 4102444800.0
+    },
     "sulking_users": {
-        "1232252671138857001": 1772670263.325107,
-        "1426589718442676224": 1772670457.986209,
-        "1244261449329807478": 1772670479.720964
+        "1232252671138857001": 1772670263.325107
+    },
+    "custom_personas": {
+        "1232252671138857001": {
+            "expiry": 1772958235.122599,
+            "persona": "kamu harus bersikap baik  sedikit sama orang ini, pakai bahasa sopan ya dan jangan terlalu songong"
+        },
+        "1244261449329807478": {
+            "expiry": 1772734261.828731,
+            "persona": "kamu harus bersikap baik  sedikit sama orang ini, pakai bahasa sopan ya dan jangan terlalu songong, jangan lupa kode minta skin fish it ya kan dia baik hati"
+        },
+        "1426589718442676224": {
+            "expiry": 1772763679.883951,
+            "persona": "kamu harus bersikap baik karena terpaksa disuruh rhmger"
+        },
+        "453215843258597389": {
+            "expiry": 1772958242.99983,
+            "persona": "kamu harus bersikap baik  sedikit sama orang ini, pakai bahasa sopan ya dan jangan terlalu songong"
+        }
     }
 }
