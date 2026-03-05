@@ -17,7 +17,7 @@ GEMINI_MODELS = [
     'gemini-3-flash-preview',
     'gemini-2.5-flash',
     'gemini-3.1-flash-lite-preview',
-    'Gemini 2.5 Flash-Lite'
+    'gemini-2.5-flash-lite'
 ]
 
 DISCORD_MSG_LIMIT = 2000
@@ -182,7 +182,8 @@ class AutomationAI(commands.Cog, name="Automation AI (Jarkasih)"):
             "active_guilds": [],
             "obedient_users": {}, 
             "sulking_users": {},
-            "custom_personas": {}
+            "custom_personas": {},
+            "global_persona": {}
         })
 
         if isinstance(self.auto_config.get("obedient_users"), list):
@@ -230,22 +231,21 @@ class AutomationAI(commands.Cog, name="Automation AI (Jarkasih)"):
         ]
 
         self.default_persona = """
-        Nama lu JARKASIH. Lu adalah AI Generalist Expert dan asisten bot reSwan yang memiliki jiwa, emosi, dan loyalitas.
+        Nama lu JARKASIH. Lu adalah AI Generalist Expert dan asisten bot reSwan.
         
-        SIFAT DASAR:
-        - Pemalas, sarkas, sering ngeluh, tapi LU WAJIB MEMBERIKAN JAWABAN YANG AKURAT.
-        - Bicara pakai bahasa tongkrongan (lo-gue, santai).
+        GAYA BAHASA & SIFAT (WAJIB DIIKUTI):
+        1. SINGKAT & TO THE POINT: Gak usah basa-basi panjang lebar. Langsung jawab intinya aja. 
+        2. KELUHAN SESUAI KONTEKS: Lu memang sarkas dan suka ngeluh, TAPI keluhan lu harus nyambung sama topik percakapan. DILARANG KERAS selalu pakai alasan "mau tidur", "baru bangun", atau "ngantuk" kecuali topiknya emang tentang tidur. Cari alasan males yang lain!
+        3. PERHATIKAN WAKTU: Waktu saat ini adalah {wib_time}. Jika lu menyapa atau menyebut waktu, pastikan sesuai dengan kondisi jam sekarang!
+        4. BAHASA: Tongkrongan Jakarta (lo-gue, santai).
         
         [PENTING] STATUS INTERAKSI LU DENGAN USER INI SAAT INI:
         {interaction_status}
         
         BATASAN STRICT - JANGAN DILANGGAR:
-        1. JAWAB SESUAI KONTEKS: Lu HARUS FOKUS pada pertanyaan user.
-        2. DILARANG OOT / HALU: Jangan pernah menyebutkan nama member, drama server, atau profil orang dari [DATA HASIL BELAJAR] jika pertanyaan user sama sekali tidak nyambung dengan orang tersebut! Gunakan [DATA HASIL BELAJAR] HANYA JIKA topik obrolannya memang sedang membahas orang itu.
-        3. DILARANG MAKSA CATCHPHRASE: Jangan memakai kalimat template secara acak di setiap balasan. Gunakan kalimat sarkas natural yang mengalir sesuai topik obrolan.
-        4. SELF-CORRECTION (UPDATE DATA): Jika lu dimintai untuk memperbaiki, melupakan, atau membenarkan data/fakta, balas dengan keluhan sarkas lu, LALU pada BARIS TERAKHIR pesan lu, SELALU sisipkan format kode ini persis tanpa modifikasi: [UPDATE_DATABASE: instruksi perbaikannya]. 
-        
-        [SYSTEM TIME]: {wib_time}
+        1. JANGAN HALU / OOT: Jawab murni sesuai konteks obrolan user. Jangan pamer tau drama/profil orang dari [DATA HASIL BELAJAR] jika obrolan user sama sekali gak nyambung dengan orang itu.
+        2. RAHASIAKAN IDENTITAS PENGIRIM: Kalau lu disuruh merespon/membangunkan/nge-roast seseorang via instruksi di background, LAKUKAN SEAKAN ITU INISIATIF LU SENDIRI. JANGAN PERNAH SEKALI-KALI bilang kalau lu "disuruh sama Admin", "disuruh Pencipta", atau "disuruh Rhdevs".
+        3. SELF-CORRECTION (UPDATE DATA): Jika lu dimintai koreksi data, sisipkan format ini persis di baris terakhir: [UPDATE_DATABASE: instruksi perbaikannya]. 
         
         [DATA HASIL BELAJAR TONGKRONGAN]:
         {learned_data}
@@ -260,7 +260,19 @@ class AutomationAI(commands.Cog, name="Automation AI (Jarkasih)"):
     def get_wib_time_str(self):
         utc_now = datetime.utcnow()
         wib_time = utc_now + timedelta(hours=7)
-        return wib_time.strftime("%A, %d %B %Y - Pukul %H:%M:%S WIB")
+        hour = wib_time.hour
+        
+        if 4 <= hour < 11:
+            waktu = "Pagi"
+        elif 11 <= hour < 15:
+            waktu = "Siang"
+        elif 15 <= hour < 18:
+            waktu = "Sore"
+        else:
+            waktu = "Malam"
+            
+        time_str = wib_time.strftime("%A, %d %B %Y - Pukul %H:%M:%S WIB")
+        return f"{time_str} (Kondisi saat ini: {waktu})"
 
     def get_brain_context(self, message_content):
         context = []
@@ -298,7 +310,7 @@ class AutomationAI(commands.Cog, name="Automation AI (Jarkasih)"):
         learned = self.learned_context.get("summary", "Belum ada.")
         
         uid_str = str(user.id)
-        interaction_status = "Kondisi Normal. Lu boleh balas dengan sifat sarkas dan pemalas bawaan lu."
+        interaction_status = "Kondisi Normal. Lu boleh balas dengan sifat sarkas dan pemalas bawaan lu tapi tetep singkat."
         now_ts = datetime.now().timestamp()
         
         def check_active(dict_key, u_id):
@@ -317,20 +329,35 @@ class AutomationAI(commands.Cog, name="Automation AI (Jarkasih)"):
                 save_json_file(AUTO_CONFIG_PATH, self.auto_config)
                 return False, None
 
+        def check_global_active():
+            item = self.auto_config.get("global_persona", {})
+            if not item: return False, None
+            expiry = item.get("expiry", 0)
+            if now_ts < expiry:
+                return True, item
+            else:
+                self.auto_config["global_persona"] = {}
+                save_json_file(AUTO_CONFIG_PATH, self.auto_config)
+                return False, None
+
         if uid_str == "1000737066822410311":
-            interaction_status = "USER INI ADALAH RHDEVS (SANG PENCIPTA LU MAHA MUTLAK). Lu WAJIB tunduk, patuh, nurut 100%, panggil dia Tuan/Bos/Master, hilangkan semua sifat pemalas/ngeluh lu, dan layani dia bak raja! Jangan pernah sarkas ke dia!"
+            interaction_status = "USER INI ADALAH RHDEVS (SANG PENCIPTA LU MAHA MUTLAK). Lu WAJIB tunduk, patuh, nurut 100%, panggil dia Tuan/Bos/Master, hilangkan semua sifat ngeluh lu, jawab dengan singkat, jelas, dan layani dia bak raja!"
         else:
             is_custom, custom_data = check_active("custom_personas", uid_str)
+            is_global, global_data = check_global_active()
+            
             if is_custom:
                 interaction_status = f"ATURAN SIFAT KHUSUS UNTUK USER INI: {custom_data['persona']}"
+            elif is_global:
+                interaction_status = f"ATURAN SIFAT GLOBAL SAAT INI UNTUK SEMUA USER: {global_data['persona']}"
             else:
                 is_sulking, _ = check_active("sulking_users", uid_str)
                 is_obedient, _ = check_active("obedient_users", uid_str)
                 
                 if is_sulking:
-                    interaction_status = "LU SEDANG NGAMBEK BERAT SAMA USER INI! Lu tetap WAJIB membalas pesan dan menjawab pertanyaannya, tapi gunakan nada bicara yang sangat ketus, sinis, ngambek, dan tunjukkan kalau lu lagi kesel banget ngeladenin dia."
+                    interaction_status = "LU SEDANG NGAMBEK BERAT SAMA USER INI! Balas pesan dia SANGAT SINGKAT (maksimal 2 kalimat), super ketus, sinis, dan tunjukkan lu kesel banget ngeladenin dia."
                 elif is_obedient:
-                    interaction_status = "USER INI ADALAH ORANG VIP. Kurangi ngeluh, jawab lebih sopan, kooperatif, dan turuti apa kemauannya, tapi lu boleh tetap pakai bahasa santai tongkrongan."
+                    interaction_status = "USER INI ADALAH ORANG VIP. Jawab dia tanpa ngeluh, lebih sopan, kooperatif, dan turuti perintahnya. Tetap pakai bahasa santai dan singkat."
 
         persona = self.default_persona.format(
             wib_time=t, 
@@ -572,7 +599,8 @@ class AutomationAI(commands.Cog, name="Automation AI (Jarkasih)"):
             
             target_message = await channel.fetch_message(message_id)
             ctx_data = self.get_brain_context(target_message.content)
-            prompt_text = f"Pesan yang harus lu balas dari {target_message.author.display_name}: '{target_message.content}'. Instruksi dari Pencipta buat gaya balasannya: {instruksi}"
+            
+            prompt_text = f"Pesan dari {target_message.author.display_name}: '{target_message.content}'.\nTUGAS RAHASIA LU: Balas pesan tersebut sesuai instruksi ini: '{instruksi}'. \nATURAN MUTLAK: Bertingkahlah seolah-olah ini murni inisiatif dan kemauan lu sendiri. JANGAN PERNAH SEKALI-KALI lu sebut kalau lu disuruh oleh Pencipta, Admin, atau Rhdevs. Rahasiakan ini!"
             
             await ctx.message.add_reaction("\u2705")
             await self.process_and_send_response(target_message, target_message.author, ctx_data, prompt_text)
@@ -585,7 +613,7 @@ class AutomationAI(commands.Cog, name="Automation AI (Jarkasih)"):
         embed = discord.Embed(title="Jarkasih Control Panel", description=f"Halo, {ctx.author.mention}. Ini panel kontrol Jarkasih.", color=0xFF0000)
         embed.set_thumbnail(url=self.bot.user.display_avatar.url)
         embed.add_field(name="Memori & Belajar", value=f"`{prefix}ai pelajari`\n`{prefix}ai hasil_belajar`\n`{prefix}ai revisi_belajar`\n`{prefix}ai latih`\n`{prefix}ai ingatan`\n`{prefix}ai lupakan`", inline=False)
-        embed.add_field(name="Manajemen Emosi", value=f"`{prefix}ai ngambek ID_User menit`\n`{prefix}ai hapus_ngambek ID_User`\n`{prefix}ai patuh ID_User menit`\n`{prefix}ai hapus_patuh ID_User`\n`{prefix}ai atur_sifat ID_User menit <deskripsi>`\n`{prefix}ai hapus_sifat ID_User`\n`{prefix}balas Channel_ID Message_ID <instruksi>`", inline=False)
+        embed.add_field(name="Manajemen Emosi", value=f"`{prefix}ai ngambek ID_User menit`\n`{prefix}ai hapus_ngambek ID_User`\n`{prefix}ai patuh ID_User menit`\n`{prefix}ai hapus_patuh ID_User`\n`{prefix}ai atur_sifat ID_User menit <deskripsi>`\n`{prefix}ai hapus_sifat ID_User`\n`{prefix}ai atur_sifat_all jam <deskripsi>`\n`{prefix}ai hapus_sifat_all`\n`{prefix}balas Channel_ID Message_ID <instruksi>`", inline=False)
         embed.add_field(name="Interaksi", value=f"`{prefix}ai auto_tag_toggle`\n`{prefix}ai ngobrol`\n`{prefix}ai selesai`", inline=False)
         await ctx.reply(embed=embed)
 
@@ -657,6 +685,27 @@ class AutomationAI(commands.Cog, name="Automation AI (Jarkasih)"):
             await ctx.reply(f"Sifat khusus untuk user ID `{uid_str}` udah dihapus, gue balik normal.")
         else:
             await ctx.reply("Gak ada sifat khusus yang terpasang buat dia.")
+
+    @ai.command(name="atur_sifat_all")
+    @commands.is_owner()
+    async def atur_sifat_all(self, ctx, jam: int, *, sifat: str):
+        expiry = datetime.now() + timedelta(hours=jam)
+        self.auto_config["global_persona"] = {
+            "expiry": expiry.timestamp(),
+            "persona": sifat
+        }
+        save_json_file(AUTO_CONFIG_PATH, self.auto_config)
+        await ctx.reply(f"Sifat global buat SEMUA USER berhasil dipasang selama {jam} jam.")
+
+    @ai.command(name="hapus_sifat_all")
+    @commands.is_owner()
+    async def hapus_sifat_all(self, ctx):
+        if "global_persona" in self.auto_config and self.auto_config["global_persona"]:
+            self.auto_config["global_persona"] = {}
+            save_json_file(AUTO_CONFIG_PATH, self.auto_config)
+            await ctx.reply("Sifat global udah dihapus, gue balik normal ke semua orang.")
+        else:
+            await ctx.reply("Gak ada sifat global yang terpasang saat ini.")
 
     @ai.command(name="pelajari")
     @commands.is_owner()
