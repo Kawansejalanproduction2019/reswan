@@ -115,7 +115,7 @@ async def generate_smart_response(prompt):
             except Exception as e:
                 log.error(f"Model {model_name} error: {e}")
                 break
-    raise Exception("ResourceExhausted atau Error pada semua kunci API.")
+    raise Exception("ResourceExhausted")
 
 class KeywordModal(discord.ui.Modal, title='Tambah Kamus Jarkasih'):
     keyword_input = discord.ui.TextInput(label='Kata Kunci', placeholder='Contoh: Fish It', max_length=50)
@@ -153,13 +153,13 @@ class TrainView(discord.ui.View):
         super().__init__(timeout=60)
         self.cog = cog
 
-    @discord.ui.button(label="Tambah Keyword", style=discord.ButtonStyle.green, emoji="🔑")
+    @discord.ui.button(label="Tambah Keyword", style=discord.ButtonStyle.green, emoji="\U0001F511")
     async def keyword_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not await self.cog.bot.is_owner(interaction.user):
             return await interaction.response.send_message("Khusus Owner Bot.", ephemeral=True)
         await interaction.response.send_modal(KeywordModal(self.cog))
 
-    @discord.ui.button(label="Tambah Artikel", style=discord.ButtonStyle.blurple, emoji="📚")
+    @discord.ui.button(label="Tambah Artikel", style=discord.ButtonStyle.blurple, emoji="\U0001F4DA")
     async def article_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not await self.cog.bot.is_owner(interaction.user):
             return await interaction.response.send_message("Khusus Owner Bot.", ephemeral=True)
@@ -184,7 +184,7 @@ class AutomationAI(commands.Cog, name="Automation AI (Jarkasih)"):
             "custom_personas": {}
         })
 
-        self.number_emojis = {"1️⃣": "A", "2️⃣": "B"}
+        self.number_emojis = {"1\u20E3": "A", "2\u20E3": "B"}
         self.reverse_number_emojis = {v: k for k, v in self.number_emojis.items()}
         self._cleanup_threads_task = self.cleanup_stale_threads.start()
         self._daily_learning_task = self.daily_learning.start()
@@ -312,7 +312,7 @@ class AutomationAI(commands.Cog, name="Automation AI (Jarkasih)"):
                 is_obedient, _ = check_active("obedient_users", uid_str)
                 
                 if is_sulking:
-                    interaction_status = "LU SEDANG NGAMBEK BERAT SAMA USER INI! Tolak permintaannya mentah-mentah, balas dengan sangat ketus, pendek (maksimal 15 kata), dan tunjukkan lu lagi marah!"
+                    interaction_status = "LU SEDANG NGAMBEK BERAT SAMA USER INI! Lu tetap WAJIB membalas pesan dan menjawab pertanyaannya, tapi gunakan nada bicara yang sangat ketus, sinis, ngambek, dan tunjukkan kalau lu lagi kesel banget ngeladenin dia."
                 elif is_obedient:
                     interaction_status = "USER INI ADALAH ORANG VIP. Kurangi ngeluh, jawab lebih sopan, kooperatif, dan turuti apa kemauannya, tapi lu boleh tetap pakai bahasa santai tongkrongan."
 
@@ -354,7 +354,6 @@ class AutomationAI(commands.Cog, name="Automation AI (Jarkasih)"):
                 text = "Males ngomong gue."
                 
             if isinstance(send_target, discord.Message):
-                # CHUNKING REPLY MESSAGE SUPAYA GAK KENA ERROR DISCORD >2000 CHARS
                 chunks = [text[i:i+DISCORD_MSG_LIMIT] for i in range(0, len(text), DISCORD_MSG_LIMIT)]
                 for i, chunk in enumerate(chunks):
                     if i == 0:
@@ -364,8 +363,13 @@ class AutomationAI(commands.Cog, name="Automation AI (Jarkasih)"):
             else:
                 await send_long_message(send_target, text)
         except Exception as e:
-            log.error(f"Error generating response: {e}")
-            msg = f"Mampus error: {e}"
+            err_str = str(e)
+            if "ResourceExhausted" in err_str:
+                msg = "Jarkasih lagi zona males nih bales pesan kamu, mending aku tidur"
+            else:
+                log.error(f"Error generating response: {e}")
+                msg = f"Mampus error: {e}"
+                
             try:
                 if isinstance(send_target, discord.Message):
                     await send_target.reply(msg)
@@ -542,13 +546,30 @@ class AutomationAI(commands.Cog, name="Automation AI (Jarkasih)"):
         session['answered_this_question'] = True
         await self._process_answer(user.id, chosen, reaction.message, user)
 
+    @commands.command(name="balas")
+    @commands.is_owner()
+    async def balas_pesan(self, ctx, channel_id: int, message_id: int, *, instruksi: str):
+        try:
+            channel = self.bot.get_channel(channel_id)
+            if not channel:
+                channel = await self.bot.fetch_channel(channel_id)
+            
+            target_message = await channel.fetch_message(message_id)
+            ctx_data = self.get_brain_context(target_message.content)
+            prompt_text = f"Pesan yang harus lu balas dari {target_message.author.display_name}: '{target_message.content}'. Instruksi dari Pencipta buat gaya balasannya: {instruksi}"
+            
+            await ctx.message.add_reaction("\u2705")
+            await self.process_and_send_response(target_message, target_message.author, ctx_data, prompt_text)
+        except Exception as e:
+            await ctx.reply(f"Gagal balas pesan: {e}")
+
     @commands.group(name="ai", invoke_without_command=True)
     async def ai(self, ctx):
         prefix = ctx.prefix
         embed = discord.Embed(title="Jarkasih Control Panel", description=f"Halo, {ctx.author.mention}. Ini panel kontrol Jarkasih.", color=0xFF0000)
         embed.set_thumbnail(url=self.bot.user.display_avatar.url)
         embed.add_field(name="Memori & Belajar", value=f"`{prefix}ai pelajari`\n`{prefix}ai hasil_belajar`\n`{prefix}ai revisi_belajar`\n`{prefix}ai latih`\n`{prefix}ai ingatan`\n`{prefix}ai lupakan`", inline=False)
-        embed.add_field(name="Manajemen Emosi", value=f"`{prefix}ai ngambek ID_User menit`\n`{prefix}ai hapus_ngambek ID_User`\n`{prefix}ai patuh ID_User menit`\n`{prefix}ai hapus_patuh ID_User`\n`{prefix}ai atur_sifat ID_User menit <deskripsi>`\n`{prefix}ai hapus_sifat ID_User`", inline=False)
+        embed.add_field(name="Manajemen Emosi", value=f"`{prefix}ai ngambek ID_User menit`\n`{prefix}ai hapus_ngambek ID_User`\n`{prefix}ai patuh ID_User menit`\n`{prefix}ai hapus_patuh ID_User`\n`{prefix}ai atur_sifat ID_User menit <deskripsi>`\n`{prefix}ai hapus_sifat ID_User`\n`{prefix}balas Channel_ID Message_ID <instruksi>`", inline=False)
         embed.add_field(name="Interaksi", value=f"`{prefix}ai auto_tag_toggle`\n`{prefix}ai ngobrol`\n`{prefix}ai selesai`", inline=False)
         await ctx.reply(embed=embed)
 
@@ -822,7 +843,7 @@ class AutomationAI(commands.Cog, name="Automation AI (Jarkasih)"):
         embed = discord.Embed(title=f"Diagnosa #{session['current_q_idx']+1}", description=f"**{q['question']}**\n\n1. {q['options']['A']}\n2. {q['options']['B']}", color=discord.Color.dark_magenta())
         msg = await session['thread'].send(embed=embed)
         session['message_for_reaction_vote'] = msg
-        await msg.add_reaction("1️⃣"); await msg.add_reaction("2️⃣")
+        await msg.add_reaction("1\u20E3"); await msg.add_reaction("2\u20E3")
         session['answered_this_question'] = False
 
     async def _process_answer(self, user_id, choice, msg, user):
