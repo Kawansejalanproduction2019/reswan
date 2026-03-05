@@ -616,17 +616,32 @@ async def setup_hook():
 
 save_cookies_from_env()
 
-async def run_bot():
-    while True:
-        try:
-            log.info("Memulai koneksi bot ke Discord API...")
-            await bot.start(os.getenv("DISCORD_TOKEN"))
-        except Exception as e:
-            log.error(f"Koneksi terputus fatal: {e}. Melakukan reconnect dalam 10 detik...")
+async def start_bot():
+    try:
+        log.info("Memulai koneksi bot ke Discord API...")
+        await bot.start(os.getenv("DISCORD_TOKEN"))
+    except discord.errors.HTTPException as e:
+        if e.status == 429:
+            log.error("Terkena 429 Global Rate Limit! Discord memblokir IP sementara.")
+            log.info("Bot masuk mode TERTIDUR selama 5 Menit agar blokir diangkat...")
+            await asyncio.sleep(300)
+            log.info("Waktu pendinginan selesai. Melakukan Hard Restart otomatis...")
+            os.execv(sys.executable, ['python'] + sys.argv)
+        else:
+            log.error(f"HTTP Exception: {e}")
             await asyncio.sleep(10)
+            os.execv(sys.executable, ['python'] + sys.argv)
+    except Exception as e:
+        log.error(f"Koneksi putus fatal: {e}")
+        await asyncio.sleep(15)
+        os.execv(sys.executable, ['python'] + sys.argv)
 
 if __name__ == "__main__":
     try:
-        asyncio.run(run_bot())
+        asyncio.run(start_bot())
     except KeyboardInterrupt:
         log.info("Bot dimatikan secara manual.")
+    except Exception as e:
+        log.error(f"Sistem bot crash total: {e}. Hard restart dalam 10 detik...")
+        time.sleep(10)
+        os.execv(sys.executable, ['python'] + sys.argv)
