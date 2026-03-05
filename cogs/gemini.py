@@ -16,7 +16,8 @@ log = logging.getLogger('JarkasihAI')
 GEMINI_MODELS = [
     'gemini-3-flash-preview',
     'gemini-2.5-flash',
-    'gemini-1.5-flash'
+    'gemini-3.1-flash-lite-preview',
+    'Gemini 2.5 Flash-Lite'
 ]
 
 DISCORD_MSG_LIMIT = 2000
