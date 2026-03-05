@@ -184,6 +184,21 @@ class AutomationAI(commands.Cog, name="Automation AI (Jarkasih)"):
             "custom_personas": {}
         })
 
+        if isinstance(self.auto_config.get("obedient_users"), list):
+            old_obedient = self.auto_config.get("obedient_users")
+            self.auto_config["obedient_users"] = {}
+            for u in old_obedient:
+                self.auto_config["obedient_users"][str(u)] = 4102444800.0
+            save_json_file(AUTO_CONFIG_PATH, self.auto_config)
+
+        if isinstance(self.auto_config.get("sulking_users"), list):
+            self.auto_config["sulking_users"] = {}
+            save_json_file(AUTO_CONFIG_PATH, self.auto_config)
+
+        if isinstance(self.auto_config.get("custom_personas"), list):
+            self.auto_config["custom_personas"] = {}
+            save_json_file(AUTO_CONFIG_PATH, self.auto_config)
+
         self.number_emojis = {"1\u20E3": "A", "2\u20E3": "B"}
         self.reverse_number_emojis = {v: k for k, v in self.number_emojis.items()}
         self._cleanup_threads_task = self.cleanup_stale_threads.start()
