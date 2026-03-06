@@ -6,6 +6,7 @@ import asyncio
 import os
 from datetime import datetime, timedelta
 import google.generativeai as genai
+from google.generativeai.types import HarmCategory, HarmBlockThreshold
 from google.api_core import exceptions as google_exceptions
 import logging
 import re
@@ -97,12 +98,19 @@ async def send_long_message(ctx_or_channel, text):
         await ctx_or_channel.send(chunk)
 
 async def generate_smart_response(prompt):
+    safety_settings = {
+        HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_NONE,
+        HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_NONE,
+        HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_NONE,
+        HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
+    }
+    
     for model_name in GEMINI_MODELS:
         attempts_per_model = max(1, len(API_KEYS))
         for _ in range(attempts_per_model):
             try:
                 model = genai.GenerativeModel(model_name)
-                response = await model.generate_content_async(prompt)
+                response = await model.generate_content_async(prompt, safety_settings=safety_settings)
                 _ = response.text 
                 return response
             except google_exceptions.ResourceExhausted:
