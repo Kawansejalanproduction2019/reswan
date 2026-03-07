@@ -567,6 +567,19 @@ class AutomationAI(commands.Cog, name="Automation AI (Jarkasih)"):
     async def before_auto_fish_it_update(self):
         await self.bot.wait_until_ready()
 
+    @tasks.loop(minutes=30)
+    async def cleanup_stale_threads(self):
+        for uid in list(self.active_sessions.keys()):
+            session = self.active_sessions.get(uid)
+            try: 
+                await self.bot.fetch_channel(session['thread'].id)
+            except: 
+                del self.active_sessions[uid]
+
+    @cleanup_stale_threads.before_loop
+    async def before_cleanup_threads(self):
+        await self.bot.wait_until_ready()
+
     async def get_images_from_message(self, message):
         images = []
         for att in message.attachments:
