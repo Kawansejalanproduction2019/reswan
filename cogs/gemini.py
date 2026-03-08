@@ -116,7 +116,7 @@ async def generate_smart_response(content_payload):
         for _ in range(attempts_per_model):
             try:
                 try:
-                    model = genai.GenerativeModel(model_name, tools='google_search_retrieval')
+                    model = genai.GenerativeModel(model_name, tools='google_search')
                 except Exception:
                     model = genai.GenerativeModel(model_name)
                     
