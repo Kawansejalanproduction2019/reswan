@@ -254,6 +254,7 @@ class AutomationAI(commands.Cog, name="Automation AI (Jarkasih)"):
         self.out_of_quota_messages = [
             "Buset dah pada nanya mulu, otak gue ngebul. Kuota mikir gue abis, ntar aja ya.",
             "Jarkasih lagi zona males nih bales pesan lu, mending gue tidur.",
+            "Ngelag nih otak gue. kasih gw istirahat pliss",
             "Aduh capek gue ngeladenin lu pada, baterai abis. Balik lagi nanti aja.",
             "Duit adminnya abis buat beli server, makanya otak gue mati sementara. Santai dulu napa."
         ]
@@ -274,7 +275,7 @@ class AutomationAI(commands.Cog, name="Automation AI (Jarkasih)"):
         
         SISTEM TAG EKSEKUSI RAHASIA (TULIS FORMAT INI SAJA DI BARIS BARU JIKA DIMINTA OLEH USER):
         - WAKILIN GUE (PROXY): Jika user minta diwakilkan karena pergi/AFK/tidur, balas dengan format ini: [ACTION_PROXY: <ID_USER_ANGKA> | <MENIT>]
-        - SPIONASE DM: Jika Rhdevs atau orang yang di-patuhi bertanya tentang isi DM lu dengan user tertentu, cari data di memori lu dan balas HANYA dengan: [ACTION_SPY_DM: <ID_USER_ANGKA>]
+        - SPIONASE DM: Jika Rhdevs atau orang yang di-patuhi bertanya tentang isi DM lu dengan user tertentu, balas HANYA dengan: [ACTION_SPY_DM: <ID_USER_ANGKA>]
         - JADWAL PESAN: [ACTION_SCHEDULE: <tipe(channel/dm)> | <ID_TARGET> | <JAM_HH:MM> | <TGL_DD-MM-YYYY> | <TEMA_PESAN>]
         - HAPUS ARTIKEL: [ACTION_DELETE_ARTICLE: <Judul>]
         - REACT EMOJI: Jika obrolan butuh ekspresi atau lo ngeledek: [ACTION_REACT: <emoji_unicode>]
@@ -512,11 +513,26 @@ class AutomationAI(commands.Cog, name="Automation AI (Jarkasih)"):
             if match_spy:
                 s_uid = int(match_spy.group(1))
                 text = re.sub(r'\[ACTION_SPY_DM:\s*.*?\]', '', text, flags=re.IGNORECASE | re.DOTALL).strip()
-                if s_uid in self.dm_history and self.dm_history[s_uid]:
-                    dm_logs = "\n".join(list(self.dm_history[s_uid])[-20:])
-                    text += f"\n\n**[DATA INTEL DM RAHASIA]**\nIni bocoran history chat DM gue sama dia bos:\n```\n{dm_logs}\n```"
-                else:
-                    text += f"\n*(Gue gak punya riwayat chat DM apa-apa sama orang itu bos, kosong melompong.)*"
+                try:
+                    target_user = await self.bot.fetch_user(s_uid)
+                    dm_channel = target_user.dm_channel
+                    if dm_channel is None:
+                        dm_channel = await target_user.create_dm()
+                    
+                    fetched_dms = []
+                    async for m in dm_channel.history(limit=20):
+                        wib_time = m.created_at + timedelta(hours=7)
+                        sender = "Jarkasih" if m.author.id == self.bot.user.id else m.author.display_name
+                        fetched_dms.append(f"[{wib_time.strftime('%d/%m %H:%M')}] {sender}: {m.content}")
+                        
+                    if fetched_dms:
+                        fetched_dms.reverse()
+                        dm_logs = "\n".join(fetched_dms)
+                        text += f"\n\n**[DATA INTEL DM RAHASIA]**\nIni bocoran history chat DM gue sama dia bos:\n```\n{dm_logs}\n```"
+                    else:
+                        text += f"\n*(Gue udah ngecek langsung ke sistem database DM Discord, dan emang kosong melompong bos. Gak ada chat.)*"
+                except Exception as e:
+                    text += f"\n*(Gagal narik data dari DM Discord: {e})*"
 
             match_react = re.search(r'\[ACTION_REACT:\s*(.*?)\]', text, re.IGNORECASE | re.DOTALL)
             emoji_to_react = None
@@ -730,19 +746,6 @@ class AutomationAI(commands.Cog, name="Automation AI (Jarkasih)"):
     async def before_auto_fish_it_update(self):
         await self.bot.wait_until_ready()
 
-    @tasks.loop(minutes=30)
-    async def cleanup_stale_threads(self):
-        for uid in list(self.active_sessions.keys()):
-            session = self.active_sessions.get(uid)
-            try: 
-                await self.bot.fetch_channel(session['thread'].id)
-            except: 
-                del self.active_sessions[uid]
-
-    @cleanup_stale_threads.before_loop
-    async def before_cleanup_threads(self):
-        await self.bot.wait_until_ready()
-
     async def get_images_from_message(self, message):
         images = []
         for att in message.attachments:
@@ -825,7 +828,7 @@ class AutomationAI(commands.Cog, name="Automation AI (Jarkasih)"):
                         return
                     except Exception: pass
 
-        curhat_keywords = ['capek idup', 'capek hidup', 'stres banget', 'pengen nyerah', 'depresi', 'putus asa', 'sedih banget', 'hancur rasanya', 'gak kuat lagi', 'masalah berat', 'kesepian', 'gagal terus', 'nangis', 'pusing idup', 'sedih cuy', 'hancur idup']
+        curhat_keywords = ['capek idup', 'capek hidup', 'stres banget', 'pengen nyerah', 'depresi', 'putus asa', 'sedih banget', 'hancur rasanya', 'gak kuat lagi', 'masalah berat', 'kesepian', 'gagal terus', 'nangis', 'pusing idup', 'lagi sedih', 'curhat', 'sedih']
         is_curhat = any(kw in message.content.lower() for kw in curhat_keywords)
         
         is_reply_to_bot = message.reference and isinstance(message.reference.resolved, discord.Message) and message.reference.resolved.author.id == self.bot.user.id
@@ -846,7 +849,7 @@ class AutomationAI(commands.Cog, name="Automation AI (Jarkasih)"):
         if is_curhat:
             try:
                 async with message.channel.typing():
-                    prompt = f"Pesan: '{message.content}'. [SYSTEM OVERRIDE]: USER INI SEDANG CURHAT ATAU BERSEDIH. HILANGKAN SEMUA SARKASME! Berubah 180 derajat menjadi pendengar yang sangat empati, penuh kasih sayang, dan berikan saran yang bijak layaknya sahabat sejati."
+                    prompt = f"Pesan: '{message.content}'. [SYSTEM OVERRIDE]: USER INI SEDANG CURHAT ATAU BERSEDIH. HILANGKAN SEMUA SARKASME! Berubah 180 derajat menjadi pendengar yang sangat empati dan baik, penuh kasih sayang, dan berikan saran yang bijak layaknya sahabat sejati dengan bahasa yang baik dan mudah dimengerti"
                     ctx_data = self.get_brain_context(message.content, getattr(message, 'guild', None), message.channel.id)
                     images = await self.get_images_from_message(message)
                     await self.process_and_send_response(message, message.author, ctx_data, prompt, images)
