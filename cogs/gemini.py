@@ -637,7 +637,6 @@ class AutomationAI(commands.Cog, name="Automation AI (Jarkasih)"):
            - Skor Karma / Respect Meter (Berikan angka evaluasi dari -10 sampai +10. Jika dia sopan/baik/sering berterima kasih tambah skornya, jika dia sering nyuruh/kasar/nge-roast lu kurangi skornya).
         3. Format memori harus terbagi rapi menjadi: [1. Topik Utama & Aktivitas Terbaru], [2. Inside Jokes & Gaya Bercanda], dan [3. Profil Karakter Tiap User].
         """
-        """
         try:
             res = await generate_smart_response([prompt])
             self.learned_context["summary"] = res.text.strip()
