@@ -123,10 +123,17 @@ async def generate_smart_response(content_payload):
                 response = await model.generate_content_async(content_payload, safety_settings=safety_settings)
                 
                 try:
+                    # CEGATAN MUTLAK: Jika Google langsung memblokir prompt dan kandidat kosong
+                    if not response.candidates:
+                        raise Exception("SAFETY_BLOCK")
+                        
                     _ = response.text 
                     return response
                 except ValueError as ve:
-                    if response.candidates and response.candidates[0].finish_reason.name == 'SAFETY':
+                    # Cegatan tambahan jika error memunculkan teks candidates empty
+                    if "candidates is empty" in str(ve).lower():
+                        raise Exception("SAFETY_BLOCK")
+                    elif response.candidates and response.candidates[0].finish_reason.name == 'SAFETY':
                         raise Exception("SAFETY_BLOCK")
                     else:
                         raise Exception(f"AI format error: {ve}")
@@ -138,12 +145,14 @@ async def generate_smart_response(content_payload):
                 else:
                     break
             except Exception as e:
-                if str(e) == "SAFETY_BLOCK":
+                # Jika Exception yang dilempar adalah SAFETY_BLOCK, langsung teruskan ke pengirim pesan
+                if "SAFETY_BLOCK" in str(e):
                     raise e
                 log.error(f"Model {model_name} error: {e}")
                 last_err = e
                 break
     raise Exception(f"ResourceExhausted / API Error: {last_err}")
+
 
 class KeywordModal(discord.ui.Modal, title='Tambah Kamus Jarkasih'):
     keyword_input = discord.ui.TextInput(label='Kata Kunci', placeholder='Contoh: Fish It', max_length=50)
