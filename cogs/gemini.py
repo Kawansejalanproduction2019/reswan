@@ -254,7 +254,7 @@ class AutomationAI(commands.Cog, name="Automation AI (Jarkasih)"):
         self.out_of_quota_messages = [
             "Buset dah pada nanya mulu, otak gue ngebul. Kuota mikir gue abis, ntar aja ya.",
             "Jarkasih lagi zona males nih bales pesan lu, mending gue tidur.",
-            "Ngelag nih otak gue. Limit harian dari Google udah mentok, tungguin bentar ngapa.",
+            "Ngelag nih otak gue. biarkan gw istirahat pliss",
             "Aduh capek gue ngeladenin lu pada, baterai abis. Balik lagi nanti aja.",
             "Duit adminnya abis buat beli server, makanya otak gue mati sementara. Santai dulu napa."
         ]
@@ -549,7 +549,7 @@ class AutomationAI(commands.Cog, name="Automation AI (Jarkasih)"):
             if "ResourceExhausted" in err_str:
                 msg = random.choice(self.out_of_quota_messages)
             elif "SAFETY_BLOCK" in err_str:
-                msg = "Waduh, kata-kata atau pertanyaan lu kena sensor ketat Google nih. Ganti topik aja dah."
+                msg = "Waduh, kata-kata atau pertanyaan lu kena sensor ketat Sistem nih. Ganti topik aja dah."
             else:
                 log.error(f"Error generating response: {e}")
                 msg = f"Mampus error: {e}"
