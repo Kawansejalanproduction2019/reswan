@@ -206,7 +206,8 @@ class AutomationAI(commands.Cog, name="Automation AI (Jarkasih)"):
             "obedient_users": {}, 
             "sulking_users": {},
             "custom_personas": {},
-            "global_persona": {}
+            "global_persona": {},
+            "proxies": {}
         })
 
         if isinstance(self.auto_config.get("obedient_users"), list):
