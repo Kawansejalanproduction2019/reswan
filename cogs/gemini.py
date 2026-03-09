@@ -628,10 +628,15 @@ class AutomationAI(commands.Cog, name="Automation AI (Jarkasih)"):
         Memori lama: {current_memory}
         LOG BARU: {chat_log[:15000]}
 
-        ATURAN MUTLAK:
-        1. JANGAN HAPUS DATA USER LAMA! Tulis ulang persis jika tidak ada di log baru.
-        2. Sertakan: Status Update, Sikap & Kepribadian, Dinamika Hubungan, dan Skor Karma (-10 s/d +10).
-        3. Format: [1. Topik Utama], [2. Inside Jokes], [3. Profil Tiap User].
+        ATURAN MUTLAK PENYUSUNAN DATA (HARAM DILANGGAR):
+        1. JANGAN PERNAH MENGHAPUS DATA USER LAMA! Jika seorang user lama tidak aktif atau tidak ada di log chat hari ini, DATA LAMA MEREKA WAJIB DITULIS ULANG persis seperti sebelumnya (jangan diubah jadi 0 atau inactive).
+        2. Untuk SETIAP profil user, LU WAJIB menyertakan poin-poin ini secara lengkap:
+           - Status Update (Apa aktivitas terbarunya)
+           - Sikap & Kepribadian (Sifat aslinya)
+           - Dinamika Hubungan (Hubungan dengan orang lain)
+           - Skor Karma / Respect Meter (Berikan angka evaluasi dari -10 sampai +10. Jika dia sopan/baik/sering berterima kasih tambah skornya, jika dia sering nyuruh/kasar/nge-roast lu kurangi skornya).
+        3. Format memori harus terbagi rapi menjadi: [1. Topik Utama & Aktivitas Terbaru], [2. Inside Jokes & Gaya Bercanda], dan [3. Profil Karakter Tiap User].
+        """
         """
         try:
             res = await generate_smart_response([prompt])
@@ -710,7 +715,7 @@ class AutomationAI(commands.Cog, name="Automation AI (Jarkasih)"):
                         return
                     except Exception: pass
 
-        curhat_keywords = ['capek idup', 'capek hidup', 'stres banget', 'pengen nyerah', 'depresi', 'putus asa', 'sedih banget', 'hancur rasanya', 'gak kuat lagi', 'masalah berat', 'kesepian', 'gagal terus', 'nangis', 'pusing idup', 'lagi sedih']
+        curhat_keywords = ['capek idup', 'capek hidup', 'stres banget', 'pengen nyerah', 'depresi', 'putus asa', 'sedih banget', 'hancur rasanya', 'gak kuat lagi', 'masalah berat', 'kesepian', 'gagal terus', 'nangis', 'pusing idup', 'lagi sedih', 'capek']
         is_curhat = any(kw in message.content.lower() for kw in curhat_keywords)
         
         is_reply_to_bot = message.reference and isinstance(message.reference.resolved, discord.Message) and message.reference.resolved.author.id == self.bot.user.id
@@ -730,7 +735,7 @@ class AutomationAI(commands.Cog, name="Automation AI (Jarkasih)"):
         if is_curhat:
             try:
                 async with message.channel.typing():
-                    prompt = f"Pesan: '{message.content}'. [SYSTEM OVERRIDE]: USER INI SEDANG CURHAT. HILANGKAN SARKASME! Berubah jadi pendengar yang sangat empati dan bijak."
+                    prompt = f"Pesan: '{message.content}'. [SYSTEM OVERRIDE]: USER INI SEDANG CURHAT ATAU BERSEDIH. HILANGKAN SEMUA SARKASME! Berubah 180 derajat menjadi pendengar yang sangat empati, penuh kasih sayang, dan berikan saran yang bijak layaknya sahabat sejati."
                     ctx_data = self.get_brain_context(message.content, getattr(message, 'guild', None), message.channel.id)
                     images = await self.get_images_from_message(message)
                     await self.process_and_send_response(message, message.author, ctx_data, prompt, images)
