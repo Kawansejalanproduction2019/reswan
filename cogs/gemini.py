@@ -599,7 +599,7 @@ class AutomationAI(commands.Cog, name="Automation AI (Jarkasih)"):
             if "ResourceExhausted" in err_str:
                 msg = random.choice(self.out_of_quota_messages)
             elif "SAFETY_BLOCK" in err_str:
-                msg = "Waduh, kata-kata atau pertanyaan lu kena sensor ketat Google nih. Ganti topik aja dah."
+                msg = "Waduh, kata-kata atau pertanyaan lu kena sensor ketat Discord nih. Ganti topik aja dah."
             else:
                 log.error(f"Error generating response: {e}")
                 msg = f"Mampus error: {e}"
