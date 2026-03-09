@@ -600,9 +600,15 @@ class AutomationAI(commands.Cog, name="Automation AI (Jarkasih)"):
         current_time = now_wib.strftime("%H:%M")
         current_date_str = now_wib.strftime("%d-%m-%Y")
         current_date_obj = now_wib.date()
-
         schedules = self.schedules.get("jobs", [])
         to_remove = []
+        
+        now_ts = datetime.now().timestamp()
+        proxies = self.auto_config.get("proxies", {})
+        proxies_to_remove = [uid for uid, exp in proxies.items() if now_ts > exp]
+        if proxies_to_remove:
+            for uid in proxies_to_remove: del self.auto_config["proxies"][uid]
+            save_json_file(AUTO_CONFIG_PATH, self.auto_config)
 
         for job in schedules:
             end_date_str = job.get("end_date")
@@ -847,6 +853,19 @@ class AutomationAI(commands.Cog, name="Automation AI (Jarkasih)"):
                     except Exception:
                         pass
                     return
+                    
+        if message.mentions:
+            for mentioned_user in message.mentions:
+                uid_str = str(mentioned_user.id)
+                proxies = self.auto_config.get("proxies", {})
+                if uid_str in proxies and datetime.now().timestamp() < proxies[uid_str]:
+                    try:
+                        async with message.channel.typing():
+                            prompt = f"[SYSTEM OVERRIDE PROXY]: User {mentioned_user.display_name} sedang AFK. TUGAS LU SEKARANG ADALAH MENJADI {mentioned_user.display_name}. Balas pesan ini murni 100% meniru gaya bahasa, sifat, dan kepribadian {mentioned_user.display_name} berdasarkan [DATA HASIL BELAJAR]. JANGAN menyebut lu Jarkasih!"
+                            ctx_data = self.get_brain_context(message.content, getattr(message, 'guild', None), message.channel.id)
+                            await self.process_and_send_response(message, message.author, ctx_data, prompt, [])
+                        return
+                    except Exception: pass
 
         if message.guild and self.bot.user in message.mentions and str(message.guild.id) in self.auto_config.get("active_guilds", []):
             try:
