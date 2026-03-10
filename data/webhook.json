@@ -3,7 +3,7 @@
         "1272937917886500987": {
             "1395956423967510550": {
                 "title": "Dapatkan Pemberitahuan Restock Grow a Garden!",
-                "desc": "> Jangan pernah ketinggalan pembaruan penting di Grow a Garden!\n> Dengan mengklik tombol di bawah, Anda akan mendapatkan role khusus yang akan di-mention setiap kali ada pembaruan restock dari database. Ini cara termudah untuk memastikan Anda selalu terdepan.\n> Cara Kerjanya:\n> \u2022 Satu kali klik untuk mendapatkan role dan mulai menerima pemberitahuan.\n> \u2022 Klik lagi untuk menghapus role jika Anda tidak ingin menerima pemberitahuan lagi.\n> Mudah, praktis, dan langsung terhubung dengan informasi terbaru!\n>",
+                "desc": "> Jangan pernah ketinggalan pembaruan penting di Grow a Garden!\n> Dengan mengklik tombol di bawah, Anda akan mendapatkan role khusus yang akan di-mention setiap kali ada pembaruan restock dari database. Ini cara termudah untuk memastikan Anda selalu terdepan.\n> Cara Kerjanya:\n> • Satu kali klik untuk mendapatkan role dan mulai menerima pemberitahuan.\n> • Klik lagi untuk menghapus role jika Anda tidak ingin menerima pemberitahuan lagi.\n> Mudah, praktis, dan langsung terhubung dengan informasi terbaru!\n>",
                 "buttons": [
                     {
                         "label": "Ambil Role Roblox",
@@ -78,18 +78,18 @@
         "1382486705113927811": {
             "1396676428828905551": {
                 "title": "Ambil role gender disinii",
-                "desc": "Selamat datang! Silakan pilih gender Anda untuk mendapatkan role yang sesuai dan membuka akses ke kanal-kanal tertentu.\n> \u2022 Klik tombol Male untuk mendapatkan role Male.\n> \u2022 Klik tombol Female untuk open ticket dan minta verifikasi oleh staf agar akses ke channel khusus perempuan dan akses lainnya terbuka.\nPilihan Anda akan membantu kami menyediakan pengalaman yang lebih personal dan relevan di server.",
+                "desc": "Selamat datang! Silakan pilih gender Anda untuk mendapatkan role yang sesuai dan membuka akses ke kanal-kanal tertentu.\n> • Klik tombol Male untuk mendapatkan role Male.\n> • Klik tombol Female untuk open ticket dan minta verifikasi oleh staf agar akses ke channel khusus perempuan dan akses lainnya terbuka.\nPilihan Anda akan membantu kami menyediakan pengalaman yang lebih personal dan relevan di server.",
                 "author": "reSwan",
                 "buttons": [
                     {
-                        "label": "\ud83d\udc68\u200d\ud83e\uddb1Male",
+                        "label": "👨‍🦱Male",
                         "style": "blurple",
                         "action": "role",
                         "value": "1255277534908645416",
                         "id": "282eb86f-0ca2-4f8a-a973-2113503bf281"
                     },
                     {
-                        "label": "\ud83d\udc69Female",
+                        "label": "👩Female",
                         "style": "red",
                         "action": "ticket",
                         "value": {
