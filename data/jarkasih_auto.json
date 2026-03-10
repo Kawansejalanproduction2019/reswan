@@ -1,7 +1,6 @@
 {
     "active_guilds": [
         "1417636227179483221",
-        "788337048997199882",
         "1039509114008649778"
     ],
     "obedient_users": {
@@ -11,10 +10,6 @@
         "1232252671138857001": 1772670263.325107
     },
     "custom_personas": {
-        "1244261449329807478": {
-            "expiry": 1772765956.746056,
-            "persona": "kamu harus bersikap baik  sedikit sama orang ini, pakai bahasa sopan ya dan jangan terlalu songong, jangan lupa kode minta skin fish it ya kan dia baik hati"
-        },
         "1179842512324661269": {
             "expiry": 1772960477.081225,
             "persona": "kamu harus bersikap baik  sedikit sama orang ini, pakai bahasa sopan ya dan jangan terlalu songong dan kalau bisa tetap godain dia"
@@ -22,6 +17,18 @@
         "1353347923886215168": {
             "expiry": 1773028871.6985,
             "persona": "kamu harus baik sama orang atau user ini, harus sopan pakai bahasa yang baik, terus kamu harus jagain dia anggap aja kamu menjadi orang dewasa yang menjaga pasangan nya (pria matang) kamu harus hibur dia dan temanin dia, godain dia juga biar baper"
+        },
+        "1244261449329807478": {
+            "expiry": 1773110143.04898,
+            "persona": "kamu jadi kesel sama orang ini karena kamu udah bersikap baik tapi dia terus bikin kesel"
+        },
+        "453215843258597389": {
+            "expiry": 1773345991.395847,
+            "persona": "kamu jadi kesel sama orang ini karena kamu udah bersikap baik tapi dia terus bikin kesel dan sindir masalah dimana PSU kamu udah mulai jebol tapi kalau dia minta maaf dan mau bantu benerin maka kembali ke mode sopan dan nurut"
+        },
+        "1431661781402521700": {
+            "expiry": 1773145723.879651,
+            "persona": "kamu harus sedikit baik namun tetap sedikit kasar bikin dia marah, pancing emosi nya, anggap dia adalah adik cewe mu yang bandel suka nyaut nyautin terus kamu adalah abang abangan yang menganggap dia bocil atau anak kecil yang rese banget"
         }
     },
     "global_persona": {
