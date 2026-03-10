@@ -25,7 +25,7 @@
                     "embed_thumbnail": false
                 },
                 "premier": {
-                    "title": "\ud83c\udfac Premiere Segera:",
+                    "title": "🎬 Premiere Segera:",
                     "description": "Video premiere akan segera tayang!",
                     "content": "Ada video premiere!",
                     "button_label": "Tonton Premiere",
@@ -45,7 +45,7 @@
                     "embed_thumbnail": false
                 },
                 "tiktok": {
-                    "title": "[\ud83d\udcf1 {judul}]({url})",
+                    "title": "[📱 {judul}]({url})",
                     "description": "Cek video TikTok terbaru!\n\n{url}",
                     "content": "Ada video TikTok baru nih!",
                     "button_label": "Tonton di TikTok",
@@ -62,7 +62,7 @@
             "target_id": 1255234363373916232,
             "custom_messages": {
                 "live": {
-                    "title": "\ud83d\udd34 **{judul}**",
+                    "title": "🔴 **{judul}**",
                     "description": "Yuk gabung di live stream ini!",
                     "content": "@everyone Live stream dimulai!",
                     "button_label": "Tonton Live",
@@ -72,7 +72,7 @@
                     "embed_thumbnail": true
                 },
                 "upload": {
-                    "title": "\u2728 **{judul}**",
+                    "title": "✨ **{judul}**",
                     "description": "Video baru diupload, jangan sampai ketinggalan!",
                     "content": "Ada video baru nih, cekidot!",
                     "button_label": "Tonton Video",
@@ -82,7 +82,7 @@
                     "embed_thumbnail": true
                 },
                 "premier": {
-                    "title": "\ud83c\udfac **Premiere Segera: {judul}**",
+                    "title": "🎬 **Premiere Segera: {judul}**",
                     "description": "Video premiere akan segera tayang!",
                     "content": "Ada video premiere!",
                     "button_label": "Tonton Premiere",
@@ -102,7 +102,7 @@
                     "embed_thumbnail": false
                 },
                 "tiktok": {
-                    "title": "[\ud83d\udcf1 {judul}]({url})",
+                    "title": "[📱 {judul}]({url})",
                     "description": "Cek video TikTok terbaru!\n\n{url}",
                     "content": "Ada video TikTok baru nih!",
                     "button_label": "Tonton di TikTok",
@@ -119,7 +119,7 @@
             "target_id": 771629447253590036,
             "custom_messages": {
                 "live": {
-                    "title": "\ud83d\udd34 **{judul}**",
+                    "title": "🔴 **{judul}**",
                     "description": "Yuk gabung di live stream ini!",
                     "content": "",
                     "button_label": "Tonton Live",
@@ -129,7 +129,7 @@
                     "embed_thumbnail": false
                 },
                 "upload": {
-                    "title": "\u2728 **{judul}**",
+                    "title": "✨ **{judul}**",
                     "description": "Video baru diupload, jangan sampai ketinggalan!",
                     "content": "",
                     "button_label": "Tonton Video",
@@ -139,7 +139,7 @@
                     "embed_thumbnail": false
                 },
                 "premier": {
-                    "title": "\ud83c\udfac **Premiere Segera: {judul}**",
+                    "title": "🎬 **Premiere Segera: {judul}**",
                     "description": "Video premiere akan segera tayang!",
                     "content": "",
                     "button_label": "Tonton Premiere",
@@ -159,7 +159,7 @@
                     "embed_thumbnail": true
                 },
                 "tiktok": {
-                    "title": "[\ud83d\udcf1 {judul}]({url})",
+                    "title": "[📱 {judul}]({url})",
                     "description": "Cek video TikTok terbaru!\n\n{url}",
                     "content": "Ada video TikTok baru nih!",
                     "button_label": "Tonton di TikTok",
@@ -176,7 +176,7 @@
             "target_id": 759210443771871252,
             "custom_messages": {
                 "live": {
-                    "title": "\ud83d\udd34 **{judul}**",
+                    "title": "🔴 **{judul}**",
                     "description": "Yuk gabung di live stream ini!",
                     "content": "@everyone Live stream dimulai!",
                     "button_label": "Tonton Live",
@@ -186,7 +186,7 @@
                     "embed_thumbnail": false
                 },
                 "upload": {
-                    "title": "\u2728 **{judul}**",
+                    "title": "✨ **{judul}**",
                     "description": "Video baru diupload, jangan sampai ketinggalan!",
                     "content": "Ada video baru nih, cekidot!",
                     "button_label": "Tonton Video",
@@ -196,7 +196,7 @@
                     "embed_thumbnail": false
                 },
                 "premier": {
-                    "title": "\ud83c\udfac **Premiere Segera: {judul}**",
+                    "title": "🎬 **Premiere Segera: {judul}**",
                     "description": "Video premiere akan segera tayang!",
                     "content": "Ada video premiere!",
                     "button_label": "Tonton Premiere",
@@ -216,7 +216,7 @@
                     "embed_thumbnail": true
                 },
                 "tiktok": {
-                    "title": "[\ud83d\udcf1 {judul}]({url})",
+                    "title": "[📱 {judul}]({url})",
                     "description": "Cek video TikTok terbaru!\n\n{url}",
                     "content": "Ada video TikTok baru nih!",
                     "button_label": "Tonton di TikTok",
@@ -244,7 +244,7 @@
                     "button_color": "#ed4245"
                 },
                 "upload": {
-                    "title": "\u2728 **{judul}**",
+                    "title": "✨ **{judul}**",
                     "description": "Tonton di {url}\n\n\nDeskripsi :\n\n{deskripsi}",
                     "content": "Ada video baru nih, cekidot!",
                     "button_label": "Tonton Video",
@@ -255,7 +255,7 @@
                     "button_color": "#57f287"
                 },
                 "premier": {
-                    "title": "\ud83c\udfac **Premiere Segera: {judul}**",
+                    "title": "🎬 **Premiere Segera: {judul}**",
                     "description": "Video premiere akan segera tayang!",
                     "content": "Ada video premiere!",
                     "button_label": "Tonton Premiere",
@@ -275,7 +275,7 @@
                     "embed_thumbnail": true
                 },
                 "tiktok": {
-                    "title": "[\ud83d\udcf1 {judul}]({url})",
+                    "title": "[📱 {judul}]({url})",
                     "description": "Cek video TikTok terbaru!\n\n{url}",
                     "content": "Ada video TikTok baru nih!",
                     "button_label": "Tonton di TikTok",
@@ -294,7 +294,7 @@
                 "live": {
                     "title": "{judul}",
                     "description": "Yuk gabung di live stream ini!\n\n{deskripsi}",
-                    "content": "@everyone \ud835\udde2\ud835\udde0\ud835\uddda! \ud835\uddec\ud835\uddfc\ud835\ude02 \ud835\ude04\ud835\uddfc\ud835\uddfb'\ud835\ude01 \ud835\uddef\ud835\uddf2\ud835\uddf9\ud835\uddf6\ud835\uddf2\ud835\ude03\ud835\uddf2 \ud835\ude01\ud835\uddf5\ud835\uddf6\ud835\ude00. **\ud835\uddff\ud835\uddf2\ud835\udde6\ud835\ude04\ud835\uddee\ud835\uddfb** \ud835\uddf6\ud835\ude00 \ud835\uddf9\ud835\uddf6\ud835\ude03\ud835\uddf2! \ud835\uddda\ud835\uddf2\ud835\ude01 \ud835\uddf6\ud835\uddfb \ud835\uddf5\ud835\uddf2\ud835\uddff\ud835\uddf2, \ud835\uddfb\ud835\uddfc\ud835\ude04!",
+                    "content": "@everyone 𝗢𝗠𝗚! 𝗬𝗼𝘂 𝘄𝗼𝗻'𝘁 𝗯𝗲𝗹𝗶𝗲𝘃𝗲 𝘁𝗵𝗶𝘀. **𝗿𝗲𝗦𝘄𝗮𝗻** 𝗶𝘀 𝗹𝗶𝘃𝗲! 𝗚𝗲𝘁 𝗶𝗻 𝗵𝗲𝗿𝗲, 𝗻𝗼𝘄!",
                     "button_label": "Tonton Live",
                     "button_style": 4,
                     "button_color": "#ed4245",
@@ -303,7 +303,7 @@
                     "embed_thumbnail": false
                 },
                 "upload": {
-                    "title": "[\u2728 {judul}]({url})",
+                    "title": "[✨ {judul}]({url})",
                     "description": "Video baru diupload, jangan sampai ketinggalan!\n\n{url}",
                     "content": "Ada video baru nih, cekidot!",
                     "button_label": "Tonton Video",
@@ -314,7 +314,7 @@
                     "embed_thumbnail": false
                 },
                 "premier": {
-                    "title": "[\ud83c\udfac Premiere Segera: {judul}]({url})",
+                    "title": "[🎬 Premiere Segera: {judul}]({url})",
                     "description": "Video premiere akan segera tayang!\n\n{url}",
                     "content": "Ada video premiere!",
                     "button_label": "Tonton Premiere",
@@ -325,7 +325,7 @@
                     "embed_thumbnail": false
                 },
                 "tiktok": {
-                    "title": "[\ud83d\udcf1 {judul}]({url})",
+                    "title": "[📱 {judul}]({url})",
                     "description": "Cek video TikTok terbaru!\n\n{url}",
                     "content": "Ada video TikTok baru nih!",
                     "button_label": "Tonton di TikTok",
@@ -339,8 +339,8 @@
         }
     },
     "recent_video_ids": [],
-    "last_daily_reset_timestamp": null,
-    "next_daily_reset_timestamp": null,
+    "last_daily_reset_timestamp": "2026-03-10T22:46:09.370686+00:00",
+    "next_daily_reset_timestamp": "2026-03-11T22:46:09.370686+00:00",
     "last_link_after_reset": null,
     "recent_links": [
         "live https://www.youtube.com/watch?v=XCm2kEG5S_A",
