@@ -46,7 +46,7 @@ class WebhookHandler(logging.Handler):
                     log_entry = log_entry[:1900] + "..."
 
                 embed = {
-                    "title": f"Bot Error: {record.levelname}",
+                    "title": f"🚨 Bot Error: {record.levelname}",
                     "description": f"```python\n{log_entry}\n```",
                     "color": 0xFF0000,
                     "timestamp": datetime.now(timezone.utc).isoformat()
@@ -57,7 +57,7 @@ class WebhookHandler(logging.Handler):
                     if not response.ok:
                         print(f"Gagal mengirim log ke webhook: Status {response.status}")
             except Exception as e:
-                print(f"Terjadi error saat mengirim log: {e}")
+                print(f"Terjadi error saat mengirim log (di WebhookHandler): {e}")
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 log = logging.getLogger(__name__)
@@ -69,28 +69,28 @@ if WEBHOOK_URL:
     
     root_logger = logging.getLogger()
     root_logger.addHandler(webhook_handler_error)
-    log.info("Webhook logger untuk error kritikal telah aktif.")
+    log.info("✅ Webhook logger untuk error kritikal telah aktif.")
 else:
-    log.warning("Variabel LOG_WEBHOOK_URL tidak ditemukan di .env.")
+    log.warning("Variabel LOG_WEBHOOK_URL tidak ditemukan di .env. Logging error ke Discord dinonaktifkan.")
 
 def save_cookies_from_env():
     encoded = os.getenv("COOKIES_BASE64")
     if not encoded:
-        log.warning("Environment variable COOKIES_BASE64 not found.")
+        log.warning("Environment variable COOKIES_BASE64 not found. Skipping cookies.txt creation.")
         return
     
     try:
         decoded = base64.b64decode(encoded)
         with open("cookies.txt", "wb") as f:
             f.write(decoded)
-        log.info("File cookies.txt successfully created from environment variable.")
+        log.info("✅ File cookies.txt successfully created from environment variable.")
     except Exception as e:
-        log.error(f"Failed to decode or save cookies: {e}")
+        log.error(f"❌ Failed to decode or save cookies: {e}")
 
 mongo_uri = os.getenv("MONGODB_URI")
 if not mongo_uri:
-    log.critical("Environment variable MONGODB_URI not found.")
-    raise ValueError("Environment variable MONGODB_URI not found.")
+    log.critical("Environment variable MONGODB_URI not found. Bot cannot connect to MongoDB.")
+    raise ValueError("Environment variable MONGODB_URI not found. Please set it up.")
 
 client = None
 db = None
@@ -106,14 +106,14 @@ for attempt in range(MAX_RETRIES):
         db = client["reSwan"]
         collection = db["Data collection"]
         client.admin.command('ping') 
-        log.info("Successfully connected to MongoDB!")
+        log.info("✅ Successfully connected to MongoDB!")
         break
     except pymongo_errors.ServerSelectionTimeoutError as err:
-        log.critical(f"MongoDB Server Selection Timeout: {err}.")
+        log.critical(f"❌ MongoDB Server Selection Timeout: {err}. Mencoba lagi dalam {RETRY_DELAY}s.")
     except pymongo_errors.ConfigurationError as err:
-        log.critical(f"MongoDB Configuration Error: {err}.")
+        log.critical(f"❌ MongoDB Configuration Error: {err}. Mencoba lagi dalam {RETRY_DELAY}s.")
     except Exception as e:
-        log.critical(f"An unexpected error occurred during MongoDB connection: {e}.")
+        log.critical(f"❌ An unexpected error occurred during MongoDB connection: {e}. Mencoba lagi dalam {RETRY_DELAY}s.")
     
     if attempt == MAX_RETRIES - 1:
         raise Exception("MongoDB connection failed after multiple retries.") from e
@@ -123,11 +123,11 @@ for attempt in range(MAX_RETRIES):
 try:
     from keep_alive import keep_alive
     keep_alive()
-    log.info("keep_alive.py found and initiated.")
+    log.info("✅ `keep_alive.py` found and initiated.")
 except ImportError:
-    log.warning("keep_alive.py not found.")
+    log.warning("`keep_alive.py` not found. If you are not using Replit, this is normal.")
 except Exception as e:
-    log.error(f"Error calling keep_alive: {e}", exc_info=True)
+    log.error(f"❌ Error calling keep_alive: {e}", exc_info=True)
 
 class CogBackupView(ui.View):
     def __init__(self, ctx, files, webhook_url, log_obj):
@@ -170,34 +170,33 @@ class CogBackupView(ui.View):
             for item in self.children:
                 item.disabled = True
             try:
-                await self.message.edit(content="Waktu interaksi habis. Backup dibatalkan.", view=self)
+                await self.message.edit(content="❌ Waktu interaksi habis (3 menit). Backup dibatalkan.", view=self)
             except:
                 pass
 
     async def select_callback(self, interaction: discord.Interaction):
         if interaction.user != self.ctx.author:
-            await interaction.response.send_message("Ini bukan menu untukmu.", ephemeral=True)
+            await interaction.response.send_message("❌ Ini bukan menu untukmu.", ephemeral=True)
             return
 
         self.selected_file = interaction.data['values'][0]
-        
         self.process_button.disabled = False
         self.file_select.placeholder = f"Dipilih: {self.selected_file}"
         
-        await interaction.response.edit_message(content=f"Pilih file: {self.selected_file}. Klik Proses Backup.", view=self)
+        await interaction.response.edit_message(content=f"Pilih file: **{self.selected_file}**. Klik **Proses Backup** untuk melanjutkan.", view=self)
 
     async def process_backup_callback(self, interaction: discord.Interaction):
         if interaction.user != self.ctx.author:
-            await interaction.response.send_message("Ini bukan tombol untukmu.", ephemeral=True)
+            await interaction.response.send_message("❌ Ini bukan tombol untukmu.", ephemeral=True)
             return
 
         if not self.selected_file:
-            await interaction.response.send_message("Harap pilih file terlebih dahulu.", ephemeral=True)
+            await interaction.response.send_message("❌ Harap pilih file terlebih dahulu.", ephemeral=True)
             return
         
         for item in self.children:
             item.disabled = True
-        await interaction.response.edit_message(content=f"Memproses backup file: {self.selected_file}...", view=self)
+        await interaction.response.edit_message(content=f"⚙️ Memproses backup file: **{self.selected_file}**...", view=self)
         
         file_path = os.path.join("cogs", self.selected_file)
         
@@ -208,47 +207,47 @@ class CogBackupView(ui.View):
             success = await self.send_file_to_webhook(self.selected_file, file_content)
             
             if success:
-                await self.message.edit(content=f"Backup file {self.selected_file} berhasil!", view=self)
+                await self.message.edit(content=f"✅ Backup file **{self.selected_file}** berhasil dan telah dikirim ke webhook!", view=self)
             else:
-                await self.message.edit(content=f"Gagal mengirim backup file {self.selected_file}.", view=self)
+                await self.message.edit(content=f"❌ Gagal mengirim backup file **{self.selected_file}** ke webhook. Cek log bot.", view=self)
                 
         except FileNotFoundError:
-            await self.message.edit(content=f"File {self.selected_file} tidak ditemukan di folder cogs/.", view=self)
+            await self.message.edit(content=f"❌ File **{self.selected_file}** tidak ditemukan di folder `cogs/`.", view=self)
             self.log.error(f"File {file_path} tidak ditemukan saat backup.")
         except Exception as e:
-            await self.message.edit(content=f"Terjadi error saat memproses backup: {e}", view=self)
+            await self.message.edit(content=f"❌ Terjadi error saat memproses backup: {e}", view=self)
             self.log.error(f"Error saat backup {file_path}: {e}", exc_info=True)
             
         self.stop()
 
     async def send_file_to_webhook(self, filename, content):
         if not self.webhook_url:
-            self.log.warning("Variabel BACKUP_WEBHOOK_URL tidak ditemukan.")
+            self.log.warning("Variabel BACKUP_WEBHOOK_URL tidak ditemukan. Backup ke webhook dilewati.")
             return False
 
         file_obj = discord.File(io.BytesIO(content), filename=filename)
         
         embed = discord.Embed(
-            title="Backup File Cog",
-            description=f"File {filename} berhasil di-backup.",
+            title="💾 Backup File Cog",
+            description=f"File **`{filename}`** berhasil di-backup.",
             color=discord.Color.blue(),
             timestamp=datetime.now(timezone.utc)
         )
-        embed.add_field(name="Diinisiasi oleh", value=f"{self.ctx.author.name}", inline=False)
+        embed.add_field(name="Diinisiasi oleh", value=f"{self.ctx.author.name} (`{self.ctx.author.id}`)", inline=False)
         
         async with aiohttp.ClientSession() as session:
             webhook = discord.Webhook.from_url(self.webhook_url, session=session)
             try:
                 await webhook.send(
-                    content="Backup File Cog", 
+                    content="**Backup File Cog (.py)**", 
                     file=file_obj, 
                     embed=embed,
                     username="Cog Backup Notifier"
                 )
-                self.log.info(f"File backup {filename} berhasil dikirim ke webhook.")
+                self.log.info(f"✅ File backup {filename} berhasil dikirim ke webhook.")
                 return True
             except Exception as e:
-                self.log.error(f"Gagal mengirim file backup ke webhook: {e}", exc_info=True)
+                self.log.error(f"❌ Gagal mengirim file backup ke webhook: {e}", exc_info=True)
                 return False
 
 intents = discord.Intents.default()
@@ -262,31 +261,30 @@ bot = commands.Bot(command_prefix=("!", "?"), intents=intents, help_command=None
 
 @bot.event
 async def on_resumed():
-    log.info("Koneksi Discord berhasil dilanjutkan.")
+    log.info("🌐 Koneksi Discord berhasil dilanjutkan.")
 
 @bot.event
 async def on_error(event, *args, **kwargs):
     if event == "on_socket_raw_receive":
         return
-    log.error(f"Terjadi error Discord generik pada event {event}") 
+    log.error(f"❌ Terjadi error Discord generik pada event {event}") 
 
 @bot.event
 async def on_message(message):
     if message.author.bot:
         return
-
     await bot.process_commands(message)
 
 @bot.event
 async def on_ready():
-    log.info(f"Bot {bot.user} is now online and ready!")
+    log.info(f"😎 Bot {bot.user} is now online and ready!")
     log.info(f"Total server: {len(bot.guilds)}")
 
 @bot.event
 async def on_guild_join(guild):
     JOIN_WEBHOOK_URL = os.getenv("JOIN_WEBHOOK_URL")
     if not JOIN_WEBHOOK_URL:
-        log.warning(f"Bot joined '{guild.name}' but JOIN_WEBHOOK_URL is not set.")
+        log.warning(f"Bot joined '{guild.name}' but JOIN_WEBHOOK_URL is not set. Skipping notification.")
         return
 
     invite_link = "Tidak dapat membuat invite (kurang izin)."
@@ -301,8 +299,8 @@ async def on_guild_join(guild):
                 break
 
     embed = discord.Embed(
-        title="Bot Bergabung ke Server Baru!",
-        description=f"Bot telah ditambahkan ke server {guild.name}.",
+        title="🎉 Bot Bergabung ke Server Baru!",
+        description=f"Bot telah ditambahkan ke server **{guild.name}**.",
         color=0x00FF00,
         timestamp=datetime.now(timezone.utc)
     )
@@ -310,10 +308,10 @@ async def on_guild_join(guild):
     if guild.icon:
         embed.set_thumbnail(url=guild.icon.url)
 
-    embed.add_field(name="Pemilik Server", value=f"{guild.owner.mention} (`{guild.owner.id}`)", inline=False)
-    embed.add_field(name="Jumlah Anggota", value=str(guild.member_count), inline=True)
-    embed.add_field(name="ID Server", value=f"`{guild.id}`", inline=True)
-    embed.add_field(name="Link Invite", value=invite_link, inline=False)
+    embed.add_field(name="👑 Pemilik Server", value=f"{guild.owner.mention} (`{guild.owner.id}`)", inline=False)
+    embed.add_field(name="👥 Jumlah Anggota", value=str(guild.member_count), inline=True)
+    embed.add_field(name="🆔 ID Server", value=f"`{guild.id}`", inline=True)
+    embed.add_field(name="🔗 Link Invite", value=invite_link, inline=False)
     embed.set_footer(text=f"Total server saat ini: {len(bot.guilds)}")
 
     payload = {"embeds": [embed.to_dict()], "username": "Notifikasi Server"}
@@ -321,7 +319,7 @@ async def on_guild_join(guild):
         try:
             async with session.post(JOIN_WEBHOOK_URL, json=payload) as response:
                 if not response.ok:
-                    log.error(f"Gagal mengirim notifikasi join server: Status {response.status}")
+                    log.error(f"Gagal mengirim notifikasi join server ke webhook: Status {response.status}")
                 else:
                     log.info(f"Notifikasi join server '{guild.name}' berhasil dikirim.")
         except Exception as e:
@@ -331,12 +329,12 @@ async def on_guild_join(guild):
 async def on_guild_remove(guild):
     JOIN_WEBHOOK_URL = os.getenv("JOIN_WEBHOOK_URL")
     if not JOIN_WEBHOOK_URL:
-        log.warning(f"Bot was removed from '{guild.name}' but JOIN_WEBHOOK_URL is not set.")
+        log.warning(f"Bot was removed from '{guild.name}' but JOIN_WEBHOOK_URL is not set. Skipping notification.")
         return
 
     embed = discord.Embed(
-        title="Bot Dikeluarkan dari Server",
-        description=f"Bot telah dikeluarkan dari server {guild.name}.",
+        title="💔 Bot Dikeluarkan dari Server",
+        description=f"Bot telah dikeluarkan dari server **{guild.name}**.",
         color=0xFF0000, 
         timestamp=datetime.now(timezone.utc)
     )
@@ -345,9 +343,9 @@ async def on_guild_remove(guild):
         embed.set_thumbnail(url=guild.icon.url)
     
     owner_info = f"{guild.owner.mention} (`{guild.owner.id}`)" if guild.owner else "Tidak diketahui"
-    embed.add_field(name="Pemilik Server", value=owner_info, inline=False)
-    embed.add_field(name="Jumlah Anggota", value=str(guild.member_count), inline=True)
-    embed.add_field(name="ID Server", value=f"`{guild.id}`", inline=True)
+    embed.add_field(name="👑 Pemilik Server", value=owner_info, inline=False)
+    embed.add_field(name="👥 Jumlah Anggota", value=str(guild.member_count), inline=True)
+    embed.add_field(name="🆔 ID Server", value=f"`{guild.id}`", inline=True)
     embed.set_footer(text=f"Total server saat ini: {len(bot.guilds)}")
 
     payload = {"embeds": [embed.to_dict()], "username": "Notifikasi Server"}
@@ -355,7 +353,7 @@ async def on_guild_remove(guild):
         try:
             async with session.post(JOIN_WEBHOOK_URL, json=payload) as response:
                 if not response.ok:
-                    log.error(f"Gagal mengirim notifikasi keluar server: Status {response.status}")
+                    log.error(f"Gagal mengirim notifikasi keluar server ke webhook: Status {response.status}")
                 else:
                     log.info(f"Notifikasi keluar server '{guild.name}' berhasil dikirim.")
         except Exception as e:
@@ -367,7 +365,7 @@ async def custom_help(ctx, *, command_name: str = None):
 
     if not command_name:
         embed = discord.Embed(
-            title="Bantuan Perintah Bot",
+            title="👋 Bantuan Perintah Bot",
             description=f"Cek website untuk detail cara penggunaan nya",
             color=0x3498db
         )
@@ -381,14 +379,14 @@ async def custom_help(ctx, *, command_name: str = None):
             commands_list = [f"`{c.name}`" for c in cog.get_commands() if not c.hidden]
             if commands_list:
                 embed.add_field(
-                    name=f"Kategori: {cog_name}",
+                    name=f"**Kategori: {cog_name}**",
                     value=" ".join(commands_list),
                     inline=False
                 )
         
         embed.add_field(
             name="Panduan Lengkap",
-            value='Untuk cara pakai yang lebih detail, kunjungi website kami di:\n**[Klik di sini untuk melihat cara pakai]( https://kawansejalanproduction2019.github.io/html/ )**',
+            value='Untuk cara pakai yang lebih detail, kunjungi website kami di:\n**🔗 [Klik di sini untuk melihat cara pakai]( https://kawansejalanproduction2019.github.io/html/ )**',
             inline=False
         )
         
@@ -398,11 +396,11 @@ async def custom_help(ctx, *, command_name: str = None):
 
     cmd = bot.get_command(command_name.lower())
     if not cmd or cmd.hidden:
-        await ctx.send(f"Command `{command_name}` tidak ditemukan.", delete_after=10)
+        await ctx.send(f"❌ Command `{command_name}` tidak ditemukan.", delete_after=10)
         return
 
     embed = discord.Embed(
-        title=f"Detail Command: `{cmd.name}`",
+        title=f"🔎 Detail Command: `{cmd.name}`",
         description=cmd.help or "Tidak ada deskripsi untuk command ini.",
         color=0x2ecc71
     )
@@ -416,15 +414,52 @@ async def custom_help(ctx, *, command_name: str = None):
     embed.set_footer(text="Tanda < > berarti wajib, [ ] berarti opsional.")
     await ctx.send(embed=embed)
 
+async def push_to_github(file_path, content_str):
+    token = os.getenv("GITHUB_TOKEN")
+    repo = os.getenv("GITHUB_REPO")
+    branch = os.getenv("GITHUB_BRANCH", "main")
+    
+    if not token or not repo:
+        return False, "GITHUB_TOKEN atau GITHUB_REPO tidak diatur di .env"
+        
+    url = f"https://api.github.com/repos/{repo}/contents/{file_path}"
+    headers = {
+        "Authorization": f"token {token}",
+        "Accept": "application/vnd.github.v3+json"
+    }
+    
+    async with aiohttp.ClientSession() as session:
+        sha = None
+        async with session.get(url, headers=headers) as resp:
+            if resp.status == 200:
+                data = await resp.json()
+                sha = data['sha']
+                
+        encoded_content = base64.b64encode(content_str.encode('utf-8')).decode('utf-8')
+        payload = {
+            "message": f"Auto-backup: Update {file_path} via Bot",
+            "content": encoded_content,
+            "branch": branch
+        }
+        if sha:
+            payload["sha"] = sha
+            
+        async with session.put(url, headers=headers, json=payload) as resp:
+            if resp.status in [200, 201]:
+                return True, "Berhasil push ke GitHub"
+            else:
+                err_text = await resp.text()
+                return False, f"HTTP {resp.status}: {err_text}"
+
 async def send_backup_to_webhook(backup_data):
     BACKUP_WEBHOOK_URL = os.getenv("BACKUP_WEBHOOK_URL")
     if not BACKUP_WEBHOOK_URL:
-        log.warning("Variabel BACKUP_WEBHOOK_URL tidak ditemukan.")
+        log.warning("Variabel BACKUP_WEBHOOK_URL tidak ditemukan. Backup ke webhook dilewati.")
         return False
 
     try:
         payload = {
-            "content": f"Backup database berhasil dikirim pada <t:{int(datetime.now(timezone.utc).timestamp())}:F>."
+            "content": f"✅ Backup database berhasil dikirim pada <t:{int(datetime.now(timezone.utc).timestamp())}:F>."
         }
         
         zip_buffer = io.BytesIO()
@@ -449,36 +484,39 @@ async def send_backup_to_webhook(backup_data):
             
             async with session.post(BACKUP_WEBHOOK_URL, data=form) as response:
                 if not response.ok:
-                    log.error(f"Gagal mengirim backup ke webhook: Status {response.status}")
+                    log.error(f"Gagal mengirim backup ke webhook: Status {response.status}, Respon: {await response.text()}")
                     return False
-                log.info("Backup berhasil dikirim ke webhook.")
+                log.info("✅ Backup berhasil dikirim ke webhook.")
                 return True
     except Exception as e:
-        log.error(f"Terjadi error saat mengirim backup ke webhook: {e}", exc_info=True)
+        log.error(f"❌ Terjadi error saat mengirim backup ke webhook: {e}", exc_info=True)
         return False
 
 @bot.command()
 @commands.is_owner()
 async def backupnow(ctx):
-    await ctx.send("Memulai proses backup...")
+    await ctx.send("⚙️ Memulai proses backup ke MongoDB dan sinkronisasi ke GitHub...")
     backup_data = {}
 
     if not client:
-        await ctx.send("MongoDB client tidak aktif. Backup dibatalkan.", ephemeral=True)
-        log.error("MongoDB client is None.")
+        await ctx.send("❌ MongoDB client tidak aktif. Backup dibatalkan.", ephemeral=True)
+        log.error("MongoDB client is None, cannot perform backupnow.")
         return
 
     try:
         client.admin.command('ping')
     except Exception as e:
-        await ctx.send(f"Gagal terhubung ke MongoDB untuk backup: {e}", ephemeral=True)
-        log.error(f"MongoDB ping failed: {e}", exc_info=True)
+        await ctx.send(f"❌ Gagal terhubung ke MongoDB untuk backup: {e}", ephemeral=True)
+        log.error(f"MongoDB ping failed for backupnow command: {e}", exc_info=True)
         return
 
     directories_to_scan = ['.', 'data/', 'config/']
+    github_success_count = 0
+    github_fail_count = 0
 
     for directory in directories_to_scan:
         if not os.path.isdir(directory):
+            log.warning(f"Direktori '{directory}' tidak ditemukan, dilewati.")
             continue
         
         for filename in os.listdir(directory):
@@ -488,10 +526,24 @@ async def backupnow(ctx):
                     with open(file_path, 'r', encoding='utf-8') as f:
                         json_data = json.load(f)
                         backup_data[file_path] = json_data
-                        log.info(f"File '{file_path}' berhasil dibaca untuk backup.")
+                        
+                        json_str = json.dumps(json_data, indent=4, ensure_ascii=False)
+                        
+                        github_path = file_path.replace('\\', '/')
+                        if github_path.startswith('./'):
+                            github_path = github_path[2:]
+                            
+                        success, msg = await push_to_github(github_path, json_str)
+                        if success:
+                            github_success_count += 1
+                        else:
+                            github_fail_count += 1
+                            log.error(f"GitHub push failed for {github_path}: {msg}")
+                            
+                        log.info(f"✅ File '{file_path}' berhasil dibaca dan diproses untuk backup.")
                 except Exception as e:
-                    await ctx.send(f"Gagal membaca file `{file_path}`: {e}")
-                    log.error(f"Gagal membaca file `{file_path}`: {e}", exc_info=True)
+                    await ctx.send(f"❌ Gagal membaca/push file `{file_path}`: {e}")
+                    log.error(f"❌ Gagal membaca/push file `{file_path}`: {e}", exc_info=True)
 
     if backup_data:
         try:
@@ -503,64 +555,71 @@ async def backupnow(ctx):
                 }},
                 upsert=True
             )
-            log.info("Data backup berhasil disimpan ke MongoDB.")
-            await ctx.send("Data backup berhasil disimpan ke MongoDB!")
+            log.info("✅ Data backup berhasil disimpan ke MongoDB.")
+            
+            summary_msg = f"✅ **Proses Backup Selesai!**\n"
+            summary_msg += f"📦 Tersimpan di MongoDB: **{len(backup_data)}** file.\n"
+            summary_msg += f"🐙 Berhasil push ke GitHub: **{github_success_count}** file.\n"
+            if github_fail_count > 0:
+                summary_msg += f"⚠️ Gagal push ke GitHub: **{github_fail_count}** file (cek console log)."
+                
+            await ctx.send(summary_msg)
         except Exception as e:
-            await ctx.send(f"Gagal menyimpan data ke MongoDB: {e}")
-            log.error(f"Gagal menyimpan data ke MongoDB: {e}", exc_info=True)
+            await ctx.send(f"❌ Gagal menyimpan data ke MongoDB: {e}")
+            log.error(f"❌ Gagal menyimpan data ke MongoDB: {e}", exc_info=True)
     else:
-        await ctx.send("Tidak ada file .json yang ditemukan untuk di-backup.")
+        await ctx.send("🤷 Tidak ada file .json yang ditemukan untuk di-backup.")
         log.warning("Tidak ada file .json ditemukan untuk di-backup.")
 
 @bot.command()
 @commands.is_owner()
 async def sendbackup(ctx):
     if not client:
-        await ctx.send("MongoDB client tidak aktif.", ephemeral=True)
-        log.error("MongoDB client is None.")
+        await ctx.send("❌ MongoDB client tidak aktif.", ephemeral=True)
+        log.error("MongoDB client is None, cannot perform sendbackup.")
         return
 
     try:
         client.admin.command('ping')
     except Exception as e:
-        await ctx.send(f"Gagal terhubung ke MongoDB: {e}", ephemeral=True)
-        log.error(f"MongoDB ping failed: {e}", exc_info=True)
+        await ctx.send(f"❌ Gagal terhubung ke MongoDB: {e}", ephemeral=True)
+        log.error(f"MongoDB ping failed for sendbackup command: {e}", exc_info=True)
         return
 
     try:
         stored_data = collection.find_one({"_id": "latest_backup"})
         if not stored_data or 'backup' not in stored_data:
-            await ctx.send("Tidak ada data backup yang tersedia.")
+            await ctx.send("❌ Tidak ada data backup yang tersedia.")
             log.warning("Tidak ada data backup di MongoDB.")
             return
 
         backup_data = stored_data["backup"]
         
-        await ctx.send("Mengirim file backup ke webhook...")
+        await ctx.send("🌐 Mengirim file backup ke webhook...")
         webhook_sent = await send_backup_to_webhook(backup_data)
         
         if webhook_sent:
-            await ctx.send("File backup berhasil dikirim ke webhook!")
+            await ctx.send("✅ File backup berhasil dikirim ke webhook!")
             log.info("File backup berhasil dikirim ke webhook.")
         else:
-            await ctx.send("Gagal mengirim file backup ke webhook.")
+            await ctx.send("❌ Gagal mengirim file backup ke webhook.")
 
     except Exception as e:
-        await ctx.send(f"Terjadi error saat mengambil data backup: {e}")
-        log.error(f"Terjadi error saat mengambil data backup: {e}", exc_info=True)
+        await ctx.send(f"❌ Terjadi error saat mengambil data backup: {e}")
+        log.error(f"❌ Terjadi error saat mengambil data backup: {e}", exc_info=True)
 
 @bot.command(name="cogbackup")
 @commands.is_owner()
 async def cog_backup(ctx):
     BACKUP_WEBHOOK_URL = os.getenv("BACKUP_WEBHOOK_URL")
     if not BACKUP_WEBHOOK_URL:
-        await ctx.send("Variabel BACKUP_WEBHOOK_URL belum diatur. Backup dibatalkan.", ephemeral=True)
-        log.error("BACKUP_WEBHOOK_URL tidak ditemukan.")
+        await ctx.send("❌ Variabel **BACKUP_WEBHOOK_URL** belum diatur. Backup dibatalkan.", ephemeral=True)
+        log.error("BACKUP_WEBHOOK_URL tidak ditemukan untuk cog backup.")
         return
         
     cogs_dir = "cogs"
     if not os.path.isdir(cogs_dir):
-        await ctx.send(f"Direktori `{cogs_dir}` tidak ditemukan.", ephemeral=True)
+        await ctx.send(f"❌ Direktori `{cogs_dir}` tidak ditemukan. Pastikan folder 'cogs' ada di direktori kerja bot.", ephemeral=True)
         log.error(f"Direktori {cogs_dir} tidak ditemukan.")
         return
 
@@ -568,14 +627,14 @@ async def cog_backup(ctx):
     py_files = sorted([f for f in all_files if f.endswith(".py") and os.path.isfile(os.path.join(cogs_dir, f))])
 
     if not py_files:
-        await ctx.send(f"Tidak ada file **.py** yang ditemukan di folder `{cogs_dir}`.")
+        await ctx.send(f"🤷 Tidak ada file **.py** yang ditemukan di folder `{cogs_dir}`.")
         return
     
     view = CogBackupView(ctx, py_files, BACKUP_WEBHOOK_URL, log)
     
     embed = discord.Embed(
-        title="Backup File Cogs",
-        description=f"Ditemukan **{len(py_files)}** file `.py` di folder `cogs/`. Silakan pilih file.",
+        title="📂 Backup File Cogs",
+        description=f"Ditemukan **{len(py_files)}** file `.py` di folder `cogs/`. Silakan pilih file yang ingin Anda backup menggunakan menu di bawah ini. Waktu interaksi 3 menit.",
         color=discord.Color.orange()
     )
     
@@ -585,63 +644,32 @@ async def cog_backup(ctx):
 @cog_backup.error
 async def cog_backup_error(ctx, error):
     if isinstance(error, commands.NotOwner):
-        await ctx.send("Command ini hanya bisa digunakan oleh Owner Bot.", ephemeral=True)
+        await ctx.send("❌ Command ini hanya bisa digunakan oleh Owner Bot.", ephemeral=True)
     elif isinstance(error, commands.CommandInvokeError):
-        await ctx.send(f"Terjadi error saat menjalankan backup: {error.original}", ephemeral=True)
+        await ctx.send(f"❌ Terjadi error saat menjalankan backup: {error.original}", ephemeral=True)
         log.error(f"Error pada !cogbackup: {error.original}", exc_info=True)
     else:
-        await ctx.send(f"Error yang tidak terduga terjadi: {error}", ephemeral=True)
+        await ctx.send(f"❌ Error yang tidak terduga terjadi: {error}", ephemeral=True)
         log.error(f"Error tak terduga pada !cogbackup: {error}", exc_info=True)
 
 async def load_cogs():
     initial_extensions = [
-        "cogs.leveling", "cogs.moderation", "cogs.quotes", "cogs.endgame", "cogs.music",
-        "cogs.webhook", "cogs.dev", "cogs.uang",  "cogs.notif", "cogs.multi", "cogs.info", "cogs.gemini", "cogs.game", "cogs.youtube"
+        "cogs.leveling", "cogs.moderation", "cogs.quotes", "cogs.endgame",
+        "cogs.webhook", "cogs.dev", "cogs.uang",  "cogs.notif", "cogs.multi", "cogs.info", "cogs.gemini", "cogs.game"
     ]
     for extension in initial_extensions:
-        if extension not in bot.extensions:
-            try:
-                await bot.load_extension(extension)
-                log.info(f"Cog berhasil dimuat: {extension}")
-            except Exception as e:
-                log.error(f"Cog gagal dimuat: {extension}: {e}", exc_info=True)
+        try:
+            await bot.load_extension(extension)
+            log.info(f"✅ Cog berhasil dimuat: {extension}")
+        except Exception as e:
+            log.error(f"❌ Cog gagal dimuat: {extension}: {e}", exc_info=True)
 
 @bot.event
 async def setup_hook():
-    log.info("Memulai setup_hook dan memuat cogs...")
-    if not hasattr(bot, 'session') or bot.session.closed:
-        bot.session = aiohttp.ClientSession()
+    log.info("🚀 Memulai setup_hook dan memuat cogs...")
+    bot.session = aiohttp.ClientSession()
     await load_cogs()
-    log.info("setup_hook selesai.")
+    log.info("✅ setup_hook selesai.")
 
 save_cookies_from_env()
-
-async def start_bot():
-    try:
-        log.info("Memulai koneksi bot ke Discord API...")
-        await bot.start(os.getenv("DISCORD_TOKEN"))
-    except discord.errors.HTTPException as e:
-        if e.status == 429:
-            log.error("Terkena 429 Global Rate Limit! Discord memblokir IP sementara.")
-            log.info("Bot masuk mode TERTIDUR selama 5 Menit agar blokir diangkat...")
-            await asyncio.sleep(300)
-            log.info("Waktu pendinginan selesai. Melakukan Hard Restart otomatis...")
-            os.execv(sys.executable, ['python'] + sys.argv)
-        else:
-            log.error(f"HTTP Exception: {e}")
-            await asyncio.sleep(10)
-            os.execv(sys.executable, ['python'] + sys.argv)
-    except Exception as e:
-        log.error(f"Koneksi putus fatal: {e}")
-        await asyncio.sleep(15)
-        os.execv(sys.executable, ['python'] + sys.argv)
-
-if __name__ == "__main__":
-    try:
-        asyncio.run(start_bot())
-    except KeyboardInterrupt:
-        log.info("Bot dimatikan secara manual.")
-    except Exception as e:
-        log.error(f"Sistem bot crash total: {e}. Hard restart dalam 10 detik...")
-        time.sleep(10)
-        os.execv(sys.executable, ['python'] + sys.argv)
+bot.run(os.getenv("DISCORD_TOKEN"))
