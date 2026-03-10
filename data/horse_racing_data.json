@@ -1,14 +1,64 @@
 {
     "horses": [
-        {"name": "Shadowfax", "emoji": "🐎", "speed_mod": 1.1, "description": "Kuda legendaris yang cepat seperti angin."},
-        {"name": "Black Beauty", "emoji": "🏇", "speed_mod": 1.0, "description": "Kuda klasik dengan stamina luar biasa."},
-        {"name": "Spirit", "emoji": "🐴", "speed_mod": 1.05, "description": "Kuda liar yang tak kenal lelah."},
-        {"name": "Thunderhoof", "emoji": "🦄", "speed_mod": 0.95, "description": "Kuda perkasa dengan kekuatan guntur."},
-        {"name": "Starlight", "emoji": "💫", "speed_mod": 1.0, "description": "Kuda elegan yang bersinar di lintasan."},
-        {"name": "Nightmare", "emoji": "👻", "speed_mod": 0.9, "description": "Kuda misterius yang sulit ditebak."},
-        {"name": "Pegasus", "emoji": "🕊️", "speed_mod": 1.15, "description": "Kuda bersayap, favorit para dewa."},
-        {"name": "Comet", "emoji": "🌠", "speed_mod": 1.0, "description": "Kuda lincah secepat komet."},
-        {"name": "Ironhide", "emoji": "🧲", "speed_mod": 0.85, "description": "Kuda baja yang sangat tangguh, tapi sedikit lambat."},
-        {"name": "Flash", "emoji": "⚡", "speed_mod": 1.2, "description": "Kuda tercepat, jarang terlihat kalah!"}
+        {
+            "name": "Shadowfax",
+            "emoji": "🐎",
+            "speed_mod": 1.1,
+            "description": "Kuda legendaris yang cepat seperti angin."
+        },
+        {
+            "name": "Black Beauty",
+            "emoji": "🏇",
+            "speed_mod": 1.0,
+            "description": "Kuda klasik dengan stamina luar biasa."
+        },
+        {
+            "name": "Spirit",
+            "emoji": "🐴",
+            "speed_mod": 1.05,
+            "description": "Kuda liar yang tak kenal lelah."
+        },
+        {
+            "name": "Thunderhoof",
+            "emoji": "🦄",
+            "speed_mod": 0.95,
+            "description": "Kuda perkasa dengan kekuatan guntur."
+        },
+        {
+            "name": "Starlight",
+            "emoji": "💫",
+            "speed_mod": 1.0,
+            "description": "Kuda elegan yang bersinar di lintasan."
+        },
+        {
+            "name": "Nightmare",
+            "emoji": "👻",
+            "speed_mod": 0.9,
+            "description": "Kuda misterius yang sulit ditebak."
+        },
+        {
+            "name": "Pegasus",
+            "emoji": "🕊️",
+            "speed_mod": 1.15,
+            "description": "Kuda bersayap, favorit para dewa."
+        },
+        {
+            "name": "Comet",
+            "emoji": "🌠",
+            "speed_mod": 1.0,
+            "description": "Kuda lincah secepat komet."
+        },
+        {
+            "name": "Ironhide",
+            "emoji": "🧲",
+            "speed_mod": 0.85,
+            "description": "Kuda baja yang sangat tangguh, tapi sedikit lambat."
+        },
+        {
+            "name": "Flash",
+            "emoji": "⚡",
+            "speed_mod": 1.2,
+            "description": "Kuda tercepat, jarang terlihat kalah!"
+        }
     ]
 }
