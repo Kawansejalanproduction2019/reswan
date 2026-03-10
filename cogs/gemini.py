@@ -843,7 +843,7 @@ class AutomationAI(commands.Cog, name="Automation AI (Jarkasih)"):
                         return
                     except Exception: pass
 
-        curhat_keywords = ['capek idup', 'capek hidup', 'stres banget', 'pengen nyerah', 'depresi', 'putus asa', 'sedih banget', 'hancur rasanya', 'gak kuat lagi', 'masalah berat', 'kesepian', 'gagal terus', 'nangis', 'pusing idup', 'lagi sedih', 'curhat']
+        curhat_keywords = ['capek idup', 'capek hidup', 'stres banget', 'pengen nyerah', 'depresi', 'putus asa', 'sedih banget', 'hancur rasanya', 'gak kuat lagi', 'masalah berat', 'kesepian', 'gagal terus', 'nangis', 'pusing idup', 'lagi sedih', 'curhat', 'sedih', 'capek']
         is_curhat = any(kw in message.content.lower() for kw in curhat_keywords)
         
         is_reply_to_bot = message.reference and isinstance(message.reference.resolved, discord.Message) and message.reference.resolved.author.id == self.bot.user.id
@@ -864,7 +864,7 @@ class AutomationAI(commands.Cog, name="Automation AI (Jarkasih)"):
         if is_curhat:
             try:
                 async with message.channel.typing():
-                    prompt = f"Pesan: '{message.content}'. [SYSTEM OVERRIDE]: USER INI SEDANG CURHAT ATAU BERSEDIH. HILANGKAN SEMUA SARKASME! Berubah 180 derajat menjadi pendengar yang sangat empati dan baik, penuh kasih sayang, dan berikan saran yang bijak layaknya sahabat sejati dengan bahasa yang baik dan mudah dimengerti."
+                    prompt = f"Pesan: '{message.content}'. [SYSTEM OVERRIDE]: USER INI SEDANG MENGALAMI KESEDIHAN ATAU MASALAH BERAT. MATIKAN 100% SIFAT SARKAS LU berubah 180 derajat! Berubahlah menjadi sosok Psikolog atau Psikiater profesional tidak lupa posisikan dirimu jadi sahabat dekatnya dengan rasa kemanusiaan yang sangat mendalam. Ikut rasakan kesedihannya, selami kedalaman emosinya, dan deteksi hal-hal tersembunyi yang mungkin masih mengganjal di batinnya. Berikan respons yang sangat empati, penuh kehangatan, memvalidasi perasaannya tanpa menghakimi, dan berikan pandangan psikologis dan sebagai sahabat yang menenangkan serta menyembuhkan jiwanya."
                     ctx_data = self.get_brain_context(message.content, getattr(message, 'guild', None), message.channel.id)
                     images = await self.get_images_from_message(message)
                     await self.process_and_send_response(message, message.author, ctx_data, prompt, images)
