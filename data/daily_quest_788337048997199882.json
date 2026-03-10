@@ -1,1 +1,5 @@
-{"description": "Bergabung di voice channel selama 15 menit.", "reward_exp": 150, "reward_coins": 900}
+{
+    "description": "Bergabung di voice channel selama 15 menit.",
+    "reward_exp": 150,
+    "reward_coins": 900
+}
