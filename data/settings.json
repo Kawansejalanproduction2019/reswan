@@ -2,7 +2,7 @@
     "1039509114008649778": {
         "auto_role_id": null,
         "welcome_channel_id": 1379762287149187162,
-        "welcome_message": "Selamat bersenang-senang dan mari ciptakan pengalaman Discord yang tak terlupakan bersama! Enjoy the ride! \u270c\ufe0f",
+        "welcome_message": "Selamat bersenang-senang dan mari ciptakan pengalaman Discord yang tak terlupakan bersama! Enjoy the ride! ✌️",
         "log_channel_id": null,
         "reaction_roles": {},
         "channel_rules": {
@@ -94,7 +94,7 @@
         "welcome_embed_title": "halo",
         "welcome_sender_name": "ADMIN",
         "boost_channel_id": 1419777158540296412,
-        "boost_message": "Terima kasih banyak, {user}, telah menjadi **Server Booster** kami di {guild_name}! Kami sangat menghargai dukunganmu! \u2764\ufe0f",
+        "boost_message": "Terima kasih banyak, {user}, telah menjadi **Server Booster** kami di {guild_name}! Kami sangat menghargai dukunganmu! ❤️",
         "boost_embed_title": "TERIMA KASIH SERVER BOOSTER!",
         "boost_sender_name": "Tim Server",
         "boost_image_url": "",
@@ -104,11 +104,11 @@
         "mod_panel_channel_id": 1417599133065285884,
         "main_membership_role_id": null,
         "membership_roles": {},
-        "membership_invite_message": "\ud83e\udd7a Anda belum menjadi anggota channel YouTube. Silakan berlangganan untuk mendapatkan role eksklusif! [LINK MEMBERSHIP]",
-        "membership_confirm_message": "\ud83c\udf89 Anda sudah menjadi anggota! Anda adalah anggota tier: **{tier_name}**.",
+        "membership_invite_message": "🥺 Anda belum menjadi anggota channel YouTube. Silakan berlangganan untuk mendapatkan role eksklusif! [LINK MEMBERSHIP]",
+        "membership_confirm_message": "🎉 Anda sudah menjadi anggota! Anda adalah anggota tier: **{tier_name}**.",
         "verification_button_label": "Verifikasi Membership",
         "spam_whitelist_roles": [],
-        "goodbye_message": "sampai jumpa, {user} ! Kami sangat menyayangkan kepergian Anda \ud83e\udd79. Terima kasih banyak atas waktu dan kontribusi Anda selama berada di komunitas kami. Semoga kita bisa bertemu lagi di masa depan! \n\nJika ada masalah yang membuat Anda keluar, kami mohon maaf dan berharap Anda baik-baik saja.",
+        "goodbye_message": "sampai jumpa, {user} ! Kami sangat menyayangkan kepergian Anda 🥹. Terima kasih banyak atas waktu dan kontribusi Anda selama berada di komunitas kami. Semoga kita bisa bertemu lagi di masa depan! \n\nJika ada masalah yang membuat Anda keluar, kami mohon maaf dan berharap Anda baik-baik saja.",
         "panel_role_stats": []
     },
     "788337048997199882": {
@@ -118,18 +118,18 @@
         "log_channel_id": null,
         "reaction_roles": {
             "1384604148053442782": {
-                "\ud83d\udc68\u200d\ud83e\uddb1": 1266493929792995438,
-                "\ud83d\udc69": 1270461543234146396
+                "👨‍🦱": 1266493929792995438,
+                "👩": 1270461543234146396
             },
             "1394667082951561256": {
-                "\ud83d\ude2d": 1394664997740875899,
-                "\ud83d\ude02": 1394664997740875899,
-                "\ud83d\ude01": 1395237508710797393,
-                "\ud83d\ude04": 1395237612633198663,
-                "\ud83d\ude00": 1395237991575846962,
-                "\ud83d\ude06": 1395237668643934268,
-                "\ud83d\ude1c": 1395237730362855595,
-                "\ud83d\ude1d": 1395237896549826571
+                "😭": 1394664997740875899,
+                "😂": 1394664997740875899,
+                "😁": 1395237508710797393,
+                "😄": 1395237612633198663,
+                "😀": 1395237991575846962,
+                "😆": 1395237668643934268,
+                "😜": 1395237730362855595,
+                "😝": 1395237896549826571
             }
         },
         "channel_rules": {
@@ -242,7 +242,7 @@
         "welcome_embed_title": "halo",
         "welcome_sender_name": "Admin",
         "boost_channel_id": 1394097105492119612,
-        "boost_message": "Terima kasih banyak, {user}, telah menjadi **Server Booster** kami di {guild_name}! Kami sangat menghargai dukunganmu! \u2764\ufe0f",
+        "boost_message": "Terima kasih banyak, {user}, telah menjadi **Server Booster** kami di {guild_name}! Kami sangat menghargai dukunganmu! ❤️",
         "boost_embed_title": "TERIMA KASIH SERVER BOOSTER!",
         "boost_sender_name": "Tim Server",
         "boost_image_url": null,
@@ -252,17 +252,17 @@
         "mod_panel_channel_id": 1382047607702028339,
         "main_membership_role_id": null,
         "membership_roles": {},
-        "membership_invite_message": "\ud83e\udd7a Anda belum menjadi anggota channel YouTube. Silakan berlangganan untuk mendapatkan role eksklusif! [LINK MEMBERSHIP]",
-        "membership_confirm_message": "\ud83c\udf89 Anda sudah menjadi anggota! Anda adalah anggota tier: **{tier_name}**.",
+        "membership_invite_message": "🥺 Anda belum menjadi anggota channel YouTube. Silakan berlangganan untuk mendapatkan role eksklusif! [LINK MEMBERSHIP]",
+        "membership_confirm_message": "🎉 Anda sudah menjadi anggota! Anda adalah anggota tier: **{tier_name}**.",
         "verification_button_label": "Verifikasi Membership",
         "spam_whitelist_roles": [],
-        "goodbye_message": "Selamat tinggal, **{user}**. Sampai jumpa lagi! \ud83d\udc4b",
+        "goodbye_message": "Selamat tinggal, **{user}**. Sampai jumpa lagi! 👋",
         "panel_role_stats": []
     },
     "765138959625486357": {
         "auto_role_id": null,
         "welcome_channel_id": 1255219778407366688,
-        "welcome_message": "Selamat datang di {guild_name}! \ud83d\udc4b\n\nHalo {user}, kami gembira sekali kamu sudah bergabung dengan komunitas kami. Agar kamu bisa langsung nyaman dan berinteraksi, yuk, baca beberapa hal penting ini:\n- **Aturan:** Baca dulu ya, biar kita semua bisa enjoy bareng: **[klik di sini](https://canary.discord.com/channels/765138959625486357/1255220296508768326)**.\n- **Butuh Bantuan?**: Cek **[FAQ](https://discord.com/channels/765138959625486357/1410342866760241162)** untuk jawaban cepat.\n\nSelamat menikmati waktu di server ini! Enjoy! \u270c\ufe0f",
+        "welcome_message": "Selamat datang di {guild_name}! 👋\n\nHalo {user}, kami gembira sekali kamu sudah bergabung dengan komunitas kami. Agar kamu bisa langsung nyaman dan berinteraksi, yuk, baca beberapa hal penting ini:\n- **Aturan:** Baca dulu ya, biar kita semua bisa enjoy bareng: **[klik di sini](https://canary.discord.com/channels/765138959625486357/1255220296508768326)**.\n- **Butuh Bantuan?**: Cek **[FAQ](https://discord.com/channels/765138959625486357/1410342866760241162)** untuk jawaban cepat.\n\nSelamat menikmati waktu di server ini! Enjoy! ✌️",
         "log_channel_id": null,
         "reaction_roles": {},
         "channel_rules": {
@@ -641,7 +641,7 @@
         "welcome_embed_title": "Halo",
         "welcome_sender_name": "Njan",
         "boost_channel_id": 1256133228117491762,
-        "boost_message": "Terima kasih banyak, {user}, telah menjadi **Server Booster** kami di {guild_name}! Kami sangat menghargai dukunganmu! \u2764\ufe0f",
+        "boost_message": "Terima kasih banyak, {user}, telah menjadi **Server Booster** kami di {guild_name}! Kami sangat menghargai dukunganmu! ❤️",
         "boost_embed_title": "halo",
         "boost_sender_name": "Tim server",
         "boost_image_url": "",
@@ -659,21 +659,21 @@
         "membership_roles": {
             "1279003289643646996": {
                 "tier_name": "Aniyolite",
-                "emoji": "\ud83c\udf1f"
+                "emoji": "🌟"
             },
             "1279003289643646997": {
                 "tier_name": "Sheesmate",
-                "emoji": "\ud83c\udf1f"
+                "emoji": "🌟"
             },
             "1279003289643646998": {
                 "tier_name": "Mofokhobi",
-                "emoji": "\ud83c\udf1f"
+                "emoji": "🌟"
             }
         },
         "membership_invite_message": "Maaf {member}, Anda belum terdaftar sebagai membership, Dapatkan role eksklusif dan video eksklusif di YouTube dengan berlangganan bersama kami caranya cek **[disini](https://discord.com/channels/765138959625486357/1410348378067570728)** \nJika kamu sudah berlangganan dan belum dapat role pastikan kamu sudah mengkoneksikan Discord dengan akun YouTube yang sama caranya cek **[disini](https://discord.com/channels/765138959625486357/1410347196880130140)**",
-        "membership_confirm_message": "\ud83e\udd73 Selamat {member}! Anda terverifikasi sebagai **{tier_name}**. Role eksklusif Anda sudah diberikan! Terima kasih telah mensupport. Mau upgrade membership ? Cek disini https://discord.com/channels/765138959625486357/1417457183515476030",
+        "membership_confirm_message": "🥳 Selamat {member}! Anda terverifikasi sebagai **{tier_name}**. Role eksklusif Anda sudah diberikan! Terima kasih telah mensupport. Mau upgrade membership ? Cek disini https://discord.com/channels/765138959625486357/1417457183515476030",
         "verification_button_label": "Klik untuk Verifikasi Member",
-        "goodbye_message": "sampai jumpa, {user} ! Kami sangat menyayangkan kepergian Anda \ud83e\udd79. Terima kasih banyak atas waktu dan kontribusi Anda selama berada di komunitas kami. Semoga kita bisa bertemu lagi di masa depan! \n\nJika ada masalah yang membuat Anda keluar, kami mohon maaf dan berharap Anda baik-baik saja.",
+        "goodbye_message": "sampai jumpa, {user} ! Kami sangat menyayangkan kepergian Anda 🥹. Terima kasih banyak atas waktu dan kontribusi Anda selama berada di komunitas kami. Semoga kita bisa bertemu lagi di masa depan! \n\nJika ada masalah yang membuat Anda keluar, kami mohon maaf dan berharap Anda baik-baik saja.",
         "panel_role_stats": [
             1279003289643646996,
             1279003289643646997,
@@ -683,7 +683,7 @@
     "1417636227179483221": {
         "auto_role_id": null,
         "welcome_channel_id": null,
-        "welcome_message": "Selamat datang di **{guild_name}**, {user}! \ud83c\udf89",
+        "welcome_message": "Selamat datang di **{guild_name}**, {user}! 🎉",
         "welcome_embed_title": "SELAMAT DATANG!",
         "welcome_sender_name": "Admin Server",
         "welcome_banner_url": null,
@@ -727,7 +727,7 @@
             }
         },
         "boost_channel_id": null,
-        "boost_message": "Terima kasih banyak, {user}, telah menjadi **Server Booster** kami di {guild_name}! Kami sangat menghargai dukunganmu! \u2764\ufe0f",
+        "boost_message": "Terima kasih banyak, {user}, telah menjadi **Server Booster** kami di {guild_name}! Kami sangat menghargai dukunganmu! ❤️",
         "boost_embed_title": "TERIMA KASIH SERVER BOOSTER!",
         "boost_sender_name": "Tim Server",
         "boost_image_url": null,
@@ -736,17 +736,17 @@
         "announcement_webhooks": {},
         "main_membership_role_id": null,
         "membership_roles": {},
-        "membership_invite_message": "\ud83e\udd7a Anda belum menjadi anggota channel YouTube. Silakan berlangganan untuk mendapatkan role eksklusif! [LINK MEMBERSHIP]",
-        "membership_confirm_message": "\ud83c\udf89 Anda sudah menjadi anggota! Anda adalah anggota tier: **{tier_name}**.",
+        "membership_invite_message": "🥺 Anda belum menjadi anggota channel YouTube. Silakan berlangganan untuk mendapatkan role eksklusif! [LINK MEMBERSHIP]",
+        "membership_confirm_message": "🎉 Anda sudah menjadi anggota! Anda adalah anggota tier: **{tier_name}**.",
         "verification_button_label": "Verifikasi Membership",
         "spam_whitelist_roles": [],
-        "goodbye_message": "Selamat tinggal, **{user}**. Sampai jumpa lagi! \ud83d\udc4b",
+        "goodbye_message": "Selamat tinggal, **{user}**. Sampai jumpa lagi! 👋",
         "panel_role_stats": []
     },
     "722619465644113962": {
         "auto_role_id": null,
         "welcome_channel_id": 722619465644113965,
-        "welcome_message": "Halo {user}, selamat datang di **{guild_name}**,\ud83c\udfe1\nSenang banget kamu sudah bergabung di rumah digital kita semua! Ini adalah tempat untuk ngobrolin musik, karya, dan main game bareng Rizky Febian dan teman-teman lainnya.\n\nBiar kamu nggak bingung, yuk ikuti beberapa langkah awal ini:\n **Wajib Baca Peraturan**\n Mampir dulu ke <#1418894497420677232> biar kita semua nyaman dan seru bareng.\n**Kenalan, Yuk!**\nJangan malu-malu buat sapa yang lain di <#1418839313130717276>.\n\nKami tunggu kamu di obrolan ya. Semoga betah! \u2728",
+        "welcome_message": "Halo {user}, selamat datang di **{guild_name}**,🏡\nSenang banget kamu sudah bergabung di rumah digital kita semua! Ini adalah tempat untuk ngobrolin musik, karya, dan main game bareng Rizky Febian dan teman-teman lainnya.\n\nBiar kamu nggak bingung, yuk ikuti beberapa langkah awal ini:\n **Wajib Baca Peraturan**\n Mampir dulu ke <#1418894497420677232> biar kita semua nyaman dan seru bareng.\n**Kenalan, Yuk!**\nJangan malu-malu buat sapa yang lain di <#1418839313130717276>.\n\nKami tunggu kamu di obrolan ya. Semoga betah! ✨",
         "welcome_embed_title": "Selamat datang",
         "welcome_sender_name": "IkyLini",
         "welcome_banner_url": "https://raw.githubusercontent.com/Kawansejalanproduction2019/my-projek/main/20250920_200231.jpg",
@@ -902,7 +902,7 @@
             }
         },
         "boost_channel_id": null,
-        "boost_message": "Terima kasih banyak, {user}, telah menjadi **Server Booster** kami di {guild_name}! Kami sangat menghargai dukunganmu! \u2764\ufe0f",
+        "boost_message": "Terima kasih banyak, {user}, telah menjadi **Server Booster** kami di {guild_name}! Kami sangat menghargai dukunganmu! ❤️",
         "boost_embed_title": "TERIMA KASIH SERVER BOOSTER!",
         "boost_sender_name": "Tim Server",
         "boost_image_url": null,
@@ -911,17 +911,17 @@
         "announcement_webhooks": {},
         "main_membership_role_id": null,
         "membership_roles": {},
-        "membership_invite_message": "\ud83e\udd7a Anda belum menjadi anggota channel YouTube. Silakan berlangganan untuk mendapatkan role eksklusif! [LINK MEMBERSHIP]",
-        "membership_confirm_message": "\ud83c\udf89 Anda sudah menjadi anggota! Anda adalah anggota tier: **{tier_name}**.",
+        "membership_invite_message": "🥺 Anda belum menjadi anggota channel YouTube. Silakan berlangganan untuk mendapatkan role eksklusif! [LINK MEMBERSHIP]",
+        "membership_confirm_message": "🎉 Anda sudah menjadi anggota! Anda adalah anggota tier: **{tier_name}**.",
         "verification_button_label": "Verifikasi Membership",
         "spam_whitelist_roles": [],
-        "goodbye_message": "sampai jumpa, {user} ! Kami sangat menyayangkan kepergian Anda \ud83e\udd79. Terima kasih banyak atas waktu dan kontribusi Anda selama berada di komunitas kami. Semoga kita bisa bertemu lagi di masa depan! \n\nJika ada masalah yang membuat Anda keluar, kami mohon maaf dan berharap Anda baik-baik saja.",
+        "goodbye_message": "sampai jumpa, {user} ! Kami sangat menyayangkan kepergian Anda 🥹. Terima kasih banyak atas waktu dan kontribusi Anda selama berada di komunitas kami. Semoga kita bisa bertemu lagi di masa depan! \n\nJika ada masalah yang membuat Anda keluar, kami mohon maaf dan berharap Anda baik-baik saja.",
         "panel_role_stats": []
     },
     "1446026825708081246": {
         "auto_role_id": null,
         "welcome_channel_id": null,
-        "welcome_message": "Selamat datang di **{guild_name}**, {user}! \ud83c\udf89",
+        "welcome_message": "Selamat datang di **{guild_name}**, {user}! 🎉",
         "welcome_embed_title": "SELAMAT DATANG!",
         "welcome_sender_name": "Admin Server",
         "welcome_banner_url": null,
@@ -929,7 +929,7 @@
         "reaction_roles": {},
         "channel_rules": {},
         "boost_channel_id": null,
-        "boost_message": "Terima kasih banyak, {user}, telah menjadi **Server Booster** kami di {guild_name}! Kami sangat menghargai dukunganmu! \u2764\ufe0f",
+        "boost_message": "Terima kasih banyak, {user}, telah menjadi **Server Booster** kami di {guild_name}! Kami sangat menghargai dukunganmu! ❤️",
         "boost_embed_title": "TERIMA KASIH SERVER BOOSTER!",
         "boost_sender_name": "Tim Server",
         "boost_image_url": null,
@@ -937,18 +937,18 @@
         "mod_panel_channel_id": null,
         "main_membership_role_id": null,
         "membership_roles": {},
-        "membership_invite_message": "\ud83e\udd7a Anda belum menjadi anggota channel YouTube. Silakan berlangganan untuk mendapatkan role eksklusif! [LINK MEMBERSHIP]",
-        "membership_confirm_message": "\ud83c\udf89 Anda sudah menjadi anggota! Anda adalah anggota tier: **{tier_name}**.",
+        "membership_invite_message": "🥺 Anda belum menjadi anggota channel YouTube. Silakan berlangganan untuk mendapatkan role eksklusif! [LINK MEMBERSHIP]",
+        "membership_confirm_message": "🎉 Anda sudah menjadi anggota! Anda adalah anggota tier: **{tier_name}**.",
         "verification_button_label": "Verifikasi Membership",
         "spam_whitelist_roles": [],
-        "goodbye_message": "Selamat tinggal, **{user}**. Sampai jumpa lagi! \ud83d\udc4b",
+        "goodbye_message": "Selamat tinggal, **{user}**. Sampai jumpa lagi! 👋",
         "panel_role_stats": [],
         "announcement_webhooks": {}
     },
     "759846717696245810": {
         "auto_role_id": null,
         "welcome_channel_id": null,
-        "welcome_message": "Selamat datang di **{guild_name}**, {user}! \ud83c\udf89",
+        "welcome_message": "Selamat datang di **{guild_name}**, {user}! 🎉",
         "welcome_embed_title": "SELAMAT DATANG!",
         "welcome_sender_name": "Admin Server",
         "welcome_banner_url": null,
@@ -956,7 +956,7 @@
         "reaction_roles": {},
         "channel_rules": {},
         "boost_channel_id": null,
-        "boost_message": "Terima kasih banyak, {user}, telah menjadi **Server Booster** kami di {guild_name}! Kami sangat menghargai dukunganmu! \u2764\ufe0f",
+        "boost_message": "Terima kasih banyak, {user}, telah menjadi **Server Booster** kami di {guild_name}! Kami sangat menghargai dukunganmu! ❤️",
         "boost_embed_title": "TERIMA KASIH SERVER BOOSTER!",
         "boost_sender_name": "Tim Server",
         "boost_image_url": null,
@@ -964,11 +964,11 @@
         "mod_panel_channel_id": null,
         "main_membership_role_id": null,
         "membership_roles": {},
-        "membership_invite_message": "\ud83e\udd7a Anda belum menjadi anggota channel YouTube. Silakan berlangganan untuk mendapatkan role eksklusif! [LINK MEMBERSHIP]",
-        "membership_confirm_message": "\ud83c\udf89 Anda sudah menjadi anggota! Anda adalah anggota tier: **{tier_name}**.",
+        "membership_invite_message": "🥺 Anda belum menjadi anggota channel YouTube. Silakan berlangganan untuk mendapatkan role eksklusif! [LINK MEMBERSHIP]",
+        "membership_confirm_message": "🎉 Anda sudah menjadi anggota! Anda adalah anggota tier: **{tier_name}**.",
         "verification_button_label": "Verifikasi Membership",
         "spam_whitelist_roles": [],
-        "goodbye_message": "Selamat tinggal, **{user}**. Sampai jumpa lagi! \ud83d\udc4b",
+        "goodbye_message": "Selamat tinggal, **{user}**. Sampai jumpa lagi! 👋",
         "panel_role_stats": [],
         "announcement_webhooks": {}
     }
