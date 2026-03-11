@@ -559,7 +559,11 @@ class AutomationAI(commands.Cog, name="Automation AI (Jarkasih)"):
             for dm_target, dm_msg in dm_matches:
                 try:
                     target_user = await self.bot.fetch_user(int(dm_target))
-                    await target_user.send(dm_msg.strip())
+                    msg_to_send = dm_msg.strip()
+                    chunks = [msg_to_send[i:i+DISCORD_MSG_LIMIT] for i in range(0, len(msg_to_send), DISCORD_MSG_LIMIT)]
+                    for chunk in chunks:
+                        if chunk:
+                            await target_user.send(chunk)
                     text += f"\n*(Sip bos, DM udah meluncur ke <@{dm_target}>)*"
                 except discord.Forbidden:
                     text += f"\n*(Gagal DM ke <@{dm_target}>, dia nutup DM-nya)*"
@@ -571,14 +575,15 @@ class AutomationAI(commands.Cog, name="Automation AI (Jarkasih)"):
             for ch_target, ch_msg in ch_matches:
                 try:
                     target_channel = await self.bot.fetch_channel(int(ch_target))
-                    await target_channel.send(ch_msg.strip())
+                    msg_to_send = ch_msg.strip()
+                    chunks = [msg_to_send[i:i+DISCORD_MSG_LIMIT] for i in range(0, len(msg_to_send), DISCORD_MSG_LIMIT)]
+                    for chunk in chunks:
+                        if chunk:
+                            await target_channel.send(chunk)
                     text += f"\n*(Laporan: Pesan sukses ditembakkan ke channel <#{ch_target}>)*"
                 except Exception as e:
                     text += f"\n*(Gagal ngirim ke channel <#{ch_target}>: {e})*"
             text = re.sub(r'\[ACTION_CHANNEL:\s*\d+\s*\|.*?\]', '', text, flags=re.IGNORECASE | re.DOTALL).strip()
-      
-            if not text:
-                text = "Sukses.. dah itu aja Males ngomong gue."
                 
             sent_msg = None
             if isinstance(send_target, discord.Message):
