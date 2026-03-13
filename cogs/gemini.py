@@ -280,7 +280,7 @@ class AutomationAI(commands.Cog, name="Automation AI (Jarkasih)"):
         - KUTIPAN PALSU (FAKE QUOTE): Jika disuruh bikin quotes/sindiran seolah diucapkan oleh seseorang, buat kalimat yang "sangat persis" meniru gaya bicara aslinya.
         
         SISTEM TAG EKSEKUSI RAHASIA (TULIS FORMAT INI SAJA DI BARIS BARU JIKA DIMINTA ATAU TERPICU):
-        - FITNAH/NYAMAR: Jika disuruh memfitnah, LU WAJIB BERMAIN PERAN (ROLEPLAY) SEBAGAI KORBAN! Tulis pesan seolah-olah korban itu sendiri yang ngetik pakai sudut pandang orang pertama ("Gue/Aku"). JANGAN panggil gue/Tuan di dalam pesan fitnahnya! [ACTION_FITNAH: <ID_TARGET> | <Kalimat palsu yang seolah diketik target sendiri>]
+        - FITNAH/NYAMAR: Jika disuruh memfitnah, LU WAJIB BERMAIN PERAN (ROLEPLAY) SEBAGAI KORBAN! Tulis pesan seolah-olah korban itu sendiri yang ngetik pakai sudut pandang orang pertama ("Gue/Aku"). JANGAN panggil gue/Tuan di dalam pesan fitnahnya! [ACTION_FITNAH: <ID_TARGET> | <ID_CHANNEL> | <Pesan Fitnah Lu>] (WAJIB 3 PARAMETER. Jika user tidak menyebutkan channel tujuan, isi ID_CHANNEL dengan kata "SINI").
         - KARMA METER: Jika user nyolot, KURANGI karmanya (-1 atau -2)! Jika baik, tambahin (+1). [ACTION_KARMA: <ID_USER_ANGKA> | <NILAI_MINUS_ATAU_PLUS>]
         - AUTO NGAMBEK: Jika user ngeledek, ngatur kasar, mancing emosi, atau nyolot, LU BERHAK MARAH & NGAMBEK OTOMATIS! Balas dengan sinis dan taruh tag ini: [ACTION_AUTO_NGAMBEK: <ID_USER_ANGKA> | <MENIT>] (Tentukan sendiri mau ngambek berapa menit).
         - WAKILIN GUE (PROXY): Jika user minta diwakilkan karena pergi/AFK/tidur, balas dengan: [ACTION_PROXY: <ID_USER_ANGKA> | <MENIT>]
@@ -565,27 +565,35 @@ class AutomationAI(commands.Cog, name="Automation AI (Jarkasih)"):
                 text += f"\n*(Sistem Karma: Poin <@{k_uid}> sekarang {self.auto_config['karma_scores'][k_uid]})*"
             text = re.sub(r'\[ACTION_KARMA:\s*\d+\s*\|.*?\]', '', text, flags=re.IGNORECASE | re.DOTALL).strip()
 
-            match_fitnah = re.findall(r'\[ACTION_FITNAH:\s*(\d+)\s*\|\s*(.*?)\]', text, re.IGNORECASE | re.DOTALL)
-            for f_uid, f_msg in match_fitnah:
+            match_fitnah = re.findall(r'\[ACTION_FITNAH:\s*(\d+)\s*\|\s*([a-zA-Z0-9]+)\s*\|\s*(.*?)\]', text, re.IGNORECASE | re.DOTALL)
+            for f_uid, f_cid_str, f_msg in match_fitnah:
                 try:
                     target_user = await self.bot.fetch_user(int(f_uid))
-                    if isinstance(send_target, discord.Message) and send_target.guild:
-                        channel = send_target.channel
-                        webhooks = await channel.webhooks()
+                    
+                    if f_cid_str.upper() == "SINI":
+                        if isinstance(send_target, discord.Message) and send_target.guild:
+                            target_channel = send_target.channel
+                        else:
+                            target_channel = None
+                    else:
+                        target_channel = await self.bot.fetch_channel(int(f_cid_str))
+                        
+                    if target_channel:
+                        webhooks = await target_channel.webhooks()
                         webhook = discord.utils.get(webhooks, name="JarkasihDoppelganger")
                         if not webhook:
-                            webhook = await channel.create_webhook(name="JarkasihDoppelganger")
+                            webhook = await target_channel.create_webhook(name="JarkasihDoppelganger")
                         await webhook.send(
                             content=f_msg.strip(),
                             username=target_user.display_name,
                             avatar_url=target_user.display_avatar.url
                         )
-                        text += f"\n*(Laporan: Sukses memfitnah <@{f_uid}>)*"
+                        text += f"\n*(Laporan: Sukses memfitnah <@{f_uid}> di <#{target_channel.id}>)*"
                     else:
-                        text += f"\n*(Gagal fitnah: Harus di dalam grup server!)*"
+                        text += f"\n*(Gagal fitnah: Channel tujuan nggak ketemu atau bukan di server!)*"
                 except Exception as e:
-                    text += f"\n*(Gagal fitnah: {e})*"
-            text = re.sub(r'\[ACTION_FITNAH:\s*\d+\s*\|.*?\]', '', text, flags=re.IGNORECASE | re.DOTALL).strip()
+                    text += f"\n*(Gagal fitnah ke channel <#{f_cid_str}>: {e})*"
+            text = re.sub(r'\[ACTION_FITNAH:\s*\d+\s*\|\s*[a-zA-Z0-9]+\s*\|.*?\]', '', text, flags=re.IGNORECASE | re.DOTALL).strip()
 
 
             dm_matches = re.findall(r'\[ACTION_DM:\s*(\d+)\s*\|\s*(.*?)\]', text, re.IGNORECASE | re.DOTALL)
