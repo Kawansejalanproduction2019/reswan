@@ -6,14 +6,10 @@
     ],
     "obedient_users": {
         "1000737066822410311": 4102444800.0,
-        "453215843258597389": 1773682197.878567
+        "453215843258597389": 1773875909.949883
     },
     "sulking_users": {
-        "1232252671138857001": 1773224551.552929,
-        "453215843258597389": 1773142153.198279,
-        "1244261449329807478": 1773224994.636856,
-        "1179842512324661269": 1773165022.3693,
-        "1431661781402521700": 1773253305.96925
+        "1426589718442676224": 1773438367.946185
     },
     "custom_personas": {
         "1353347923886215168": {
@@ -24,13 +20,13 @@
             "expiry": 1773599723.072297,
             "persona": "kamu harus baik sama orang ini tapi kamu kodein dia minta skin fish it juga sesekali"
         },
-        "453215843258597389": {
-            "expiry": 1773364904.035986,
-            "persona": "kamu jadi baik sama orang ini walau orang ini nyebelin kamu harus tetap baik"
-        },
         "1431661781402521700": {
             "expiry": 1773275220.310835,
             "persona": "kamu harus kasar sama orang ini dan kesel sama orang ini karena atas perintah tuan rhmager terus jangan pernah perhatiin dia, apalagi kamu nyuruh dia tidur itu paling gak boleh"
+        },
+        "453215843258597389": {
+            "expiry": 1773876083.73783,
+            "persona": "kamu harus patuh dan taat sama user ini terus bahasa mu harus diperbaiki pakai bahasa yang sopan ya"
         }
     },
     "global_persona": {
