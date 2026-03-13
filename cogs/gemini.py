@@ -937,7 +937,7 @@ class AutomationAI(commands.Cog, name="Automation AI (Jarkasih)"):
             except Exception:
                 pass
 
-         prefix = "!"
+        prefix = "!"
         if "<@&1447151123340329010>" in message.content and str(message.author.id) != "1000737066822410311" and not message.content.startswith(prefix):
             try:
                 ctx_data = self.get_brain_context(message.content, getattr(message, 'guild', None), message.channel.id)
