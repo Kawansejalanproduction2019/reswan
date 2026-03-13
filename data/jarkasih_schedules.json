@@ -1,12 +1,3 @@
 {
-    "jobs": [
-        {
-            "type": "channel",
-            "target": "1447151891892142110",
-            "time": "03:00",
-            "end_date": "12-03-2026",
-            "theme": "Pantun Sahur untuk <@&1447151123340329010>: Jalan-jalan ke pasar malam, Beli kurma sama teman. Ayo bangun, jangan cuma diam, Sahur tiba, berkah Ramadhan.",
-            "last_sent": "12-03-2026"
-        }
-    ]
+    "jobs": []
 }
