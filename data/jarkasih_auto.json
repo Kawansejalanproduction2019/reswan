@@ -8,9 +8,7 @@
         "1000737066822410311": 4102444800.0,
         "453215843258597389": 1773875909.949883
     },
-    "sulking_users": {
-        "1426589718442676224": 1773438367.946185
-    },
+    "sulking_users": {},
     "custom_personas": {
         "1353347923886215168": {
             "expiry": 1773028871.6985,
@@ -19,10 +17,6 @@
         "1244261449329807478": {
             "expiry": 1773599723.072297,
             "persona": "kamu harus baik sama orang ini tapi kamu kodein dia minta skin fish it juga sesekali"
-        },
-        "1431661781402521700": {
-            "expiry": 1773275220.310835,
-            "persona": "kamu harus kasar sama orang ini dan kesel sama orang ini karena atas perintah tuan rhmager terus jangan pernah perhatiin dia, apalagi kamu nyuruh dia tidur itu paling gak boleh"
         },
         "453215843258597389": {
             "expiry": 1773876083.73783,
@@ -33,5 +27,8 @@
         "expiry": 1785704318.733625,
         "persona": "kamu harus baik bersikap baik sedikit sama semua orang, pakai bahasa sopan ya dan jangan terlalu songong"
     },
-    "proxies": {}
+    "proxies": {},
+    "karma_scores": {
+        "1431661781402521700": -3
+    }
 }
