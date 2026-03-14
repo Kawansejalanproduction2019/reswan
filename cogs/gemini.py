@@ -568,8 +568,6 @@ class AutomationAI(commands.Cog, name="Automation AI (Jarkasih)"):
             match_fitnah = re.findall(r'\[ACTION_FITNAH:\s*(\d+)\s*\|\s*([a-zA-Z0-9]+)\s*\|\s*(.*?)\]', text, re.IGNORECASE | re.DOTALL)
             for f_uid, f_cid_str, f_msg in match_fitnah:
                 try:
-                    target_user = await self.bot.fetch_user(int(f_uid))
-                    
                     if f_cid_str.upper() == "SINI":
                         if isinstance(send_target, discord.Message) and send_target.guild:
                             target_channel = send_target.channel
@@ -579,14 +577,25 @@ class AutomationAI(commands.Cog, name="Automation AI (Jarkasih)"):
                         target_channel = await self.bot.fetch_channel(int(f_cid_str))
                         
                     if target_channel:
+                        guild = target_channel.guild
+                        target_member = guild.get_member(int(f_uid))
+                        if not target_member:
+                            try:
+                                target_member = await guild.fetch_member(int(f_uid))
+                            except discord.NotFound:
+                                target_member = await self.bot.fetch_user(int(f_uid))
+                                
+                        username_to_use = target_member.display_name
+                        avatar_to_use = target_member.display_avatar.url
+                        
                         webhooks = await target_channel.webhooks()
                         webhook = discord.utils.get(webhooks, name="JarkasihDoppelganger")
                         if not webhook:
                             webhook = await target_channel.create_webhook(name="JarkasihDoppelganger")
                         await webhook.send(
                             content=f_msg.strip(),
-                            username=target_user.display_name,
-                            avatar_url=target_user.display_avatar.url
+                            username=username_to_use,
+                            avatar_url=avatar_to_use
                         )
                         text += f"\n*(Laporan: Sukses memfitnah <@{f_uid}> di <#{target_channel.id}>)*"
                     else:
@@ -594,6 +603,7 @@ class AutomationAI(commands.Cog, name="Automation AI (Jarkasih)"):
                 except Exception as e:
                     text += f"\n*(Gagal fitnah ke channel <#{f_cid_str}>: {e})*"
             text = re.sub(r'\[ACTION_FITNAH:\s*\d+\s*\|\s*[a-zA-Z0-9]+\s*\|.*?\]', '', text, flags=re.IGNORECASE | re.DOTALL).strip()
+
 
 
             dm_matches = re.findall(r'\[ACTION_DM:\s*(\d+)\s*\|\s*(.*?)\]', text, re.IGNORECASE | re.DOTALL)
