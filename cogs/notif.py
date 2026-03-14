@@ -11,13 +11,47 @@ import uuid
 import aiohttp
 import datetime
 from functools import partial
+import google.generativeai as genai
+from google.api_core import exceptions as google_exceptions
 
 from dotenv import load_dotenv 
 import base64
 import tempfile
 
+load_dotenv()
+
+API_KEYS = []
+if os.getenv("GOOGLE_API_KEY"):
+    API_KEYS.append(os.getenv("GOOGLE_API_KEY"))
+
+key_index = 2
+while True:
+    extra_key = os.getenv(f"GOOGLE_API_KEY_{key_index}")
+    if extra_key:
+        API_KEYS.append(extra_key)
+        key_index += 1
+    else:
+        break
+
+current_key_idx = 0
+
+def configure_genai():
+    global current_key_idx
+    if API_KEYS:
+        genai.configure(api_key=API_KEYS[current_key_idx])
+
+def rotate_api_key():
+    global current_key_idx
+    if len(API_KEYS) > 1:
+        current_key_idx = (current_key_idx + 1) % len(API_KEYS)
+        configure_genai()
+        return True
+    return False
+
+configure_genai()
+
 def _get_youtube_video_id(url):
-    youtube_regex = r'(?:https?:\/\/)?(?:www\.)?(?:youtube(?:-nocookie)?\.com\/(?:[^\/\n\s]+\/\S+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=|watch\?.*&v=|live\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})'
+    youtube_regex = r'(?:https?:\/\/)?(?:[a-zA-Z0-9-]+\.)?(?:youtube(?:-nocookie)?\.com\/(?:[^\/\n\s]+\/\S+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=|watch\?.*&v=|live\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})'
     match = re.search(youtube_regex, url)
     return match.group(1) if match else None
 
@@ -261,11 +295,11 @@ class MessageConfigView(discord.ui.View):
 
         embed = discord.Embed(
             title=f"Pengaturan Pesan: {self.type_key.upper()}",
-            description=f"**Jalur:** {source_info} $\rightarrow$ {target_info}\n**ID Jalur:** `{self.path_id}`",
+            description=f"**Jalur:** {source_info} $\\rightarrow$ {target_info}\n**ID Jalur:** `{self.path_id}`",
             color=embed_color
         )
         
-        embed.add_field(name="Isi Pesan Biasa", value=f"`{config_msg.get('content') or 'Belum diatur'}`", inline=False)
+        embed.add_field(name="Isi Pesan Biasa", value=f"`{config_msg.get('content') or 'Belum diatur'}`\n*(Gunakan: {{ai_hype}} buat teks Jarkasih kalcer)*", inline=False)
         embed.add_field(name="Judul Embed", value=f"`{config_msg.get('title') or 'Belum diatur'}` (Gunakan: {{judul}})", inline=False)
         embed.add_field(name="Deskripsi Embed", value=f"`{config_msg.get('description') or 'Belum diatur'}` (Gunakan: {{deskripsi}}, {{url}})", inline=False)
         embed.add_field(name="Label Tombol", value=f"`{config_msg.get('button_label') or 'Belum diatur'}`", inline=False)
@@ -426,8 +460,6 @@ class Notif(commands.Cog, name="🔔 Notification"):
         self.bot = bot
         self.config_file = "data/notif.json"
         
-        load_dotenv()
-        
         self.default_messages = self._get_default_messages() 
         self.config = self._load_config()
         self.daily_reset_task.start()
@@ -451,7 +483,7 @@ class Notif(commands.Cog, name="🔔 Notification"):
         return None
 
     async def _detect_youtube_link(self, url, message_content):
-        youtube_regex = r'(?:https?:\/\/)?(?:www\.)?(?:youtube(?:-nocookie)?\.com\/(?:[^\/\n\s]+\/\S+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=|watch\?.*&v=|live\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})'
+        youtube_regex = r'(?:https?:\/\/)?(?:[a-zA-Z0-9-]+\.)?(?:youtube(?:-nocookie)?\.com\/(?:[^\/\n\s]+\/\S+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=|watch\?.*&v=|live\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})'
         
         if re.search(youtube_regex, url):
             if "live" in message_content.lower() or "/live/" in url or "youtube.com/live/" in url:
@@ -465,10 +497,10 @@ class Notif(commands.Cog, name="🔔 Notification"):
 
     async def _detect_tiktok_link(self, url):
         tiktok_patterns = [
-            r'tiktok\.com/(?:@[\w.-]+/)?video/(\d+)',
-            r'tiktok\.com/(?:@[\w.-]+/)?t/(\w+)',
-            r'vm\.tiktok\.com/(\w+)',
-            r'vt\.tiktok\.com/(\w+)',
+            r'(?:https?:\/\/)?(?:[\w-]+\.)?tiktok\.com/(?:@[\w.-]+\/)?video/(\d+)',
+            r'(?:https?:\/\/)?(?:[\w-]+\.)?tiktok\.com/(?:@[\w.-]+\/)?t/(\w+)',
+            r'(?:https?:\/\/)?(?:[\w-]+\.)?tiktok\.com/t/(\w+)',
+            r'(?:https?:\/\/)?(?:vm|vt|m)\.tiktok\.com/(\w+)'
         ]
 
         original_url = url
@@ -509,16 +541,16 @@ class Notif(commands.Cog, name="🔔 Notification"):
         return None, None
     
     def _get_unique_video_id(self, url):
-        youtube_regex = r'(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.*&v=|live\/|shorts\/))([a-zA-Z0-9_-]{11})'
+        youtube_regex = r'(?:https?:\/\/)?(?:[a-zA-Z0-9-]+\.)?(?:youtube(?:-nocookie)?\.com\/(?:[^\/\n\s]+\/\S+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=|watch\?.*&v=|live\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})'
         match = re.search(youtube_regex, url)
         if match:
             return f"yt_{match.group(1)}"
 
         tiktok_patterns = [
-            r'tiktok\.com/(?:@[\w.-]+/)?video/(\d+)',
-            r'tiktok\.com/(?:@[\w.-]+/)?t/(\w+)',
-            r'vm\.tiktok\.com/(\w+)',
-            r'vt\.tiktok\.com/(\w+)',
+            r'(?:https?:\/\/)?(?:[\w-]+\.)?tiktok\.com/(?:@[\w.-]+\/)?video/(\d+)',
+            r'(?:https?:\/\/)?(?:[\w-]+\.)?tiktok\.com/(?:@[\w.-]+\/)?t/(\w+)',
+            r'(?:https?:\/\/)?(?:[\w-]+\.)?tiktok\.com/t/(\w+)',
+            r'(?:https?:\/\/)?(?:vm|vt|m)\.tiktok\.com/(\w+)'
         ]
         
         for pattern in tiktok_patterns:
@@ -534,45 +566,45 @@ class Notif(commands.Cog, name="🔔 Notification"):
             "live": {
                 "title": "[🔴 {judul}]({url})",
                 "description": "Yuk gabung di live stream ini!\n\n{url}",
-                "content": "@everyone Live stream dimulai!",
+                "content": "@everyone {ai_hype}",
                 "button_label": "Tonton Live",
                 "button_style": discord.ButtonStyle.danger.value,
                 "button_color": "#ed4245",
                 "embed_color": "#e74c3c",
-                "use_embed": True,
+                "use_embed": False,
                 "embed_thumbnail": True
             },
             "upload": {
                 "title": "[✨ {judul}]({url})",
                 "description": "Video baru diupload, jangan sampai ketinggalan!\n\n{url}",
-                "content": "Ada video baru nih, cekidot!",
+                "content": "@everyone {ai_hype}",
                 "button_label": "Tonton Video",
                 "button_style": discord.ButtonStyle.primary.value,
                 "button_color": "#5865f2",
                 "embed_color": "#2ecc71",
-                "use_embed": True,
+                "use_embed": False,
                 "embed_thumbnail": True
             },
             "premier": {
                 "title": "[🎬 Premiere Segera: {judul}]({url})",
                 "description": "Video premiere akan segera tayang!\n\n{url}",
-                "content": "Ada video premiere!",
+                "content": "@everyone {ai_hype}",
                 "button_label": "Tonton Premiere",
                 "button_style": discord.ButtonStyle.success.value,
                 "button_color": "#57f287",
                 "embed_color": "#9b59b6",
-                "use_embed": True,
+                "use_embed": False,
                 "embed_thumbnail": True
             },
             "tiktok": {
                 "title": "[📱 {judul}]({url})",
                 "description": "Cek video TikTok terbaru!\n\n{url}",
-                "content": "Ada video TikTok baru nih!",
+                "content": "@everyone {ai_hype}",
                 "button_label": "Tonton di TikTok",
                 "button_style": discord.ButtonStyle.primary.value,
                 "button_color": "#000000",
                 "embed_color": "#000000",
-                "use_embed": True,
+                "use_embed": False,
                 "embed_thumbnail": True
             }
         }
@@ -747,6 +779,39 @@ class Notif(commands.Cog, name="🔔 Notification"):
         
         await ctx.send(embed=embed)
 
+    async def _generate_jarkasih_hype(self, link_type):
+        tipe_konten = "Live Stream" if link_type == "live" else "Video YouTube" if link_type in ["upload", "premier"] else "Video TikTok"
+        prompt = f"""
+        Lu adalah Jarkasih, bot skena/kalcer Jakarta yang gaul, edgy, dan sering pakai campuran bahasa Jaksel/Western (contoh: literally, which is, vibes, fomo, drop, legit, dll). 
+        Tugas lu: Buat 1-2 kalimat pendek yang hype parah buat ngajak warga server nonton {tipe_konten} terbaru. 
+        Bikin kalimatnya asik, keren, jelas, dan bikin mereka FOMO buat buru-buru ngeklik link di bawahnya. 
+        ATURAN MUTLAK: JANGAN pakai hashtag, JANGAN ngetik URL-nya sama sekali, dan jangan kepanjangan!
+        """
+        
+        fallback_text = f"Yo, asupan {tipe_konten} terbaru just dropped! Literally jangan sampe ketinggalan hype-nya, langsung sikat link di bawah!"
+        
+        models_to_try = ['gemini-2.5-flash', 'gemini-3-flash-preview', 'gemini-2.5-flash-lite']
+        
+        for model_name in models_to_try:
+            attempts = max(1, len(API_KEYS))
+            for _ in range(attempts):
+                try:
+                    model = genai.GenerativeModel(model_name)
+                    response = await model.generate_content_async(prompt)
+                    if response.text:
+                        return response.text.strip()
+                except google_exceptions.ResourceExhausted:
+                    if rotate_api_key():
+                        await asyncio.sleep(1)
+                        continue
+                    else:
+                        break 
+                except Exception as e:
+                    print(f"Error AI Notif ({model_name}): {e}")
+                    break 
+                    
+        return fallback_text
+
     @commands.Cog.listener()
     async def on_message(self, message):
         if message.author.id == self.bot.user.id or not message.guild:
@@ -782,26 +847,30 @@ class Notif(commands.Cog, name="🔔 Notification"):
                 self.config["recent_video_ids"].pop(0)
             self.save_config()
 
+        ai_hype_text = await self._generate_jarkasih_hype(link_type)
+
+        needs_yt_dlp = False
+        for path_data in paths_to_send:
+            config_msg = path_data["custom_messages"].get(link_type, self.default_messages.get(link_type))
+            if config_msg and config_msg.get('use_embed', False):
+                needs_yt_dlp = True
+                break
+
         youtube_title, youtube_description, youtube_thumbnail, video_url = None, None, None, link_for_send
         
-        if link_type in ["live", "upload", "premier"]: 
+        if needs_yt_dlp and link_type in ["live", "upload", "premier"]: 
             loop = self.bot.loop
-            
             cookie_path = None
             temp_file_name = None 
-            
             cookies_base64 = os.getenv("COOKIES_BASE64")
             
             if cookies_base64:
                 try:
                     cookies_content = base64.b64decode(cookies_base64).decode('utf-8')
-                    
                     with tempfile.NamedTemporaryFile(mode='w', delete=False, encoding='utf-8') as tf:
                         tf.write(cookies_content)
                         temp_file_name = tf.name
-                    
                     cookie_path = temp_file_name
-                    
                 except Exception as e:
                     print(f"Error memproses Base64 cookies: {e}")
             
@@ -832,7 +901,10 @@ class Notif(commands.Cog, name="🔔 Notification"):
                 final_content = config_msg.get('content')
                 final_embed_title = config_msg.get('title')
                 final_embed_description = config_msg.get('description')
-                use_embed = config_msg.get('use_embed', True)
+                use_embed = config_msg.get('use_embed', False)
+
+                if final_content and "{ai_hype}" in final_content:
+                    final_content = final_content.replace("{ai_hype}", ai_hype_text)
 
                 if link_type in ["live", "upload", "premier"]:
                     clean_title = youtube_title
@@ -900,7 +972,7 @@ class Notif(commands.Cog, name="🔔 Notification"):
                     if final_content:
                         message_content = f"{final_content}\n{link_for_send}"
                     else:
-                        message_content = link_for_send
+                        message_content = f"{ai_hype_text}\n{link_for_send}"
 
                 embed = None
                 if use_embed:
