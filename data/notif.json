@@ -235,12 +235,12 @@
                 "live": {
                     "title": "{judul}",
                     "description": "Tonton di {url}\n\n\nDeskripsi :\n\n{deskripsi}",
-                    "content": "@everyone Live stream dimulai! {url}",
+                    "content": "@everyone {ai_hype} {url}",
                     "button_label": "Tonton Live",
                     "button_style": 4,
                     "embed_color": "#f1c40f",
-                    "use_embed": true,
-                    "embed_thumbnail": true,
+                    "use_embed": false,
+                    "embed_thumbnail": false,
                     "button_color": "#ed4245"
                 },
                 "upload": {
@@ -277,7 +277,7 @@
                 "tiktok": {
                     "title": "[📱 {judul}]({url})",
                     "description": "Cek video TikTok terbaru!\n\n{url}",
-                    "content": "Ada video TikTok baru nih!",
+                    "content": "{ai_hype}",
                     "button_label": "Tonton di TikTok",
                     "button_style": 1,
                     "button_color": "#000000",
@@ -294,7 +294,7 @@
                 "live": {
                     "title": "{judul}",
                     "description": "Yuk gabung di live stream ini!\n\n{deskripsi}",
-                    "content": "@everyone 𝗢𝗠𝗚! 𝗬𝗼𝘂 𝘄𝗼𝗻'𝘁 𝗯𝗲𝗹𝗶𝗲𝘃𝗲 𝘁𝗵𝗶𝘀. **𝗿𝗲𝗦𝘄𝗮𝗻** 𝗶𝘀 𝗹𝗶𝘃𝗲! 𝗚𝗲𝘁 𝗶𝗻 𝗵𝗲𝗿𝗲, 𝗻𝗼𝘄!",
+                    "content": "@everyone {ai_hype}",
                     "button_label": "Tonton Live",
                     "button_style": 4,
                     "button_color": "#ed4245",
@@ -305,7 +305,7 @@
                 "upload": {
                     "title": "[✨ {judul}]({url})",
                     "description": "Video baru diupload, jangan sampai ketinggalan!\n\n{url}",
-                    "content": "Ada video baru nih, cekidot!",
+                    "content": "{ai_hype}",
                     "button_label": "Tonton Video",
                     "button_style": 1,
                     "button_color": "#5865f2",
@@ -316,7 +316,7 @@
                 "premier": {
                     "title": "[🎬 Premiere Segera: {judul}]({url})",
                     "description": "Video premiere akan segera tayang!\n\n{url}",
-                    "content": "Ada video premiere!",
+                    "content": "{ai_hype}",
                     "button_label": "Tonton Premiere",
                     "button_style": 3,
                     "button_color": "#57f287",
@@ -327,7 +327,7 @@
                 "tiktok": {
                     "title": "[📱 {judul}]({url})",
                     "description": "Cek video TikTok terbaru!\n\n{url}",
-                    "content": "Ada video TikTok baru nih!",
+                    "content": "{ai_hype}",
                     "button_label": "Tonton di TikTok",
                     "button_style": 1,
                     "button_color": "#000000",
@@ -338,7 +338,10 @@
             }
         }
     },
-    "recent_video_ids": [],
+    "recent_video_ids": [
+        "tk_7616489360309030161",
+        "tk_7617035833723342096"
+    ],
     "last_daily_reset_timestamp": "2026-03-13T21:55:52.382634+00:00",
     "next_daily_reset_timestamp": "2026-03-14T21:55:52.382634+00:00",
     "last_link_after_reset": null,
