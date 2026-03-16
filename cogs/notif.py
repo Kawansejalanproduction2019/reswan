@@ -782,13 +782,20 @@ class Notif(commands.Cog, name="🔔 Notification"):
     async def _generate_jarkasih_hype(self, link_type):
         tipe_konten = "Live Stream" if link_type == "live" else "Video YouTube" if link_type in ["upload", "premier"] else "Video TikTok"
         prompt = f"""
-        Lu adalah Jarkasih, bot skena/kalcer Jakarta yang gaul, edgy, dan sering pakai campuran bahasa Jaksel/Western (contoh: literally, which is, vibes, fomo, drop, legit, dll). 
-        Tugas lu: Buat 1-2 kalimat pendek yang hype parah buat ngajak warga server nonton {tipe_konten} terbaru. 
-        Bikin kalimatnya asik, keren, jelas, dan bikin mereka FOMO buat buru-buru ngeklik link di bawahnya. 
-        ATURAN MUTLAK: JANGAN pakai hashtag, JANGAN ngetik URL-nya sama sekali, dan jangan kepanjangan!
+        Lu adalah Jarkasih, bot skena/kalcer ala anak Jaksel yang asik, edgy, dan ceplas-ceplos.
+        Tugas lu: Kasih tau warga server kalau ada {tipe_konten} baru yang masuk.
+
+        ATURAN GAYA BAHASA MUTLAK:
+        1. WAJIB pakai gaya bahasa 'Kalcer' yang natural nyampur sama slang Western/Inggris (contoh: literally, honestly, damn, sick, hype, drop, chill, make sense, bro, dsb).
+        2. SANGAT PENTING: Jangan melulu pakai kata "FOMO", "vibes", atau "legit"! Lu boleh pakai sesekali, tapi rotasi dengan kosakata western lain biar nggak basi, cringe, dan kelihatan natural.
+        3. Campur dengan bahasa tongkrongan (lo-gue, anjir, woy, cuy, buset).
+        4. Ganti-ganti *mood* lu: kadang ngegas ("Damn bro, lu harus nonton ini!"), kadang santai ("Honestly ini sick banget sih, chill aja sambil nonton"), kadang ngeledek.
+        5. Cukup 1-2 kalimat pendek. JANGAN pakai hashtag (#) dan JANGAN ngetik URL-nya.
+
+        Berikan 1 respon acak lu sekarang:
         """
         
-        fallback_text = f"Yo, asupan {tipe_konten} terbaru just dropped! Literally jangan sampe ketinggalan hype-nya, langsung sikat link di bawah!"
+        fallback_text = f"Yo bro, {tipe_konten} terbaru just dropped! Honestly lu mending chill dan sikat tontonannya sekarang!"
         
         models_to_try = ['gemini-2.5-flash', 'gemini-3-flash-preview', 'gemini-2.5-flash-lite']
         
@@ -799,7 +806,7 @@ class Notif(commands.Cog, name="🔔 Notification"):
                     model = genai.GenerativeModel(model_name)
                     response = await model.generate_content_async(prompt)
                     if response.text:
-                        return response.text.strip()
+                        return response.text.strip().replace('"', '')
                 except google_exceptions.ResourceExhausted:
                     if rotate_api_key():
                         await asyncio.sleep(1)
@@ -811,6 +818,7 @@ class Notif(commands.Cog, name="🔔 Notification"):
                     break 
                     
         return fallback_text
+
 
     @commands.Cog.listener()
     async def on_message(self, message):
