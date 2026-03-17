@@ -915,7 +915,7 @@ class Notif(commands.Cog, name="🔔 Notification"):
                     final_content = final_content.replace("{ai_hype}", ai_hype_text)
 
                 if link_type in ["live", "upload", "premier"]:
-                    clean_title = youtube_title
+                    clean_title = youtube_title if youtube_title else "Video YouTube"
                     if youtube_title:
                         date_patterns = [
                             r'\d{4}-\d{2}-\d{2}',
@@ -925,32 +925,39 @@ class Notif(commands.Cog, name="🔔 Notification"):
                         for pattern in date_patterns:
                             clean_title = re.sub(pattern, '', clean_title).strip()
                     
-                    if final_content and youtube_title:
+                    if final_content:
                         final_content = final_content.replace("{judul}", clean_title)
                         if video_url and self._is_valid_url(video_url):
                             final_content = final_content.replace("{url}", video_url)
                     
-                    if final_embed_title and youtube_title:
+                    if final_embed_title:
                         final_embed_title = final_embed_title.replace("{judul}", clean_title)
                         if video_url and self._is_valid_url(video_url):
                             final_embed_title = final_embed_title.replace("{url}", video_url)
-                    elif not final_embed_title and youtube_title and use_embed:
+                    elif not final_embed_title and use_embed:
                         if video_url and self._is_valid_url(video_url):
                             final_embed_title = f"[{clean_title}]({video_url})"
                         else:
                             final_embed_title = clean_title
 
-                    if final_embed_description and youtube_description:
-                        desc_sub = youtube_description[:1900] + ('...' if len(youtube_description) > 1900 else '')
-                        final_embed_description = final_embed_description.replace("{deskripsi}", desc_sub)
-                    else:
-                        final_embed_description = final_embed_description.replace("{deskripsi}", "")
+                    if final_embed_description:
+                        if youtube_description:
+                            desc_sub = youtube_description[:1900] + ('...' if len(youtube_description) > 1900 else '')
+                            final_embed_description = final_embed_description.replace("{deskripsi}", desc_sub)
+                        else:
+                            final_embed_description = final_embed_description.replace("{deskripsi}", "")
+                            
                         if video_url and self._is_valid_url(video_url):
                             final_embed_description = final_embed_description.replace("{url}", video_url)
-                    if not final_embed_description and youtube_description and use_embed:
-                        final_embed_description = youtube_description[:1900] + ('...' if len(youtube_description) > 1900 else '')
+                    elif not final_embed_description and use_embed:
+                        if youtube_description:
+                            final_embed_description = youtube_description[:1900] + ('...' if len(youtube_description) > 1900 else '')
+                        else:
+                            final_embed_description = ""
+                        
                         if video_url and self._is_valid_url(video_url):
                             final_embed_description = final_embed_description.replace("{url}", video_url)
+
                 
                 elif link_type == "tiktok":
                     if final_content:
