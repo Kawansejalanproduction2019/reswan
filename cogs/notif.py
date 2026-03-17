@@ -84,17 +84,19 @@ def _extract_youtube_info(url, cookiefile_path=None):
                         thumbnail_url = t.get('url')
                         break
                 if thumbnail_url: break
-            if not thumbnail_url and thumbnails: thumbnail_url = thumbnails[-1].get('url')
+            if not thumbnail_url and thumbnails: 
+                thumbnail_url = thumbnails[-1].get('url')
 
             return title, description, thumbnail_url, video_url
             
     except Exception:
         video_id = _get_youtube_video_id(url)
         if video_id:
-            fallback_thumbnail = f"https://img.youtube.com/vi/{video_id}/hqdefault.jpg"
+            fallback_thumbnail = f"https://img.youtube.com/vi/{video_id}/maxresdefault.jpg"
             return None, None, fallback_thumbnail, url
             
         return None, None, None, url
+
 
 def get_config_path(cog, path_id, type_key, field_key=None):
     path_data = cog.config["notification_paths"].get(path_id)
