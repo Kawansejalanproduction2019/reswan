@@ -518,7 +518,7 @@ class Notif(commands.Cog, name="🔔 Notification"):
                                 if "tiktok.com" in final_url:
                                     url = final_url
                     except Exception as e:
-                        print(f"Error resolving TikTok URL: {e}")
+                        print(e)
                 
                 if "www.tiktok.com" not in url and "tiktok.com" in url:
                     url = url.replace("tiktok.com", "www.tiktok.com")
@@ -624,7 +624,7 @@ class Notif(commands.Cog, name="🔔 Notification"):
             with open(self.config_file, "r") as f:
                 config = json.load(f)
         except (FileNotFoundError, json.JSONDecodeError):
-            print("File konfigurasi 'notif.json' tidak ditemukan atau rusak, membuat file baru.")
+            pass
         
         final_config = {**default_config, **config}
         
@@ -661,7 +661,6 @@ class Notif(commands.Cog, name="🔔 Notification"):
         self.config["next_daily_reset_timestamp"] = next_reset_time.isoformat()
         
         self.save_config()
-        print(f"Reset cache harian otomatis selesai. Waktu reset berikutnya: {next_reset_time.isoformat()}")
 
     @tasks.loop(hours=1)
     async def daily_reset_task(self):
@@ -681,20 +680,14 @@ class Notif(commands.Cog, name="🔔 Notification"):
                 delay = (next_reset_time - now).total_seconds()
                 
                 if delay > 0:
-                    print(f"Menunggu {delay:.0f} detik hingga reset harian berikutnya sesuai jadwal.")
                     await asyncio.sleep(delay)
                 else:
-                    print("Waktu reset harian sudah lewat. Melakukan reset segera.")
                     await self._perform_daily_reset()
 
-            except Exception as e:
-                print(f"Error memuat jadwal reset harian: {e}. Mengatur jadwal awal sekarang.")
+            except Exception:
                 await self._perform_daily_reset()
         else:
-            print("Tidak ada jadwal reset harian. Mengatur jadwal awal sekarang.")
             await self._perform_daily_reset()
-            
-        print("Loop reset harian siap untuk dimulai.")
 
     @commands.command(name="resetcache")
     @commands.has_permissions(administrator=True)
@@ -788,16 +781,16 @@ class Notif(commands.Cog, name="🔔 Notification"):
         Tugas lu: Kasih tau warga server kalau ada {tipe_konten} baru yang masuk.
 
         ATURAN GAYA BAHASA MUTLAK:
-        1. WAJIB pakai gaya bahasa 'Kalcer' yang natural nyampur sama slang Western/Inggris (contoh: literally, honestly, damn, sick, hype, drop, chill, make sense, bro, dsb).
-        2. SANGAT PENTING: Jangan melulu pakai kata "FOMO", "vibes", atau "legit"! Lu boleh pakai sesekali, tapi rotasi dengan kosakata western lain biar nggak basi, cringe, dan kelihatan natural.
-        3. Campur dengan bahasa tongkrongan (lo-gue, anjir, woy, cuy, buset).
-        4. Ganti-ganti *mood* lu: kadang ngegas ("Damn bro, lu harus nonton ini!"), kadang santai ("Honestly ini sick banget sih, chill aja sambil nonton"), kadang ngeledek.
-        5. Cukup 1-2 kalimat pendek. JANGAN pakai hashtag (#) dan JANGAN ngetik URL-nya.
+        1. WAJIB pakai gaya bahasa 'Kalcer' yang natural nyampur sama slang Western/Inggris.
+        2. SANGAT PENTING: Jangan melulu pakai kata FOMO, vibes, atau legit! Lu boleh pakai sesekali, tapi rotasi dengan kosakata western lain.
+        3. Campur dengan bahasa tongkrongan.
+        4. Ganti-ganti mood lu.
+        5. Cukup 1-2 kalimat pendek. JANGAN pakai hashtag dan JANGAN ngetik URL-nya.
 
         Berikan 1 respon acak lu sekarang:
         """
         
-        fallback_text = f"Yo bro, {tipe_konten} terbaru just dropped! Honestly lu mending chill dan sikat tontonannya sekarang!"
+        fallback_text = f"Halo semua! Ada {tipe_konten} baru yang sudah tersedia. Yuk langsung cek dan tonton sekarang!"
         
         models_to_try = ['gemini-2.5-flash', 'gemini-3-flash-preview', 'gemini-2.5-flash-lite']
         
@@ -806,21 +799,21 @@ class Notif(commands.Cog, name="🔔 Notification"):
             for _ in range(attempts):
                 try:
                     model = genai.GenerativeModel(model_name)
-                    response = await model.generate_content_async(prompt)
+                    response = await asyncio.wait_for(model.generate_content_async(prompt), timeout=60.0)
                     if response.text:
                         return response.text.strip().replace('"', '')
+                except asyncio.TimeoutError:
+                    return fallback_text
                 except google_exceptions.ResourceExhausted:
                     if rotate_api_key():
                         await asyncio.sleep(1)
                         continue
                     else:
                         break 
-                except Exception as e:
-                    print(f"Error AI Notif ({model_name}): {e}")
+                except Exception:
                     break 
                     
         return fallback_text
-
 
     @commands.Cog.listener()
     async def on_message(self, message):
@@ -881,8 +874,8 @@ class Notif(commands.Cog, name="🔔 Notification"):
                         tf.write(cookies_content)
                         temp_file_name = tf.name
                     cookie_path = temp_file_name
-                except Exception as e:
-                    print(f"Error memproses Base64 cookies: {e}")
+                except Exception:
+                    pass
             
             try:
                 youtube_title, youtube_description, youtube_thumbnail, extracted_url = await loop.run_in_executor(
@@ -1026,8 +1019,8 @@ class Notif(commands.Cog, name="🔔 Notification"):
 
                 await target_channel.send(content=message_content, embed=embed, view=view)
                 
-            except Exception as e:
-                print(f"Error sending notification for path {path_data}: {e}")
+            except Exception:
+                pass
 
     def _is_valid_url(self, url):
         try:
