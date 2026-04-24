@@ -51,6 +51,8 @@ def rotate_api_key():
 configure_genai()
 
 def _get_youtube_video_id(url):
+    if not url: return None
+    url = url.replace('\\', '')
     youtube_regex = r'(?:https?:\/\/)?(?:[a-zA-Z0-9-]+\.)?(?:youtube(?:-nocookie)?\.com\/(?:[^\/\n\s]+\/\S+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=|watch\?.*&v=|live\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})'
     match = re.search(youtube_regex, url)
     return match.group(1) if match else None
@@ -470,27 +472,34 @@ class Notif(commands.Cog, name="🔔 Notification"):
         self.daily_reset_task.cancel()
 
     async def _extract_url_from_message(self, message):
-        markdown_url_pattern = r'\[.*?\]\((https?://[^\)]+)\)'
-        markdown_match = re.search(markdown_url_pattern, message.content)
+        content_clean = message.content.replace('\\', '')
         
+        markdown_url_pattern = r'\[.*?\]\((https?://[^\)]+)\)'
+        markdown_match = re.search(markdown_url_pattern, content_clean)
         if markdown_match:
             return markdown_match.group(1)
         
         general_url_pattern = re.compile(r'https?://[^\s<>"]+|www\.[^\s<>"]+')
-        match = general_url_pattern.search(message.content)
-        
+        match = general_url_pattern.search(content_clean)
         if match:
             return match.group(0).rstrip(').,!')
+            
+        youtu_pattern = re.compile(r'youtu\.be/[a-zA-Z0-9_-]{11}')
+        match2 = youtu_pattern.search(content_clean)
+        if match2:
+            return "https://" + match2.group(0)
         
         return None
 
     async def _detect_youtube_link(self, url, message_content):
+        url = url.replace('\\', '')
+        content_clean = message_content.replace('\\', '').lower()
         youtube_regex = r'(?:https?:\/\/)?(?:[a-zA-Z0-9-]+\.)?(?:youtube(?:-nocookie)?\.com\/(?:[^\/\n\s]+\/\S+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=|watch\?.*&v=|live\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})'
         
         if re.search(youtube_regex, url):
-            if "live" in message_content.lower() or "/live/" in url or "youtube.com/live/" in url:
+            if "live" in content_clean or "/live/" in url or "youtube.com/live/" in url:
                 return "live", url
-            elif "premier" in message_content.lower() or "premiere" in message_content.lower():
+            elif "premier" in content_clean or "premiere" in content_clean:
                 return "premier", url
             else:
                 return "upload", url
@@ -498,6 +507,7 @@ class Notif(commands.Cog, name="🔔 Notification"):
         return None, url
 
     async def _detect_tiktok_link(self, url):
+        url = url.replace('\\', '')
         tiktok_patterns = [
             r'(?:https?:\/\/)?(?:[\w-]+\.)?tiktok\.com/(?:@[\w.-]+\/)?video/(\d+)',
             r'(?:https?:\/\/)?(?:[\w-]+\.)?tiktok\.com/(?:@[\w.-]+\/)?t/(\w+)',
@@ -505,8 +515,6 @@ class Notif(commands.Cog, name="🔔 Notification"):
             r'(?:https?:\/\/)?(?:vm|vt|m)\.tiktok\.com/(\w+)'
         ]
 
-        original_url = url
-        
         for pattern in tiktok_patterns:
             if re.search(pattern, url, re.IGNORECASE):
                 if "vm.tiktok.com" in url or "vt.tiktok.com" in url:
@@ -517,15 +525,15 @@ class Notif(commands.Cog, name="🔔 Notification"):
                                 final_url = str(response.url)
                                 if "tiktok.com" in final_url:
                                     url = final_url
-                    except Exception as e:
-                        print(e)
+                    except Exception:
+                        pass
                 
                 if "www.tiktok.com" not in url and "tiktok.com" in url:
                     url = url.replace("tiktok.com", "www.tiktok.com")
                 
                 return "tiktok", url
         
-        return None, original_url
+        return None, url
 
     async def _get_link_from_url(self, message):
         url = await self._extract_url_from_message(message)
@@ -543,6 +551,9 @@ class Notif(commands.Cog, name="🔔 Notification"):
         return None, None
     
     def _get_unique_video_id(self, url):
+        if not url: return None
+        url = url.replace('\\', '')
+        
         youtube_regex = r'(?:https?:\/\/)?(?:[a-zA-Z0-9-]+\.)?(?:youtube(?:-nocookie)?\.com\/(?:[^\/\n\s]+\/\S+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=|watch\?.*&v=|live\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})'
         match = re.search(youtube_regex, url)
         if match:
@@ -558,8 +569,7 @@ class Notif(commands.Cog, name="🔔 Notification"):
         for pattern in tiktok_patterns:
             match = re.search(pattern, url, re.IGNORECASE)
             if match:
-                video_id = match.group(1)
-                return f"tk_{video_id}"
+                return f"tk_{match.group(1)}"
 
         return None
 
@@ -615,9 +625,7 @@ class Notif(commands.Cog, name="🔔 Notification"):
         default_config = {
             "notification_paths": {}, 
             "recent_video_ids": [],
-            "last_daily_reset_timestamp": None,
-            "next_daily_reset_timestamp": None,
-            "last_link_after_reset": None
+            "next_daily_reset_timestamp": None
         }
         config = {}
         try:
@@ -628,8 +636,10 @@ class Notif(commands.Cog, name="🔔 Notification"):
         
         final_config = {**default_config, **config}
         
-        if "mirrored_users" in final_config:
-            del final_config["mirrored_users"]
+        keys_to_remove = ["mirrored_users", "last_daily_reset_timestamp", "last_link_after_reset"]
+        for key in keys_to_remove:
+            if key in final_config:
+                del final_config[key]
         
         for path_id, path_data in final_config["notification_paths"].items():
             if "custom_messages" in path_data:
@@ -643,19 +653,13 @@ class Notif(commands.Cog, name="🔔 Notification"):
         return final_config
 
     def save_config(self):
+        os.makedirs(os.path.dirname(self.config_file), exist_ok=True)
         with open(self.config_file, "w") as f:
             json.dump(self.config, f, indent=4)
             
     async def _perform_daily_reset(self):
         now = datetime.datetime.now(datetime.UTC) 
-        
-        last_unique_id = None
-        if self.config["recent_video_ids"]:
-            last_unique_id = self.config["recent_video_ids"][-1]
-            
         self.config["recent_video_ids"] = []
-        self.config["last_link_after_reset"] = last_unique_id
-        self.config["last_daily_reset_timestamp"] = now.isoformat()
         
         next_reset_time = now + datetime.timedelta(hours=24)
         self.config["next_daily_reset_timestamp"] = next_reset_time.isoformat()
@@ -831,20 +835,17 @@ class Notif(commands.Cog, name="🔔 Notification"):
         unique_id = self._get_unique_video_id(link_for_send)
         
         if unique_id:
-            if unique_id in self.config.get("recent_video_ids", []):
-                if unique_id == self.config.get("last_link_after_reset"): 
-                    pass
-                else:
+            recent_ids = self.config.get("recent_video_ids", [])
+            if unique_id in recent_ids:
+                try:
                     await message.reply("⚠️ Tautan ini sudah pernah dikirim sebelumnya dan ada dalam cache. Tidak akan dikirim ulang untuk menghindari duplikasi.")
-                    return
-        
-        if unique_id:
+                except Exception:
+                    pass
+                return
+                
             if "recent_video_ids" not in self.config:
                 self.config["recent_video_ids"] = []
-            
-            if unique_id == self.config.get("last_link_after_reset"):
-                 self.config["last_link_after_reset"] = None
-                 
+                
             self.config["recent_video_ids"].append(unique_id)
             if len(self.config["recent_video_ids"]) > 999:
                 self.config["recent_video_ids"].pop(0)
