@@ -435,7 +435,7 @@ class TypeSelectView(discord.ui.View):
         
         options = []
         for key in self.cog.default_messages.keys():
-            options.append(discord.SelectOption(label=key.capitalize(), value=key))
+            options.append(discord.SelectOption(label=key.capitalize().replace('_', ' '), value=key))
             
         type_select = discord.ui.Select(
             placeholder="Pilih Tipe Pesan...",
@@ -508,6 +508,11 @@ class Notif(commands.Cog, name="🔔 Notification"):
 
     async def _detect_tiktok_link(self, url):
         url = url.replace('\\', '')
+        
+        live_match = re.search(r'tiktok\.com/@([\w.-]+)/live', url, re.IGNORECASE)
+        if live_match:
+            return "tiktok_live", url
+
         tiktok_patterns = [
             r'(?:https?:\/\/)?(?:[\w-]+\.)?tiktok\.com/(?:@[\w.-]+\/)?video/(\d+)',
             r'(?:https?:\/\/)?(?:[\w-]+\.)?tiktok\.com/(?:@[\w.-]+\/)?t/(\w+)',
@@ -535,6 +540,25 @@ class Notif(commands.Cog, name="🔔 Notification"):
         
         return None, url
 
+    async def _detect_instagram_link(self, url):
+        url = url.replace('\\', '')
+        
+        live_match = re.search(r'instagram\.com/([A-Za-z0-9_.]+)/live', url, re.IGNORECASE)
+        if live_match:
+            return "instagram_live", url
+        
+        ig_patterns = [
+            r'instagram\.com/p/([A-Za-z0-9_-]+)',
+            r'instagram\.com/reel/([A-Za-z0-9_-]+)',
+            r'instagram\.com/tv/([A-Za-z0-9_-]+)'
+        ]
+        
+        for pattern in ig_patterns:
+            if re.search(pattern, url, re.IGNORECASE):
+                return "instagram", url
+                
+        return None, url
+
     async def _get_link_from_url(self, message):
         url = await self._extract_url_from_message(message)
         if not url:
@@ -545,6 +569,10 @@ class Notif(commands.Cog, name="🔔 Notification"):
             return link_type, final_url
         
         link_type, final_url = await self._detect_tiktok_link(url)
+        if link_type:
+            return link_type, final_url
+            
+        link_type, final_url = await self._detect_instagram_link(url)
         if link_type:
             return link_type, final_url
         
@@ -559,6 +587,10 @@ class Notif(commands.Cog, name="🔔 Notification"):
         if match:
             return f"yt_{match.group(1)}"
 
+        tk_live_match = re.search(r'tiktok\.com/@([\w.-]+)/live', url, re.IGNORECASE)
+        if tk_live_match:
+            return f"tk_live_{tk_live_match.group(1)}"
+
         tiktok_patterns = [
             r'(?:https?:\/\/)?(?:[\w-]+\.)?tiktok\.com/(?:@[\w.-]+\/)?video/(\d+)',
             r'(?:https?:\/\/)?(?:[\w-]+\.)?tiktok\.com/(?:@[\w.-]+\/)?t/(\w+)',
@@ -570,6 +602,14 @@ class Notif(commands.Cog, name="🔔 Notification"):
             match = re.search(pattern, url, re.IGNORECASE)
             if match:
                 return f"tk_{match.group(1)}"
+
+        ig_live_match = re.search(r'instagram\.com/([A-Za-z0-9_.]+)/live', url, re.IGNORECASE)
+        if ig_live_match:
+            return f"ig_live_{ig_live_match.group(1)}"
+
+        ig_match = re.search(r'instagram\.com/(?:p|reel|tv)/([A-Za-z0-9_-]+)', url, re.IGNORECASE)
+        if ig_match:
+            return f"ig_{ig_match.group(1)}"
 
         return None
 
@@ -616,6 +656,39 @@ class Notif(commands.Cog, name="🔔 Notification"):
                 "button_style": discord.ButtonStyle.primary.value,
                 "button_color": "#000000",
                 "embed_color": "#000000",
+                "use_embed": False,
+                "embed_thumbnail": True
+            },
+            "tiktok_live": {
+                "title": "[🔴 TikTok Live]({url})",
+                "description": "Ada yang lagi live di TikTok nih!\n\n{url}",
+                "content": "@everyone {ai_hype}",
+                "button_label": "Tonton Live TikTok",
+                "button_style": discord.ButtonStyle.danger.value,
+                "button_color": "#ed4245",
+                "embed_color": "#e74c3c",
+                "use_embed": False,
+                "embed_thumbnail": True
+            },
+            "instagram": {
+                "title": "[📸 Instagram Post]({url})",
+                "description": "Ada postingan atau Reels baru di Instagram!\n\n{url}",
+                "content": "@everyone {ai_hype}",
+                "button_label": "Buka Instagram",
+                "button_style": discord.ButtonStyle.primary.value,
+                "button_color": "#E1306C",
+                "embed_color": "#E1306C",
+                "use_embed": False,
+                "embed_thumbnail": True
+            },
+            "instagram_live": {
+                "title": "[🔴 Instagram Live]({url})",
+                "description": "Yuk join Instagram Live sekarang!\n\n{url}",
+                "content": "@everyone {ai_hype}",
+                "button_label": "Tonton IG Live",
+                "button_style": discord.ButtonStyle.danger.value,
+                "button_color": "#ed4245",
+                "embed_color": "#e74c3c",
                 "use_embed": False,
                 "embed_thumbnail": True
             }
@@ -779,7 +852,17 @@ class Notif(commands.Cog, name="🔔 Notification"):
         await ctx.send(embed=embed)
 
     async def _generate_jarkasih_hype(self, link_type):
-        tipe_konten = "Live Stream" if link_type == "live" else "Video YouTube" if link_type in ["upload", "premier"] else "Video TikTok"
+        tipe_konten_map = {
+            "live": "Live Stream YouTube",
+            "upload": "Video YouTube",
+            "premier": "Premiere YouTube",
+            "tiktok": "Video TikTok",
+            "tiktok_live": "Live Stream TikTok",
+            "instagram": "Postingan/Reel Instagram",
+            "instagram_live": "Live Stream Instagram"
+        }
+        tipe_konten = tipe_konten_map.get(link_type, "Konten Terbaru")
+        
         prompt = f"""
         Lu adalah Jarkasih, bot skena/kalcer ala anak Jaksel yang asik, edgy, dan ceplas-ceplos.
         Tugas lu: Kasih tau warga server kalau ada {tipe_konten} baru yang masuk.
@@ -955,21 +1038,27 @@ class Notif(commands.Cog, name="🔔 Notification"):
                             final_embed_description = final_embed_description.replace("{url}", video_url)
 
                 
-                elif link_type == "tiktok":
+                elif link_type in ["tiktok", "tiktok_live", "instagram", "instagram_live"]:
+                    tipe_str = "Video TikTok"
+                    if link_type == "tiktok_live": tipe_str = "TikTok Live"
+                    elif link_type == "instagram": tipe_str = "Postingan Instagram"
+                    elif link_type == "instagram_live": tipe_str = "Instagram Live"
+
                     if final_content:
-                        final_content = final_content.replace("{judul}", "Video TikTok")
+                        final_content = final_content.replace("{judul}", tipe_str)
                         if self._is_valid_url(link_for_send):
                             final_content = final_content.replace("{url}", link_for_send)
                     
                     if final_embed_title:
-                        final_embed_title = final_embed_title.replace("{judul}", "Video TikTok")
+                        final_embed_title = final_embed_title.replace("{judul}", tipe_str)
                         if self._is_valid_url(link_for_send):
                             final_embed_title = final_embed_title.replace("{url}", link_for_send)
                     elif not final_embed_title and use_embed:
+                        icon_str = "📱" if "tiktok" in link_type else "📸" if link_type == "instagram" else "🔴"
                         if self._is_valid_url(link_for_send):
-                            final_embed_title = f"[📱 Video TikTok]({link_for_send})"
+                            final_embed_title = f"[{icon_str} {tipe_str}]({link_for_send})"
                         else:
-                            final_embed_title = "📱 Video TikTok"
+                            final_embed_title = f"{icon_str} {tipe_str}"
 
                     if final_embed_description:
                         final_embed_description = final_embed_description.replace("{deskripsi}", "")
