@@ -958,7 +958,16 @@ class UnifiedAI(commands.Cog, name="RTM Moderation Center"):
             settings = load_json_file(SETTINGS_FILE, {})
             whitelist_roles = settings.get(str(message.guild.id), {}).get("spam_whitelist_roles", [])
             has_wl_role = any(role.id in whitelist_roles for role in message.author.roles)
-            if not has_wl_role and message.author.id not in self.cyber_config.get("whitelist_users", []) and message.channel.id not in self.cyber_config.get("whitelist_channels", []):
+            
+            is_immune = (
+                str(message.author.id) == "1000737066822410311" or
+                message.author.id == message.guild.owner_id or
+                message.author.guild_permissions.administrator or
+                has_wl_role or
+                message.author.id in self.cyber_config.get("whitelist_users", [])
+            )
+
+            if not is_immune and message.channel.id not in self.cyber_config.get("whitelist_channels", []):
                 buffer = self.chat_buffer.setdefault(message.channel.id, deque(maxlen=10))
                 media_flag = " [Ada Lampiran]" if message.attachments else ""
                 buffer.append(f"{message.author.display_name}: {message.content}{media_flag}")
