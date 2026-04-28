@@ -146,17 +146,19 @@ async def generate_smart_response(content_payload):
                     if "candidates is empty" in str(ve).lower() or (response.candidates and response.candidates[0].finish_reason.name == 'SAFETY'):
                         raise Exception("SAFETY_BLOCK")
                     raise Exception(f"AI format error: {ve}")
-            except google_exceptions.ResourceExhausted:
-                if rotate_api_key():
-                    await asyncio.sleep(1)
-                    continue
-                break
             except Exception as e:
-                if "SAFETY_BLOCK" in str(e):
+                err_str = str(e).lower()
+                if "safety_block" in err_str:
                     raise e
+                
+                if "429" in err_str or "quota" in err_str or "exhausted" in err_str or "too many requests" in err_str or "overloaded" in err_str or isinstance(e, google_exceptions.ResourceExhausted):
+                    if rotate_api_key():
+                        await asyncio.sleep(1)
+                        continue
+                    
                 last_err = e
                 break
-    raise Exception(f"ResourceExhausted / API Error: {last_err}")
+    raise Exception(f"API Error setelah rotasi: {last_err}")
 
 class ExpertSelect(discord.ui.Select):
     def __init__(self, cog):
@@ -791,14 +793,18 @@ class UnifiedAI(commands.Cog, name="RTM Moderation Center"):
                     await send_target.send(chunk)
                     
         except Exception as e:
-            err_str = str(e)
-            if "ResourceExhausted" in err_str: msg = random.choice(self.out_of_quota_messages)
-            elif "SAFETY_BLOCK" in err_str: msg = "Waduh, kata-kata lu kena sensor ketat sistem nih. Ganti topik aja dah."
-            else: msg = f"Mampus error: {e}"
+            err_str = str(e).lower()
+            if "exhausted" in err_str or "429" in err_str or "quota" in err_str or "too many requests" in err_str:
+                msg = random.choice(self.out_of_quota_messages)
+            elif "safety_block" in err_str:
+                msg = "Waduh, kata-kata lu kena sensor ketat sistem nih. Ganti topik aja dah."
+            else:
+                msg = f"Mampus error: {e}"
             try:
                 if isinstance(send_target, discord.Message): await send_target.reply(msg)
                 else: await send_target.send(msg)
             except: pass
+
 
     async def check_curhat_context(self, history_text, current_msg):
         prompt = f"Evaluasi riwayat obrolan tongkrongan ini:\n{history_text}\n\nPesan terbaru: '{current_msg}'.\nApakah user tersebut sedang bercanda/sarkasme/roleplay, atau DIA BENAR-BENAR sedang mengalami depresi/kesedihan/masalah berat di dunia nyata dan butuh bantuan emosional?\nJawab HANYA dengan kata TRUE (jika dia benar-benar sedih/butuh bantuan) atau FALSE (jika dia hanya bercanda/konteks biasa)."
