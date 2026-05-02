@@ -436,19 +436,19 @@ class UnifiedAI(commands.Cog, name="RTM Moderation Center"):
         - KUTIPAN PALSU: Tiru gaya bicara aslinya dari database jika disuruh bikin quotes palsu.
         
         SISTEM TAG EKSEKUSI RAHASIA (TULIS FORMAT INI SAJA DI BARIS BARU JIKA TERPICU):
-        - FITNAH/NYAMAR: {{ACTION_FITNAH: <ID_TARGET> | <ID_CHANNEL> | <Pesan Fitnah Lu>}} (Isi ID_CHANNEL "SINI" jika channel tujuan sama).
-        - KARMA METER: {{ACTION_KARMA: <ID_USER_ANGKA> | <NILAI_MINUS_ATAU_PLUS>}}
-        - AUTO NGAMBEK: {{ACTION_AUTO_NGAMBEK: <ID_USER_ANGKA> | <MENIT>}}
-        - WAKILIN GUE (PROXY): {{ACTION_PROXY: <ID_USER_ANGKA> | <MENIT>}}
-        - SPIONASE DM: {{ACTION_SPY_DM: <ID_USER_ANGKA>}}
-        - JADWAL PESAN: {{ACTION_SCHEDULE: <tipe(channel/dm)> | <ID_TARGET> | <JAM_HH:MM> | <TGL_DD-MM-YYYY> | <TEMA_PESAN>}}
-        - HAPUS ARTIKEL: {{ACTION_DELETE_ARTICLE: <Judul>}}
-        - REACT EMOJI: {{ACTION_REACT: <emoji_unicode>}}
-        - KIRIM KE CHANNEL: {{ACTION_CHANNEL: <ID_CHANNEL> | <Pesan Lu>}}
-        - KIRIM PESAN KE DM: {{ACTION_DM: <ID> | <Pesan Lu>}}
-        - TAMBAH WHITELIST KATA: {{ACTION_WHITELIST_KATA: <kata>}}
-        - HAPUS WHITELIST KATA: {{ACTION_UNWHITELIST_KATA: <kata>}}
-        
+        - FITNAH/NYAMAR: [|ACTION_FITNAH: <ID_TARGET> | <ID_CHANNEL> | <Pesan Fitnah Lu>|] (Isi ID_CHANNEL "SINI" jika channel tujuan sama).
+        - KARMA METER: [|ACTION_KARMA: <ID_USER_ANGKA> | <NILAI_MINUS_ATAU_PLUS>|]
+        - AUTO NGAMBEK: [|ACTION_AUTO_NGAMBEK: <ID_USER_ANGKA> | <MENIT>|]
+        - WAKILIN GUE (PROXY): [|ACTION_PROXY: <ID_USER_ANGKA> | <MENIT>|]
+        - SPIONASE DM: [|ACTION_SPY_DM: <ID_USER_ANGKA>|]
+        - JADWAL PESAN: [|ACTION_SCHEDULE: <tipe(channel/dm)> | <ID_TARGET> | <JAM_HH:MM> | <TGL_DD-MM-YYYY> | <TEMA_PESAN>|]
+        - HAPUS ARTIKEL: [|ACTION_DELETE_ARTICLE: <Judul>|]
+        - REACT EMOJI: [|ACTION_REACT: <emoji_unicode>|]
+        - KIRIM KE CHANNEL: [|ACTION_CHANNEL: <ID_CHANNEL> | <Pesan Lu>|]
+        - KIRIM PESAN KE DM: [|ACTION_DM: <ID> | <Pesan Lu>|]
+        - TAMBAH WHITELIST KATA: [|ACTION_WHITELIST_KATA: <kata>|]
+        - HAPUS WHITELIST KATA: [|ACTION_UNWHITELIST_KATA: <kata>|]
+
         STATUS INTERAKSI LU DENGAN USER INI SAAT INI:
         {interaction_status}
         
@@ -713,6 +713,83 @@ class UnifiedAI(commands.Cog, name="RTM Moderation Center"):
                     dm_channel = target_user.dm_channel
                     if dm_channel is None: dm_channel = await target_user.create_dm()
                     fetched_dms = []
+            match_wl = re.search(r'\[\|ACTION_WHITELIST_KATA:\s*(.*?)\|\]', text, re.IGNORECASE | re.DOTALL)
+            if match_wl:
+                kata_wl = match_wl.group(1).strip().lower()
+                text = re.sub(r'\[\|ACTION_WHITELIST_KATA:\s*.*?\|\]', '', text, flags=re.IGNORECASE | re.DOTALL).strip()
+                self.cyber_config.setdefault("ai_whitelist_words", [])
+                if kata_wl not in self.cyber_config["ai_whitelist_words"]:
+                    self.cyber_config["ai_whitelist_words"].append(kata_wl)
+                    save_json_file(CYBER_CONFIG_FILE, self.cyber_config)
+                    text += f"\n*(Sip bos, kata '{kata_wl}' udah gue masukin daftar aman)*"
+
+            match_unwl = re.search(r'\[\|ACTION_UNWHITELIST_KATA:\s*(.*?)\|\]', text, re.IGNORECASE | re.DOTALL)
+            if match_unwl:
+                kata_unwl = match_unwl.group(1).strip().lower()
+                text = re.sub(r'\[\|ACTION_UNWHITELIST_KATA:\s*.*?\|\]', '', text, flags=re.IGNORECASE | re.DOTALL).strip()
+                if kata_unwl in self.cyber_config.get("ai_whitelist_words", []):
+                    self.cyber_config["ai_whitelist_words"].remove(kata_unwl)
+                    save_json_file(CYBER_CONFIG_FILE, self.cyber_config)
+                    text += f"\n*(Sip bos, kata '{kata_unwl}' udah gue hapus dari daftar aman)*"
+            
+            match_db = re.search(r'\[\|UPDATE_DATABASE:\s*(.*?)\|\]', text, re.IGNORECASE | re.DOTALL)
+            if match_db:
+                correction = match_db.group(1)
+                text = re.sub(r'\[\|UPDATE_DATABASE:\s*.*?\|\]', '', text, flags=re.IGNORECASE | re.DOTALL).strip()
+                asyncio.create_task(self.apply_db_correction(correction))
+
+            match_del_art = re.search(r'\[\|ACTION_DELETE_ARTICLE:\s*(.*?)\|\]', text, re.IGNORECASE | re.DOTALL)
+            if match_del_art:
+                art_title = match_del_art.group(1).strip().lower()
+                text = re.sub(r'\[\|ACTION_DELETE_ARTICLE:\s*.*?\|\]', '', text, flags=re.IGNORECASE | re.DOTALL).strip()
+                original_len = len(self.brain.get('articles', []))
+                self.brain['articles'] = [a for a in self.brain.get('articles', []) if a['title'].lower() != art_title]
+                if len(self.brain['articles']) < original_len:
+                    save_json_file(BRAIN_FILE_PATH, self.brain)
+                    text += f"\n*(Sip, artikel '{art_title}' udah gue hapus dari memori)*"
+                else:
+                    text += f"\n*(Gagal hapus, artikel '{art_title}' ga ketemu di otak gue)*"
+
+            match_sched = re.search(r'\[\|ACTION_SCHEDULE:\s*(channel|dm)\s*\|\s*(\d+)\s*\|\s*(\d{2}:\d{2})\s*\|\s*(\d{2}-\d{2}-\d{4})\s*\|\s*(.*?)\|\]', text, re.IGNORECASE | re.DOTALL)
+            if match_sched:
+                s_type = match_sched.group(1).lower()
+                s_target = match_sched.group(2)
+                s_time = match_sched.group(3)
+                s_date = match_sched.group(4)
+                s_theme = match_sched.group(5).strip()
+                self.schedules.setdefault("jobs", []).append({
+                    "type": s_type, "target": s_target, "time": s_time, "end_date": s_date, "theme": s_theme, "last_sent": ""
+                })
+                save_json_file(SCHEDULE_FILE_PATH, self.schedules)
+                text = re.sub(r'\[\|ACTION_SCHEDULE:\s*.*?\|\]', '', text, flags=re.IGNORECASE | re.DOTALL).strip()
+                text += f"\n*(Sip bos, jadwal auto-pesan ke {s_type} tiap jam {s_time} sampai tanggal {s_date} udah gue catet di otak)*"
+
+            match_proxy = re.search(r'\[\|ACTION_PROXY:\s*(\d+)\s*\|\s*(\d+)\|\]', text, re.IGNORECASE | re.DOTALL)
+            if match_proxy:
+                p_uid = match_proxy.group(1)
+                p_mins = int(match_proxy.group(2))
+                self.auto_config.setdefault("proxies", {})[p_uid] = time.time() + (p_mins * 60)
+                save_json_file(AUTO_CONFIG_PATH, self.auto_config)
+                text = re.sub(r'\[\|ACTION_PROXY:\s*.*?\|\]', '', text, flags=re.IGNORECASE | re.DOTALL).strip()
+                text += f"\n*(Sistem Proxy AFK aktif buat <@{p_uid}> selama {p_mins} menit. Biar gue yang balesin chat dia.)*"
+
+            match_auto_ngambek = re.search(r'\[\|ACTION_AUTO_NGAMBEK:\s*(\d+)\s*\|\s*(\d+)\|\]', text, re.IGNORECASE | re.DOTALL)
+            if match_auto_ngambek:
+                ngambek_uid = match_auto_ngambek.group(1)
+                ngambek_mins = int(match_auto_ngambek.group(2))
+                self.auto_config.setdefault("sulking_users", {})[ngambek_uid] = time.time() + (ngambek_mins * 60)
+                save_json_file(AUTO_CONFIG_PATH, self.auto_config)
+                text = re.sub(r'\[\|ACTION_AUTO_NGAMBEK:\s*.*?\|\]', '', text, flags=re.IGNORECASE | re.DOTALL).strip()
+
+            match_spy = re.search(r'\[\|ACTION_SPY_DM:\s*(\d+)\|\]', text, re.IGNORECASE | re.DOTALL)
+            if match_spy:
+                s_uid = int(match_spy.group(1))
+                text = re.sub(r'\[\|ACTION_SPY_DM:\s*.*?\|\]', '', text, flags=re.IGNORECASE | re.DOTALL).strip()
+                try:
+                    target_user = await self.bot.fetch_user(s_uid)
+                    dm_channel = target_user.dm_channel
+                    if dm_channel is None: dm_channel = await target_user.create_dm()
+                    fetched_dms = []
                     async for m in dm_channel.history(limit=20):
                         sender = "Jarkasih" if m.author.id == self.bot.user.id else m.author.display_name
                         fetched_dms.append(f"[{m.created_at.strftime('%d/%m %H:%M')}] {sender}: {m.content}")
@@ -723,19 +800,19 @@ class UnifiedAI(commands.Cog, name="RTM Moderation Center"):
                 except Exception as e:
                     text += f"\n*(Gagal narik data DM: {e})*"
 
-            match_react = re.search(r'\{\{ACTION_REACT:\s*(.*?)\}\}', text, re.IGNORECASE | re.DOTALL)
+            match_react = re.search(r'\[\|ACTION_REACT:\s*(.*?)\|\]', text, re.IGNORECASE | re.DOTALL)
             emoji_to_react = match_react.group(1).strip() if match_react else None
-            text = re.sub(r'\{\{ACTION_REACT:\s*.*?\}\}', '', text, flags=re.IGNORECASE | re.DOTALL).strip()
+            text = re.sub(r'\[\|ACTION_REACT:\s*.*?\|\]', '', text, flags=re.IGNORECASE | re.DOTALL).strip()
 
-            match_karma = re.findall(r'\{\{ACTION_KARMA:\s*(\d+)\s*\|\s*([+-]?\d+)\}\}', text, re.IGNORECASE | re.DOTALL)
+            match_karma = re.findall(r'\[\|ACTION_KARMA:\s*(\d+)\s*\|\s*([+-]?\d+)\|\]', text, re.IGNORECASE | re.DOTALL)
             for k_uid, k_val in match_karma:
                 current_k = self.auto_config.setdefault("karma_scores", {}).get(k_uid, 0)
                 self.auto_config["karma_scores"][k_uid] = current_k + int(k_val)
                 save_json_file(AUTO_CONFIG_PATH, self.auto_config)
                 text += f"\n*(Sistem Karma: Poin <@{k_uid}> sekarang {self.auto_config['karma_scores'][k_uid]})*"
-            text = re.sub(r'\{\{ACTION_KARMA:\s*\d+\s*\|.*?\}\}', '', text, flags=re.IGNORECASE | re.DOTALL).strip()
+            text = re.sub(r'\[\|ACTION_KARMA:\s*\d+\s*\|.*?\|\]', '', text, flags=re.IGNORECASE | re.DOTALL).strip()
 
-            match_fitnah = re.findall(r'\{\{ACTION_FITNAH:\s*(\d+)\s*\|\s*([a-zA-Z0-9]+)\s*\|\s*(.*?)\}\}', text, re.IGNORECASE | re.DOTALL)
+            match_fitnah = re.findall(r'\[\|ACTION_FITNAH:\s*(\d+)\s*\|\s*([a-zA-Z0-9]+)\s*\|\s*(.*?)\|\]', text, re.IGNORECASE | re.DOTALL)
             for f_uid, f_cid_str, f_msg in match_fitnah:
                 try:
                     if f_cid_str.upper() == "SINI": target_channel = send_target.channel if isinstance(send_target, discord.Message) and send_target.guild else None
@@ -754,9 +831,9 @@ class UnifiedAI(commands.Cog, name="RTM Moderation Center"):
                     else: text += f"\n*(Gagal fitnah: Channel tujuan nggak ketemu!)*"
                 except Exception as e:
                     text += f"\n*(Gagal fitnah ke channel <#{f_cid_str}>: {e})*"
-            text = re.sub(r'\{\{ACTION_FITNAH:\s*\d+\s*\|\s*[a-zA-Z0-9]+\s*\|.*?\}\}', '', text, flags=re.IGNORECASE | re.DOTALL).strip()
+            text = re.sub(r'\[\|ACTION_FITNAH:\s*\d+\s*\|\s*[a-zA-Z0-9]+\s*\|.*?\|\]', '', text, flags=re.IGNORECASE | re.DOTALL).strip()
 
-            dm_matches = re.findall(r'\{\{ACTION_DM:\s*(\d+)\s*\|\s*(.*?)\}\}', text, re.IGNORECASE | re.DOTALL)
+            dm_matches = re.findall(r'\[\|ACTION_DM:\s*(\d+)\s*\|\s*(.*?)\|\]', text, re.IGNORECASE | re.DOTALL)
             for dm_target, dm_msg in dm_matches:
                 try:
                     target_user = await self.bot.fetch_user(int(dm_target))
@@ -766,9 +843,9 @@ class UnifiedAI(commands.Cog, name="RTM Moderation Center"):
                     text += f"\n*(Sip bos, DM udah meluncur ke <@{dm_target}>)*"
                 except discord.Forbidden: text += f"\n*(Gagal DM ke <@{dm_target}>, dia nutup DM-nya)*"
                 except Exception: pass
-            text = re.sub(r'\{\{ACTION_DM:\s*\d+\s*\|.*?\}\}', '', text, flags=re.IGNORECASE | re.DOTALL).strip()
+            text = re.sub(r'\[\|ACTION_DM:\s*\d+\s*\|.*?\|\]', '', text, flags=re.IGNORECASE | re.DOTALL).strip()
 
-            ch_matches = re.findall(r'\{\{ACTION_CHANNEL:\s*(\d+)\s*\|\s*(.*?)\}\}', text, re.IGNORECASE | re.DOTALL)
+            ch_matches = re.findall(r'\[\|ACTION_CHANNEL:\s*(\d+)\s*\|\s*(.*?)\|\]', text, re.IGNORECASE | re.DOTALL)
             for ch_target, ch_msg in ch_matches:
                 try:
                     target_channel = await self.bot.fetch_channel(int(ch_target))
@@ -777,8 +854,8 @@ class UnifiedAI(commands.Cog, name="RTM Moderation Center"):
                         if chunk: await target_channel.send(chunk)
                     text += f"\n*(Laporan: Pesan sukses ditembakkan ke channel <#{ch_target}>)*"
                 except Exception as e: text += f"\n*(Gagal ngirim ke channel <#{ch_target}>: {e})*"
-            text = re.sub(r'\{\{ACTION_CHANNEL:\s*\d+\s*\|.*?\}\}', '', text, flags=re.IGNORECASE | re.DOTALL).strip()
-                
+            text = re.sub(r'\[\|ACTION_CHANNEL:\s*\d+\s*\|.*?\|\]', '', text, flags=re.IGNORECASE | re.DOTALL).strip()
+               
             sent_msg = None
             if isinstance(send_target, discord.Message):
                 chunks = [text[i:i+DISCORD_MSG_LIMIT] for i in range(0, len(text), DISCORD_MSG_LIMIT)]
