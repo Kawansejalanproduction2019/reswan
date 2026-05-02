@@ -812,7 +812,9 @@ class UnifiedAI(commands.Cog, name="RTM Moderation Center"):
             res = await generate_smart_response([prompt])
             return "TRUE" in res.text.strip().upper()
         except:
-          async def get_ai_decision(self, content, history_text, author_name):
+            return False
+
+    async def get_ai_decision(self, content, history_text, author_name):
         learned_rules = load_json_file(CYBER_LEARNED_FILE, {"rules": "Belum ada aturan."})
         prompt = f"Bertindaklah sebagai AI Moderator Keamanan yang objektif. DILARANG KERAS SARKAS.\n\nATURAN TAMBAHAN: {learned_rules['rules']}\n\nRIWAYAT CHAT:\n{history_text}\n\nPESAN TARGET DARI {author_name}: '{content}'\n\nATURAN MUTLAK:\n1. TOLERANSI TONGKRONGAN: Kata-kata seperti 'jir', 'anjir', 'njir', 'anjing', 'babi', 'tolol', dll JIKA digunakan sebagai ekspresi kaget, bercanda, kekesalan ringan, atau keakraban tongkrongan WAJIB DIABAIKAN. Jawab: PASS.\n2. HUKUMAN: HANYA hukum jika ada niat jahat, bullying personal, pelecehan ekstrem, atau ancaman nyata. Jawab: ACTION: [TIMEOUT/KICK/BAN] | REASON: [Jelaskan faktanya].\nJawab HANYA dalam format tersebut."
         try:
@@ -831,7 +833,7 @@ class UnifiedAI(commands.Cog, name="RTM Moderation Center"):
         except Exception as e:
             if "SAFETY_BLOCK" in str(e): return "BLOCKED"
             return "ERROR"
-      return "ERROR"
+
 
     def is_spamming(self, user_id):
         now = time.time()
