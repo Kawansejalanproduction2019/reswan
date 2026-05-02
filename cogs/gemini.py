@@ -436,7 +436,7 @@ class UnifiedAI(commands.Cog, name="RTM Moderation Center"):
         - KUTIPAN PALSU: Tiru gaya bicara aslinya dari database jika disuruh bikin quotes palsu.
         
         SISTEM TAG EKSEKUSI RAHASIA (TULIS FORMAT INI SAJA DI BARIS BARU JIKA TERPICU):
-        - FITNAH/NYAMAR: [ACTION_FITNAH: <ID_TARGET> | <ID_CHANNEL> | <Pesan Fitnah Lu>] (Isi ID_CHANNEL "SINI" jika channel tujuan sama).
+        - FITNAH/NYAMAR: [ACTION_FITNAH: <ID_TARGET> | <ID_CHANNEL> | <Pesan Fitnah Lu>][/END] (Isi ID_CHANNEL "SINI" jika channel tujuan sama).
         - KARMA METER: [ACTION_KARMA: <ID_USER_ANGKA> | <NILAI_MINUS_ATAU_PLUS>]
         - AUTO NGAMBEK: [ACTION_AUTO_NGAMBEK: <ID_USER_ANGKA> | <MENIT>]
         - WAKILIN GUE (PROXY): [ACTION_PROXY: <ID_USER_ANGKA> | <MENIT>]
@@ -445,7 +445,7 @@ class UnifiedAI(commands.Cog, name="RTM Moderation Center"):
         - HAPUS ARTIKEL: [ACTION_DELETE_ARTICLE: <Judul>]
         - REACT EMOJI: [ACTION_REACT: <emoji_unicode>]
         - KIRIM KE CHANNEL: [ACTION_CHANNEL: <ID_CHANNEL> | <Pesan Lu>]
-        - KIRIM PESAN KE DM: [ACTION_DM: <ID> | <Pesan Lu>]
+        - KIRIM PESAN KE DM: [ACTION_DM: <ID> | <Pesan Lu>][/END]
         - TAMBAH WHITELIST KATA: [ACTION_WHITELIST_KATA: <kata>] (Gunakan ini jika disuruh mengamankan kata dari sensor)
         - HAPUS WHITELIST KATA: [ACTION_UNWHITELIST_KATA: <kata>] (Gunakan ini jika disuruh menghapus kata dari sensor)
         
@@ -768,7 +768,7 @@ class UnifiedAI(commands.Cog, name="RTM Moderation Center"):
                 except Exception: pass
             text = re.sub(r'\[ACTION_DM:\s*\d+\s*\|.*?\]', '', text, flags=re.IGNORECASE | re.DOTALL).strip()
 
-            ch_matches = re.findall(r'\[ACTION_CHANNEL:\s*(\d+)\s*\|\s*(.*?)\]', text, re.IGNORECASE | re.DOTALL)
+            ch_matches = re.findall(r'\[ACTION_CHANNEL:\s*(\d+)\s*\|\s*(.*?)\]\[/END\]', text, re.IGNORECASE | re.DOTALL)
             for ch_target, ch_msg in ch_matches:
                 try:
                     target_channel = await self.bot.fetch_channel(int(ch_target))
@@ -777,7 +777,7 @@ class UnifiedAI(commands.Cog, name="RTM Moderation Center"):
                         if chunk: await target_channel.send(chunk)
                     text += f"\n*(Laporan: Pesan sukses ditembakkan ke channel <#{ch_target}>)*"
                 except Exception as e: text += f"\n*(Gagal ngirim ke channel <#{ch_target}>: {e})*"
-            text = re.sub(r'\[ACTION_CHANNEL:\s*\d+\s*\|.*?\]', '', text, flags=re.IGNORECASE | re.DOTALL).strip()
+            text = re.sub(r'\[ACTION_CHANNEL:\s*\d+\s*\|.*?\]\[/END\]', '', text, flags=re.IGNORECASE | re.DOTALL).strip()
                 
             sent_msg = None
             if isinstance(send_target, discord.Message):
