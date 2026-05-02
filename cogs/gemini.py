@@ -448,7 +448,8 @@ class UnifiedAI(commands.Cog, name="RTM Moderation Center"):
         - KIRIM PESAN KE DM: [|ACTION_DM: <ID> | <Pesan Lu>|]
         - TAMBAH WHITELIST KATA: [|ACTION_WHITELIST_KATA: <kata>|]
         - HAPUS WHITELIST KATA: [|ACTION_UNWHITELIST_KATA: <kata>|]
-
+        
+        
         STATUS INTERAKSI LU DENGAN USER INI SAAT INI:
         {interaction_status}
         
@@ -634,86 +635,7 @@ class UnifiedAI(commands.Cog, name="RTM Moderation Center"):
         
         try:
             res = await generate_smart_response(content_payload)
-            text = res.text
-
-            match_wl = re.search(r'\{\{ACTION_WHITELIST_KATA:\s*(.*?)\}\}', text, re.IGNORECASE | re.DOTALL)
-            if match_wl:
-                kata_wl = match_wl.group(1).strip().lower()
-                text = re.sub(r'\{\{ACTION_WHITELIST_KATA:\s*.*?\}\}', '', text, flags=re.IGNORECASE | re.DOTALL).strip()
-                self.cyber_config.setdefault("ai_whitelist_words", [])
-                if kata_wl not in self.cyber_config["ai_whitelist_words"]:
-                    self.cyber_config["ai_whitelist_words"].append(kata_wl)
-                    save_json_file(CYBER_CONFIG_FILE, self.cyber_config)
-                    text += f"\n*(Sip bos, kata '{kata_wl}' udah gue masukin daftar aman)*"
-
-            match_unwl = re.search(r'\{\{ACTION_UNWHITELIST_KATA:\s*(.*?)\}\}', text, re.IGNORECASE | re.DOTALL)
-            if match_unwl:
-                kata_unwl = match_unwl.group(1).strip().lower()
-                text = re.sub(r'\{\{ACTION_UNWHITELIST_KATA:\s*.*?\}\}', '', text, flags=re.IGNORECASE | re.DOTALL).strip()
-                if kata_unwl in self.cyber_config.get("ai_whitelist_words", []):
-                    self.cyber_config["ai_whitelist_words"].remove(kata_unwl)
-                    save_json_file(CYBER_CONFIG_FILE, self.cyber_config)
-                    text += f"\n*(Sip bos, kata '{kata_unwl}' udah gue hapus dari daftar aman)*"
-            
-            match_db = re.search(r'\{\{UPDATE_DATABASE:\s*(.*?)\}\}', text, re.IGNORECASE | re.DOTALL)
-            if match_db:
-                correction = match_db.group(1)
-                text = re.sub(r'\{\{UPDATE_DATABASE:\s*.*?\}\}', '', text, flags=re.IGNORECASE | re.DOTALL).strip()
-                asyncio.create_task(self.apply_db_correction(correction))
-
-            match_del_art = re.search(r'\{\{ACTION_DELETE_ARTICLE:\s*(.*?)\}\}', text, re.IGNORECASE | re.DOTALL)
-            if match_del_art:
-                art_title = match_del_art.group(1).strip().lower()
-                text = re.sub(r'\{\{ACTION_DELETE_ARTICLE:\s*.*?\}\}', '', text, flags=re.IGNORECASE | re.DOTALL).strip()
-                original_len = len(self.brain.get('articles', []))
-                self.brain['articles'] = [a for a in self.brain.get('articles', []) if a['title'].lower() != art_title]
-                if len(self.brain['articles']) < original_len:
-                    save_json_file(BRAIN_FILE_PATH, self.brain)
-                    text += f"\n*(Sip, artikel '{art_title}' udah gue hapus dari memori)*"
-                else:
-                    text += f"\n*(Gagal hapus, artikel '{art_title}' ga ketemu di otak gue)*"
-
-            match_sched = re.search(r'\{\{ACTION_SCHEDULE:\s*(channel|dm)\s*\|\s*(\d+)\s*\|\s*(\d{2}:\d{2})\s*\|\s*(\d{2}-\d{2}-\d{4})\s*\|\s*(.*?)\}\}', text, re.IGNORECASE | re.DOTALL)
-            if match_sched:
-                s_type = match_sched.group(1).lower()
-                s_target = match_sched.group(2)
-                s_time = match_sched.group(3)
-                s_date = match_sched.group(4)
-                s_theme = match_sched.group(5).strip()
-                self.schedules.setdefault("jobs", []).append({
-                    "type": s_type, "target": s_target, "time": s_time, "end_date": s_date, "theme": s_theme, "last_sent": ""
-                })
-                save_json_file(SCHEDULE_FILE_PATH, self.schedules)
-                text = re.sub(r'\{\{ACTION_SCHEDULE:\s*.*?\}\}', '', text, flags=re.IGNORECASE | re.DOTALL).strip()
-                text += f"\n*(Sip bos, jadwal auto-pesan ke {s_type} tiap jam {s_time} sampai tanggal {s_date} udah gue catet di otak)*"
-
-            match_proxy = re.search(r'\{\{ACTION_PROXY:\s*(\d+)\s*\|\s*(\d+)\}\}', text, re.IGNORECASE | re.DOTALL)
-            if match_proxy:
-                p_uid = match_proxy.group(1)
-                p_mins = int(match_proxy.group(2))
-                self.auto_config.setdefault("proxies", {})[p_uid] = time.time() + (p_mins * 60)
-                save_json_file(AUTO_CONFIG_PATH, self.auto_config)
-                text = re.sub(r'\{\{ACTION_PROXY:\s*.*?\}\}', '', text, flags=re.IGNORECASE | re.DOTALL).strip()
-                text += f"\n*(Sistem Proxy AFK aktif buat <@{p_uid}> selama {p_mins} menit. Biar gue yang balesin chat dia.)*"
-
-            match_auto_ngambek = re.search(r'\{\{ACTION_AUTO_NGAMBEK:\s*(\d+)\s*\|\s*(\d+)\}\}', text, re.IGNORECASE | re.DOTALL)
-            if match_auto_ngambek:
-                ngambek_uid = match_auto_ngambek.group(1)
-                ngambek_mins = int(match_auto_ngambek.group(2))
-                self.auto_config.setdefault("sulking_users", {})[ngambek_uid] = time.time() + (ngambek_mins * 60)
-                save_json_file(AUTO_CONFIG_PATH, self.auto_config)
-                text = re.sub(r'\{\{ACTION_AUTO_NGAMBEK:\s*.*?\}\}', '', text, flags=re.IGNORECASE | re.DOTALL).strip()
-
-            match_spy = re.search(r'\{\{ACTION_SPY_DM:\s*(\d+)\}\}', text, re.IGNORECASE | re.DOTALL)
-            if match_spy:
-                s_uid = int(match_spy.group(1))
-                text = re.sub(r'\{\{ACTION_SPY_DM:\s*.*?\}\}', '', text, flags=re.IGNORECASE | re.DOTALL).strip()
-                try:
-                    target_user = await self.bot.fetch_user(s_uid)
-                    dm_channel = target_user.dm_channel
-                    if dm_channel is None: dm_channel = await target_user.create_dm()
-                    fetched_dms = []
-            match_wl = re.search(r'\[\|ACTION_WHITELIST_KATA:\s*(.*?)\|\]', text, re.IGNORECASE | re.DOTALL)
+            text = re            match_wl = re.search(r'\[\|ACTION_WHITELIST_KATA:\s*(.*?)\|\]', text, re.IGNORECASE | re.DOTALL)
             if match_wl:
                 kata_wl = match_wl.group(1).strip().lower()
                 text = re.sub(r'\[\|ACTION_WHITELIST_KATA:\s*.*?\|\]', '', text, flags=re.IGNORECASE | re.DOTALL).strip()
@@ -854,8 +776,8 @@ class UnifiedAI(commands.Cog, name="RTM Moderation Center"):
                         if chunk: await target_channel.send(chunk)
                     text += f"\n*(Laporan: Pesan sukses ditembakkan ke channel <#{ch_target}>)*"
                 except Exception as e: text += f"\n*(Gagal ngirim ke channel <#{ch_target}>: {e})*"
-            text = re.sub(r'\[\|ACTION_CHANNEL:\s*\d+\s*\|.*?\|\]', '', text, flags=re.IGNORECASE | re.DOTALL).strip()
-               
+            text = re.sub(r'\[\|ACTION_CHANNEL:\s*\d+\s*\|.*?\|\]', '', text, flags=re.IGNORECASE | re.DOTALL).strip().strip()            
+                
             sent_msg = None
             if isinstance(send_target, discord.Message):
                 chunks = [text[i:i+DISCORD_MSG_LIMIT] for i in range(0, len(text), DISCORD_MSG_LIMIT)]
@@ -889,9 +811,7 @@ class UnifiedAI(commands.Cog, name="RTM Moderation Center"):
             res = await generate_smart_response([prompt])
             return "TRUE" in res.text.strip().upper()
         except:
-            return False
-
-    async def get_ai_decision(self, content, history_text, author_name):
+          async def get_ai_decision(self, content, history_text, author_name):
         learned_rules = load_json_file(CYBER_LEARNED_FILE, {"rules": "Belum ada aturan."})
         prompt = f"Bertindaklah sebagai AI Moderator Keamanan yang objektif. DILARANG KERAS SARKAS.\n\nATURAN TAMBAHAN: {learned_rules['rules']}\n\nRIWAYAT CHAT:\n{history_text}\n\nPESAN TARGET DARI {author_name}: '{content}'\n\nATURAN MUTLAK:\n1. TOLERANSI TONGKRONGAN: Kata-kata seperti 'jir', 'anjir', 'njir', 'anjing', 'babi', 'tolol', dll JIKA digunakan sebagai ekspresi kaget, bercanda, kekesalan ringan, atau keakraban tongkrongan WAJIB DIABAIKAN. Jawab: PASS.\n2. HUKUMAN: HANYA hukum jika ada niat jahat, bullying personal, pelecehan ekstrem, atau ancaman nyata. Jawab: ACTION: [TIMEOUT/KICK/BAN] | REASON: [Jelaskan faktanya].\nJawab HANYA dalam format tersebut."
         try:
@@ -910,7 +830,7 @@ class UnifiedAI(commands.Cog, name="RTM Moderation Center"):
         except Exception as e:
             if "SAFETY_BLOCK" in str(e): return "BLOCKED"
             return "ERROR"
-
+      return "ERROR"
 
     def is_spamming(self, user_id):
         now = time.time()
