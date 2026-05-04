@@ -15,15 +15,8 @@ logging.basicConfig(level=logging.INFO, format='[%(asctime)s] %(levelname)s: %(m
 genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 
 def truncate_text(text, limit=1000):
-    if text:
-        text_str = str(text)
-    else:
-        text_str = "Belum diatur"
-        
-    if len(text_str) > limit:
-        return f"{text_str[:limit]}..."
-    else:
-        return text_str
+    text_str = str(text) if text else "Belum diatur"
+    return f"{text_str[:limit]}..." if len(text_str) > limit else text_str
 
 class TextModal(discord.ui.Modal, title='Masukkan Teks'):
     def __init__(self, key, config, view):
@@ -31,20 +24,12 @@ class TextModal(discord.ui.Modal, title='Masukkan Teks'):
         self.key = key
         self.config = config
         self.view = view
-        
-        if key in ['desc', 'content']:
-            text_style = discord.TextStyle.paragraph
-            max_len = 4000
-        else:
-            text_style = discord.TextStyle.short
-            max_len = 256
-            
         self.text_input = discord.ui.TextInput(
             label=self.get_label(key),
-            style=text_style,
+            style=discord.TextStyle.paragraph if key in ['desc', 'content'] else discord.TextStyle.short,
             default=config.get(key, ''),
             required=False,
-            max_length=max_len
+            max_length=4000 if key in ['desc', 'content'] else 256
         )
         self.add_item(self.text_input)
 
@@ -59,10 +44,7 @@ class TextModal(discord.ui.Modal, title='Masukkan Teks'):
         return labels.get(key, key.capitalize())
 
     async def on_submit(self, interaction: discord.Interaction):
-        if self.text_input.value:
-            self.config[self.key] = self.text_input.value
-        else:
-            self.config[self.key] = None
+        self.config[self.key] = self.text_input.value or None
         await interaction.response.edit_message(embed=self.view.build_embed())
 
 class ButtonsModal(discord.ui.Modal, title='Edit JSON Tombol'):
@@ -83,9 +65,7 @@ class ButtonsModal(discord.ui.Modal, title='Edit JSON Tombol'):
         val = self.buttons_input.value.strip()
         if not val:
             self.config['buttons'] = []
-            await interaction.response.edit_message(embed=self.view.build_embed())
-            return
-            
+            return await interaction.response.edit_message(embed=self.view.build_embed())
         try:
             buttons_data = json.loads(val)
             if not isinstance(buttons_data, list):
@@ -93,7 +73,7 @@ class ButtonsModal(discord.ui.Modal, title='Edit JSON Tombol'):
             self.config['buttons'] = buttons_data
             await interaction.response.edit_message(embed=self.view.build_embed())
         except (json.JSONDecodeError, ValueError):
-            await interaction.response.send_message("Format JSON tidak valid. Pastikan menggunakan format Array (kurung siku).", ephemeral=True)
+            await interaction.response.send_message("Format JSON tidak valid.", ephemeral=True)
 
 class DropdownModal(discord.ui.Modal, title='Edit JSON Dropdown'):
     def __init__(self, config, view):
@@ -113,9 +93,7 @@ class DropdownModal(discord.ui.Modal, title='Edit JSON Dropdown'):
         val = self.drops_input.value.strip()
         if not val:
             self.config['dropdowns'] = []
-            await interaction.response.edit_message(embed=self.view.build_embed())
-            return
-            
+            return await interaction.response.edit_message(embed=self.view.build_embed())
         try:
             drops_data = json.loads(val)
             if not isinstance(drops_data, list):
@@ -123,7 +101,7 @@ class DropdownModal(discord.ui.Modal, title='Edit JSON Dropdown'):
             self.config['dropdowns'] = drops_data
             await interaction.response.edit_message(embed=self.view.build_embed())
         except (json.JSONDecodeError, ValueError):
-            await interaction.response.send_message("Format JSON tidak valid. Pastikan menggunakan format Array.", ephemeral=True)
+            await interaction.response.send_message("Format JSON tidak valid.", ephemeral=True)
 
 class AIWriterModal(discord.ui.Modal, title='AI Auto-Writer'):
     def __init__(self, config, view):
@@ -178,26 +156,10 @@ class ButtonBuilderModal(discord.ui.Modal, title='Wizard Tambah Tombol'):
         super().__init__()
         self.config = config
         self.view = view
-        self.label_input = discord.ui.TextInput(
-            label='Teks Tombol', 
-            placeholder='Misal: Buka Web', 
-            max_length=80
-        )
-        self.style_input = discord.ui.TextInput(
-            label='Warna (blurple/green/red/grey)', 
-            default='blurple', 
-            max_length=20
-        )
-        self.action_input = discord.ui.TextInput(
-            label='Aksi (role/ticket/channel/url/translate)', 
-            placeholder='Misal: url', 
-            max_length=50
-        )
-        self.value_input = discord.ui.TextInput(
-            label='ID Target / Link URL / Bahasa', 
-            placeholder='ID Angka / https://... / English', 
-            max_length=500
-        )
+        self.label_input = discord.ui.TextInput(label='Teks Tombol', placeholder='Misal: Buka Web', max_length=80)
+        self.style_input = discord.ui.TextInput(label='Warna (blurple/green/red/grey)', default='blurple', max_length=20)
+        self.action_input = discord.ui.TextInput(label='Aksi (role/ticket/channel/url/translate)', placeholder='Misal: url', max_length=50)
+        self.value_input = discord.ui.TextInput(label='ID Target / Link URL / Bahasa', placeholder='ID Angka / https://... / English', max_length=500)
         self.add_item(self.label_input)
         self.add_item(self.style_input)
         self.add_item(self.action_input)
@@ -207,7 +169,6 @@ class ButtonBuilderModal(discord.ui.Modal, title='Wizard Tambah Tombol'):
         style_val = self.style_input.value.strip().lower()
         if style_val not in ['blurple', 'green', 'red', 'grey']:
             style_val = 'blurple'
-            
         action_val = self.action_input.value.strip().lower()
         new_btn = {
             "label": self.label_input.value.strip(),
@@ -215,10 +176,8 @@ class ButtonBuilderModal(discord.ui.Modal, title='Wizard Tambah Tombol'):
             "action": action_val,
             "value": self.value_input.value.strip()
         }
-        
         if 'buttons' not in self.config or not isinstance(self.config['buttons'], list):
             self.config['buttons'] = []
-            
         self.config['buttons'].append(new_btn)
         await interaction.response.edit_message(embed=self.view.build_embed())
 
@@ -244,18 +203,9 @@ class ColorModal(discord.ui.Modal, title='Pilih Warna Kustom'):
                 if not color_str.startswith('#'):
                     color_str = '#' + color_str
                 int(color_str.replace('#', ''), 16)
-                
-            if color_str:
-                self.config['color'] = color_str
-            else:
-                self.config['color'] = None
-                
+            self.config['color'] = color_str or None
             await interaction.response.edit_message(embed=self.view.build_embed())
-            
-            try:
-                await self.color_message.delete()
-            except Exception:
-                pass
+            await self.color_message.delete()
         except ValueError:
             await interaction.response.send_message("Kode warna tidak valid.", ephemeral=True)
 
@@ -289,10 +239,8 @@ class ColorView(discord.ui.View):
         
     async def on_timeout(self):
         if self.message:
-            try:
-                await self.message.delete()
-            except Exception:
-                pass
+            try: await self.message.delete()
+            except: pass
 
 class SaveConfigModal(discord.ui.Modal, title='Simpan Konfigurasi'):
     def __init__(self, config, cog, target_channel):
@@ -319,27 +267,13 @@ class InteractiveView(discord.ui.View):
             if b.get('action') == 'url':
                 self.add_item(discord.ui.Button(label=b.get('label'), url=b.get('value')))
             else:
-                if b.get('style') == 'blurple':
-                    style = discord.ButtonStyle.blurple
-                elif b.get('style') == 'green':
-                    style = discord.ButtonStyle.green
-                elif b.get('style') == 'red':
-                    style = discord.ButtonStyle.red
-                elif b.get('style') == 'grey':
-                    style = discord.ButtonStyle.grey
-                else:
-                    style = discord.ButtonStyle.blurple
-                    
+                style = {'blurple': discord.ButtonStyle.blurple, 'green': discord.ButtonStyle.green, 'red': discord.ButtonStyle.red, 'grey': discord.ButtonStyle.grey}.get(b.get('style'), discord.ButtonStyle.blurple)
                 self.add_item(discord.ui.Button(label=b.get('label'), style=style, custom_id=b.get('id')))
         
         for d in config.get('dropdowns', []):
-            opts = []
-            for o in d.get('options', []):
-                opts.append(discord.SelectOption(label=o['label'], value=o['value']))
-                
+            opts = [discord.SelectOption(label=o['label'], value=o['value']) for o in d.get('options', [])]
             if opts:
-                placeholder_text = d.get('placeholder', 'Pilih...')
-                sel = discord.ui.Select(custom_id=d.get('id'), placeholder=placeholder_text, options=opts)
+                sel = discord.ui.Select(custom_id=d.get('id'), placeholder=d.get('placeholder', 'Pilih...'), options=opts)
                 self.add_item(sel)
 
 class WebhookConfigView(discord.ui.View):
@@ -353,55 +287,26 @@ class WebhookConfigView(discord.ui.View):
         self.config.setdefault('lock', False)
 
     def build_embed(self):
-        ch_mentions = []
-        for ch in self.channels[:5]:
-            ch_mentions.append(ch.mention)
+        ch_mentions = " ".join([ch.mention for ch in self.channels][:5])
+        if len(self.channels) > 5: ch_mentions += f" (+{len(self.channels)-5} lainnya)"
         
-        mentions_str = " ".join(ch_mentions)
-        if len(self.channels) > 5:
-            mentions_str += f" (+{len(self.channels)-5} lainnya)"
-        
-        if self.msg_id_to_edit:
-            mode_text = f"EDIT PESAN ID: {self.msg_id_to_edit}"
-        else:
-            mode_text = "BUAT BARU"
-            
+        mode_text = f"EDIT PESAN ID: {self.msg_id_to_edit}" if self.msg_id_to_edit else "BUAT BARU"
         embed = discord.Embed(
             title=f"Konfigurasi Pesan | {mode_text}",
-            description=f"Target: {mentions_str}",
+            description=f"Target: {ch_mentions}",
             color=0x2b2d31
         )
         embed.add_field(name="Judul", value=f"`{truncate_text(self.config.get('title'))}`", inline=False)
         embed.add_field(name="Deskripsi", value=f"`{truncate_text(self.config.get('desc'))}`", inline=False)
         embed.add_field(name="Warna", value=f"`{truncate_text(self.config.get('color'))}`", inline=False)
-        embed.add_field(name="Pesan Teks", value=f"`{truncate_text(self.config.get('content'))}`", inline=False)
+        embed.add_field(name="Pengirim", value=f"`{truncate_text(self.config.get('author'))}`", inline=False)
+        embed.add_field(name="Foto Pengirim", value=f"`{truncate_text(self.config.get('avatar'))}`", inline=False)
+        embed.add_field(name="Interaktif", value=f"Tombol: `{len(self.config.get('buttons', []))}` | Dropdown: `{len(self.config.get('dropdowns', []))}`", inline=False)
         
-        author_text = self.config.get('author', 'Bot')
-        avatar_text = self.config.get('avatar', 'Bot')
-        embed.add_field(name="Pengirim", value=f"Nama: `{truncate_text(author_text)}` | Foto: `{truncate_text(avatar_text)}`", inline=False)
-        
-        btn_count = len(self.config.get('buttons', []))
-        drop_count = len(self.config.get('dropdowns', []))
-        embed.add_field(name="Interaktif", value=f"Tombol: `{btn_count}` | Dropdown: `{drop_count}`", inline=False)
-        
-        if self.config['pin']:
-            pin_status = '✅'
-        else:
-            pin_status = '❌'
-            
-        if self.config['lock']:
-            lock_status = '✅'
-        else:
-            lock_status = '❌'
-            
-        pin_lock = f"Pin: {pin_status} | Lock: {lock_status}"
-        
-        if self.config.get('destruct'):
-            destruct = f"💣 Auto-Hapus: {self.config['destruct']} Menit"
-        else:
-            destruct = "💣 Auto-Hapus: ❌"
-            
+        pin_lock = f"Pin: {'✅' if self.config['pin'] else '❌'} | Lock: {'✅' if self.config['lock'] else '❌'}"
+        destruct = f"💣 Auto-Hapus: {self.config['destruct']} Menit" if self.config.get('destruct') else "💣 Auto-Hapus: ❌"
         embed.add_field(name="Ekstra", value=f"{pin_lock}\n{destruct}", inline=False)
+        
         return embed
 
     @discord.ui.button(label="Judul & Deskripsi", style=discord.ButtonStyle.blurple, row=0)
@@ -411,33 +316,14 @@ class WebhookConfigView(discord.ui.View):
                 super().__init__()
                 self.config = config
                 self.view = view
-                self.title_input = discord.ui.TextInput(
-                    label="Judul Embed", 
-                    default=config.get('title', ''), 
-                    required=False, 
-                    max_length=256
-                )
-                self.desc_input = discord.ui.TextInput(
-                    label="Deskripsi Embed", 
-                    style=discord.TextStyle.paragraph, 
-                    default=config.get('desc', ''), 
-                    required=False, 
-                    max_length=4000
-                )
+                self.title_input = discord.ui.TextInput(label="Judul Embed", default=config.get('title', ''), required=False, max_length=256)
+                self.desc_input = discord.ui.TextInput(label="Deskripsi Embed", style=discord.TextStyle.paragraph, default=config.get('desc', ''), required=False, max_length=4000)
                 self.add_item(self.title_input)
                 self.add_item(self.desc_input)
             
             async def on_submit(self, interaction: discord.Interaction):
-                if self.title_input.value:
-                    self.config['title'] = self.title_input.value
-                else:
-                    self.config['title'] = None
-                    
-                if self.desc_input.value:
-                    self.config['desc'] = self.desc_input.value
-                else:
-                    self.config['desc'] = None
-                    
+                self.config['title'] = self.title_input.value or None
+                self.config['desc'] = self.desc_input.value or None
                 await interaction.response.edit_message(embed=self.view.build_embed())
         
         await interaction.response.send_modal(TitleDescModal(self.config, self))
@@ -482,16 +368,8 @@ class WebhookConfigView(discord.ui.View):
 
     @discord.ui.button(label="Toggle Pin & Lock", style=discord.ButtonStyle.secondary, row=2)
     async def toggle_pin_lock(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if self.config['pin']:
-            self.config['pin'] = False
-        else:
-            self.config['pin'] = True
-            
-        if self.config['lock']:
-            self.config['lock'] = False
-        else:
-            self.config['lock'] = True
-            
+        self.config['pin'] = not self.config['pin']
+        self.config['lock'] = not self.config['lock']
         await interaction.response.edit_message(embed=self.build_embed())
 
     @discord.ui.button(label="💣 Auto-Hapus", style=discord.ButtonStyle.secondary, row=2)
@@ -554,7 +432,7 @@ class WebhookConfigView(discord.ui.View):
                         success_count += 1
                         continue
                     except Exception as e:
-                        errors_log.append(f"Gagal edit di #{ch.name}: {str(e)}")
+                        errors_log.append(f"Gagal edit di {ch.name}: {str(e)}")
                         continue
 
                 webhook = discord.utils.get(await ch.webhooks(), name="RTMBroadcast")
@@ -582,7 +460,7 @@ class WebhookConfigView(discord.ui.View):
                         cog.register_destruct(ch.guild.id, ch.id, sent_msg.id, self.config['destruct'])
                         
             except Exception as e:
-                errors_log.append(f"#{ch.name}: {str(e)}")
+                errors_log.append(f"{ch.name}: {str(e)}")
 
         report_message = f"Berhasil diproses di {success_count}/{len(self.channels)} channel!"
         if errors_log:
@@ -599,13 +477,9 @@ class WebhookConfigView(discord.ui.View):
         except Exception:
             pass
 
-    @discord.ui.button(label="Batalkan", style=discord.ButtonStyle.red, row=2)
-    async def cancel_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        try:
-            await interaction.message.delete()
-        except Exception:
-            pass
-        self.stop()
+        await interaction.followup.send(f"Berhasil diproses di {success_count}/{len(self.channels)} channel!", ephemeral=True)
+        try: await interaction.message.delete()
+        except: pass
 
 class ScheduleTimeModal(discord.ui.Modal, title='Tentukan Jadwal & Kanal'):
     def __init__(self, config, view):
@@ -653,22 +527,14 @@ class ScheduleTimeModal(discord.ui.Modal, title='Tentukan Jadwal & Kanal'):
 
             now_wib = datetime.now(wib_timezone)
             if scheduled_datetime_wib < now_wib - timedelta(minutes=5):
-                await interaction.response.send_message("Waktu harus di masa mendatang.", ephemeral=True)
-                return
+                return await interaction.response.send_message("Waktu harus di masa mendatang.", ephemeral=True)
             
             self.config['scheduled_time'] = scheduled_datetime_wib.isoformat()
             self.config['recurring'] = self.rec_input.value.strip().lower()
             
-            cids = []
-            for c in self.channel_input.value.split(','):
-                clean_id = re.sub(r'\D', '', c)
-                if clean_id:
-                    cids.append(clean_id)
-                    
+            cids = [re.sub(r'\D', '', c) for c in self.channel_input.value.split(',') if re.sub(r'\D', '', c)]
             if not cids:
-                await interaction.response.send_message("Tidak ada ID kanal yang valid.", ephemeral=True)
-                return
-                
+                return await interaction.response.send_message("Tidak ada ID kanal yang valid.", ephemeral=True)
             self.config['channels'] = cids
 
             await interaction.response.edit_message(embed=self.view.build_embed())
@@ -689,20 +555,12 @@ class ScheduleConfigView(discord.ui.View):
         )
         
         sch_time = self.config.get('scheduled_time')
-        if sch_time:
-            dt_obj = datetime.fromisoformat(sch_time).astimezone(pytz.timezone('Asia/Jakarta'))
-            sch_display = dt_obj.strftime('%d %B %Y, %H:%M WIB')
-        else:
-            sch_display = "Belum diatur"
+        sch_display = datetime.fromisoformat(sch_time).astimezone(pytz.timezone('Asia/Jakarta')).strftime('%d %B %Y, %H:%M WIB') if sch_time else "Belum diatur"
 
         ch_len = len(self.config.get('channels', []))
-        if ch_len:
-            ch_display = f"{ch_len} Kanal Target"
-        else:
-            ch_display = "Belum diatur"
+        ch_display = f"{ch_len} Kanal Target" if ch_len else "Belum diatur"
 
-        recurring_val = self.config.get('recurring', 'none')
-        embed.add_field(name="Waktu Terjadwal", value=f"`{sch_display}` | Ulang: `{recurring_val}`", inline=False)
+        embed.add_field(name="Waktu Terjadwal", value=f"`{sch_display}` | Ulang: `{self.config.get('recurring', 'none')}`", inline=False)
         embed.add_field(name="Kanal Tujuan", value=ch_display, inline=False)
         embed.add_field(name="Judul Embed", value=f"`{truncate_text(self.config.get('title'))}`", inline=False)
         embed.add_field(name="Deskripsi Embed", value=f"`{truncate_text(self.config.get('desc'))}`", inline=False)
@@ -723,33 +581,14 @@ class ScheduleConfigView(discord.ui.View):
                 super().__init__()
                 self.config = config
                 self.view = view
-                self.title_input = discord.ui.TextInput(
-                    label="Judul Embed", 
-                    default=config.get('title', ''), 
-                    required=False, 
-                    max_length=256
-                )
-                self.desc_input = discord.ui.TextInput(
-                    label="Deskripsi Embed", 
-                    style=discord.TextStyle.paragraph, 
-                    default=config.get('desc', ''), 
-                    required=False, 
-                    max_length=4000
-                )
+                self.title_input = discord.ui.TextInput(label="Judul Embed", default=config.get('title', ''), required=False, max_length=256)
+                self.desc_input = discord.ui.TextInput(label="Deskripsi Embed", style=discord.TextStyle.paragraph, default=config.get('desc', ''), required=False, max_length=4000)
                 self.add_item(self.title_input)
                 self.add_item(self.desc_input)
             
             async def on_submit(self, interaction: discord.Interaction):
-                if self.title_input.value:
-                    self.config['title'] = self.title_input.value
-                else:
-                    self.config['title'] = None
-                    
-                if self.desc_input.value:
-                    self.config['desc'] = self.desc_input.value
-                else:
-                    self.config['desc'] = None
-                    
+                self.config['title'] = self.title_input.value or None
+                self.config['desc'] = self.desc_input.value or None
                 await interaction.response.edit_message(embed=self.view.build_embed())
         
         await interaction.response.send_modal(TitleDescModal(self.config, self))
@@ -761,21 +600,11 @@ class ScheduleConfigView(discord.ui.View):
                 super().__init__()
                 self.config = config
                 self.view = view
-                self.text_input = discord.ui.TextInput(
-                    label='Teks Pesan Biasa', 
-                    style=discord.TextStyle.paragraph, 
-                    default=config.get('content', ''), 
-                    required=False, 
-                    max_length=4000
-                )
+                self.text_input = discord.ui.TextInput(label='Teks Pesan Biasa', style=discord.TextStyle.paragraph, default=config.get('content', ''), required=False, max_length=4000)
                 self.add_item(self.text_input)
 
             async def on_submit(self, interaction: discord.Interaction):
-                if self.text_input.value:
-                    self.config['content'] = self.text_input.value
-                else:
-                    self.config['content'] = None
-                    
+                self.config['content'] = self.text_input.value or None
                 await interaction.response.edit_message(embed=self.view.build_embed())
         
         await interaction.response.send_modal(ContentModal(self.config, self))
@@ -787,20 +616,11 @@ class ScheduleConfigView(discord.ui.View):
                 super().__init__()
                 self.config = config
                 self.view = view
-                self.url_input = discord.ui.TextInput(
-                    label='URL', 
-                    placeholder='https://...', 
-                    default=config.get('media_url', ''), 
-                    required=False
-                )
+                self.url_input = discord.ui.TextInput(label='URL', placeholder='https://...', default=config.get('media_url', ''), required=False)
                 self.add_item(self.url_input)
 
             async def on_submit(self, interaction: discord.Interaction):
-                if self.url_input.value:
-                    self.config['media_url'] = self.url_input.value
-                else:
-                    self.config['media_url'] = None
-                    
+                self.config['media_url'] = self.url_input.value or None
                 await interaction.response.edit_message(embed=self.view.build_embed())
 
         await interaction.response.send_modal(MediaUrlModal(self.config, self))
@@ -812,14 +632,8 @@ class ScheduleConfigView(discord.ui.View):
     @discord.ui.button(label="Jadwalkan", style=discord.ButtonStyle.green, row=2)
     async def schedule_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.defer(ephemeral=True)
-        
-        if not self.config.get('scheduled_time'):
-            await interaction.followup.send("Tentukan jadwal dan kanal tujuan terlebih dahulu.", ephemeral=True)
-            return
-            
-        if not self.config.get('channels'):
-            await interaction.followup.send("Tentukan jadwal dan kanal tujuan terlebih dahulu.", ephemeral=True)
-            return
+        if not self.config.get('scheduled_time') or not self.config.get('channels'):
+            return await interaction.followup.send("Tentukan jadwal dan kanal tujuan terlebih dahulu.", ephemeral=True)
 
         scheduled_announcements = self.bot.get_cog('RTMBroadcast').load_scheduled_announcements()
         job_id = str(uuid.uuid4())
@@ -827,22 +641,14 @@ class ScheduleConfigView(discord.ui.View):
         self.bot.get_cog('RTMBroadcast').save_scheduled_announcements(scheduled_announcements)
         
         dt_wib = datetime.fromisoformat(self.config['scheduled_time']).astimezone(pytz.timezone('Asia/Jakarta'))
-        total_channels = len(self.config['channels'])
-        time_str = dt_wib.strftime('%d %B %Y pukul %H:%M WIB')
-        
-        await interaction.followup.send(f"Pengumuman dijadwalkan ke {total_channels} kanal pada **{time_str}**.", ephemeral=True)
-        
-        try:
-            await interaction.message.delete()
-        except Exception:
-            pass
+        await interaction.followup.send(f"Pengumuman dijadwalkan ke {len(self.config['channels'])} kanal pada **{dt_wib.strftime('%d %B %Y pukul %H:%M WIB')}**.", ephemeral=True)
+        try: await interaction.message.delete()
+        except: pass
 
     @discord.ui.button(label="Batal", style=discord.ButtonStyle.red, row=2)
     async def cancel_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        try:
-            await interaction.message.delete()
-        except Exception:
-            pass
+        try: await interaction.message.delete()
+        except: pass
         self.stop()
 
 class AnnouncementConfigView(discord.ui.View):
@@ -872,33 +678,14 @@ class AnnouncementConfigView(discord.ui.View):
                 super().__init__()
                 self.config = config
                 self.view = view
-                self.title_input = discord.ui.TextInput(
-                    label="Judul Embed", 
-                    default=config.get('title', ''), 
-                    required=False, 
-                    max_length=256
-                )
-                self.desc_input = discord.ui.TextInput(
-                    label="Deskripsi Embed", 
-                    style=discord.TextStyle.paragraph, 
-                    default=config.get('desc', ''), 
-                    required=False, 
-                    max_length=4000
-                )
+                self.title_input = discord.ui.TextInput(label="Judul Embed", default=config.get('title', ''), required=False, max_length=256)
+                self.desc_input = discord.ui.TextInput(label="Deskripsi Embed", style=discord.TextStyle.paragraph, default=config.get('desc', ''), required=False, max_length=4000)
                 self.add_item(self.title_input)
                 self.add_item(self.desc_input)
             
             async def on_submit(self, interaction: discord.Interaction):
-                if self.title_input.value:
-                    self.config['title'] = self.title_input.value
-                else:
-                    self.config['title'] = None
-                    
-                if self.desc_input.value:
-                    self.config['desc'] = self.desc_input.value
-                else:
-                    self.config['desc'] = None
-                    
+                self.config['title'] = self.title_input.value or None
+                self.config['desc'] = self.desc_input.value or None
                 await interaction.response.edit_message(embed=self.view.build_embed())
         
         await interaction.response.send_modal(TitleDescModal(self.config, self))
@@ -910,21 +697,11 @@ class AnnouncementConfigView(discord.ui.View):
                 super().__init__()
                 self.config = config
                 self.view = view
-                self.text_input = discord.ui.TextInput(
-                    label='Teks Pesan Biasa', 
-                    style=discord.TextStyle.paragraph, 
-                    default=config.get('content', ''), 
-                    required=False, 
-                    max_length=4000
-                )
+                self.text_input = discord.ui.TextInput(label='Teks Pesan Biasa', style=discord.TextStyle.paragraph, default=config.get('content', ''), required=False, max_length=4000)
                 self.add_item(self.text_input)
 
             async def on_submit(self, interaction: discord.Interaction):
-                if self.text_input.value:
-                    self.config['content'] = self.text_input.value
-                else:
-                    self.config['content'] = None
-                    
+                self.config['content'] = self.text_input.value or None
                 await interaction.response.edit_message(embed=self.view.build_embed())
         
         await interaction.response.send_modal(ContentModal(self.config, self))
@@ -936,20 +713,11 @@ class AnnouncementConfigView(discord.ui.View):
                 super().__init__()
                 self.config = config
                 self.view = view
-                self.url_input = discord.ui.TextInput(
-                    label='URL', 
-                    placeholder='https://...', 
-                    default=config.get('media_url', ''), 
-                    required=False
-                )
+                self.url_input = discord.ui.TextInput(label='URL', placeholder='https://...', default=config.get('media_url', ''), required=False)
                 self.add_item(self.url_input)
 
             async def on_submit(self, interaction: discord.Interaction):
-                if self.url_input.value:
-                    self.config['media_url'] = self.url_input.value
-                else:
-                    self.config['media_url'] = None
-                    
+                self.config['media_url'] = self.url_input.value or None
                 await interaction.response.edit_message(embed=self.view.build_embed())
 
         await interaction.response.send_modal(MediaUrlModal(self.config, self))
@@ -962,55 +730,27 @@ class AnnouncementConfigView(discord.ui.View):
     async def send_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.defer(ephemeral=True)
         embed = None
-        
-        has_title = self.config.get('title')
-        has_desc = self.config.get('desc')
-        has_color = self.config.get('color')
-        has_media = self.config.get('media_url')
-        
-        if has_title or has_desc or has_color or has_media:
+        if self.config.get('title') or self.config.get('desc') or self.config.get('color') or self.config.get('media_url'):
             try:
-                if self.config.get('color'):
-                    color = int(self.config['color'].replace('#', ''), 16)
-                else:
-                    color = 0x2b2d31
-                    
-                embed = discord.Embed(
-                    title=self.config.get('title'), 
-                    description=self.config.get('desc'), 
-                    color=color
-                )
-                
-                if self.config.get('media_url'):
-                    embed.set_image(url=self.config['media_url'])
+                color = int(self.config['color'].replace('#', ''), 16) if self.config.get('color') else 0x2b2d31
+                embed = discord.Embed(title=self.config.get('title'), description=self.config.get('desc'), color=color)
+                if self.config.get('media_url'): embed.set_image(url=self.config['media_url'])
             except (ValueError, TypeError):
-                await interaction.followup.send("Format warna tidak valid.", ephemeral=True)
-                return
+                return await interaction.followup.send("Format warna tidak valid.", ephemeral=True)
 
         try:
-            if embed:
-                msg = await self.channel.send(content=self.config.get('content'), embeds=[embed])
-            else:
-                msg = await self.channel.send(content=self.config.get('content'), embeds=[])
-                
-            cog_instance = self.bot.get_cog('RTMBroadcast')
-            cog_instance.save_config_to_file(self.channel.guild.id, self.channel.id, str(msg.id), self.config)
-            
+            msg = await self.channel.send(content=self.config.get('content'), embeds=[embed] if embed else [])
+            self.bot.get_cog('RTMBroadcast').save_config_to_file(self.channel.guild.id, self.channel.id, str(msg.id), self.config)
             await interaction.followup.send(f"Pengumuman terkirim ke {self.channel.mention}!", ephemeral=True)
-            
-            try:
-                await interaction.message.delete()
-            except Exception:
-                pass
+            try: await interaction.message.delete()
+            except: pass
         except Exception as e:
             await interaction.followup.send(f"Gagal mengirim: {e}", ephemeral=True)
 
     @discord.ui.button(label="Batalkan", style=discord.ButtonStyle.red, row=1)
     async def cancel_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        try:
-            await interaction.message.delete()
-        except Exception:
-            pass
+        try: await interaction.message.delete()
+        except: pass
         self.stop()
 
 class RTMBroadcast(commands.Cog):
@@ -1019,19 +759,20 @@ class RTMBroadcast(commands.Cog):
         self.button_actions = {}
         self.active_tickets = {}
         self.data_dir = 'data'
-        self.conf_file = os.path.join(self.data_dir, 'broadcast_configs.json')
-        self.sch_file = os.path.join(self.data_dir, 'broadcast_schedules.json')
+        self.config_file = os.path.join(self.data_dir, 'webhook.json')
+        self.backup_file = os.path.join(self.data_dir, 'configbackup.json')
+        self.scheduled_announcements_file = os.path.join(self.data_dir, 'scheduled_announcements.json')
         self.destruct_file = os.path.join(self.data_dir, 'broadcast_destructs.json')
-        self.single_role_file = os.path.join(self.data_dir, 'single_role_messages.json')
-        self.wib = pytz.timezone('Asia/Jakarta')
-        self.single_role_messages = self.load_json(self.single_role_file)
+        self.wib_timezone = pytz.timezone('Asia/Jakarta')
         
-        self.loop_sch.start()
         self.loop_destruct.start()
+        self.loop_sch.start()
+        self.single_role_file = os.path.join(self.data_dir, 'single_role_messages.json')
+        self.single_role_messages = self.load_single_role_messages()
 
     def cog_unload(self):
-        self.loop_sch.cancel()
         self.loop_destruct.cancel()
+        self.loop_sch.cancel()
 
     @commands.Cog.listener()
     async def on_ready(self):
@@ -1040,7 +781,6 @@ class RTMBroadcast(commands.Cog):
     async def get_target_channel(self, ctx, identifier):
         if not identifier:
             return ctx.channel
-            
         try:
             channel_id = int(re.sub(r'\D', '', str(identifier)))
             channel = self.bot.get_channel(channel_id)
@@ -1051,18 +791,14 @@ class RTMBroadcast(commands.Cog):
             return None
 
     def load_json(self, path):
-        if not os.path.exists(path):
-            return {}
+        if not os.path.exists(path): return {}
         try:
-            with open(path, 'r', encoding='utf-8') as f:
-                return json.load(f)
-        except Exception:
-            return {}
+            with open(path, 'r', encoding='utf-8') as f: return json.load(f)
+        except: return {}
 
     def save_json(self, path, data):
         os.makedirs(self.data_dir, exist_ok=True)
-        with open(path, 'w', encoding='utf-8') as f:
-            json.dump(data, f, indent=4)
+        with open(path, 'w', encoding='utf-8') as f: json.dump(data, f, indent=4)
 
     def register_destruct(self, g_id, c_id, m_id, mins):
         data = self.load_json(self.destruct_file)
@@ -1072,67 +808,26 @@ class RTMBroadcast(commands.Cog):
 
     def build_payload(self, config, bot):
         embed = None
-        
-        has_title = config.get('title')
-        has_desc = config.get('desc')
-        has_color = config.get('color')
-        has_media = config.get('media_url')
-        
-        if has_title or has_desc or has_color or has_media:
-            if config.get('color'):
-                color = int(config.get('color', '#2b2d31').replace('#', ''), 16)
-            else:
-                color = 0x2b2d31
-                
-            embed = discord.Embed(
-                title=config.get('title'), 
-                description=config.get('desc'), 
-                color=color
-            )
-            
-            if config.get('media_url'):
-                embed.set_image(url=config['media_url'])
+        if config.get('title') or config.get('desc') or config.get('color') or config.get('media_url'):
+            color = int(config.get('color', '#2b2d31').replace('#', ''), 16) if config.get('color') else 0x2b2d31
+            embed = discord.Embed(title=config.get('title'), description=config.get('desc'), color=color)
+            if config.get('media_url'): embed.set_image(url=config['media_url'])
 
-        all_interactive = config.get('buttons', []) + config.get('dropdowns', [])
-        for obj in all_interactive:
+        for obj in config.get('buttons', []) + config.get('dropdowns', []):
             if obj.get('action') != 'url' and not obj.get('id'):
                 obj['id'] = str(uuid.uuid4())
             if obj.get('id'):
-                self.button_actions[obj['id']] = {
-                    'action': obj.get('action'), 
-                    'value': obj.get('value')
-                }
+                self.button_actions[obj['id']] = {'action': obj.get('action'), 'value': obj.get('value')}
 
-        if config.get('buttons') or config.get('dropdowns'):
-            view = InteractiveView(config)
-        else:
-            view = None
-
-        if config.get('author'):
-            username = config.get('author')
-        else:
-            username = bot.user.name
-            
-        if config.get('avatar'):
-            avatar_url = config.get('avatar')
-        else:
-            avatar_url = bot.user.display_avatar.url
-
-        if embed:
-            embed_list = [embed]
-        else:
-            embed_list = []
+        view = InteractiveView(config) if (config.get('buttons') or config.get('dropdowns')) else None
 
         payload = {
             'content': config.get('content'),
-            'username': username,
-            'avatar_url': avatar_url,
-            'embeds': embed_list
+            'username': config.get('author') or bot.user.name,
+            'avatar_url': config.get('avatar') or bot.user.display_avatar.url,
+            'embeds': [embed] if embed else []
         }
-        
-        if view:
-            payload['view'] = view
-            
+        if view: payload['view'] = view
         return payload, view
 
     @tasks.loop(minutes=1)
@@ -1140,75 +835,49 @@ class RTMBroadcast(commands.Cog):
         data = self.load_json(self.destruct_file)
         now = datetime.utcnow()
         to_del = []
-        
         for m_id, info in data.items():
-            dt_obj = datetime.fromisoformat(info['time'])
-            if now >= dt_obj:
+            if now >= datetime.fromisoformat(info['time']):
                 try:
-                    ch = self.bot.get_channel(info['c'])
-                    if not ch:
-                        ch = await self.bot.fetch_channel(info['c'])
+                    ch = self.bot.get_channel(info['c']) or await self.bot.fetch_channel(info['c'])
                     msg = await ch.fetch_message(int(m_id))
                     await msg.delete()
-                except Exception:
-                    pass
+                except: pass
                 to_del.append(m_id)
-                
         if to_del:
-            for d in to_del:
-                del data[d]
+            for d in to_del: del data[d]
             self.save_json(self.destruct_file, data)
 
     @tasks.loop(minutes=1)
     async def loop_sch(self):
-        data = self.load_json(self.sch_file)
-        now = datetime.now(self.wib)
-        to_del = []
-        
-        for jid, cfg in data.items():
-            sch_dt = datetime.fromisoformat(cfg['scheduled_time']).astimezone(self.wib)
-            if now >= sch_dt:
-                payload, view = self.build_payload(cfg, self.bot)
-                
-                for cid in cfg.get('channels', []):
-                    try:
-                        ch = self.bot.get_channel(int(cid))
-                        if not ch:
-                            ch = await self.bot.fetch_channel(int(cid))
-                        if not ch:
-                            continue
-                            
-                        webhook = discord.utils.get(await ch.webhooks(), name="RTMBroadcast")
-                        if not webhook:
-                            webhook = await ch.create_webhook(name="RTMBroadcast")
-                            
-                        sent = await webhook.send(wait=True, **payload)
-                        if sent and cfg.get('destruct'):
-                            self.register_destruct(ch.guild.id, ch.id, sent.id, cfg['destruct'])
-                    except Exception:
-                        pass
-                
-                rec = cfg.get('recurring')
-                if rec == 'daily':
-                    cfg['scheduled_time'] = (sch_dt + timedelta(days=1)).isoformat()
-                elif rec == 'weekly':
-                    cfg['scheduled_time'] = (sch_dt + timedelta(days=7)).isoformat()
-                else:
-                    to_del.append(jid)
-        
-        needs_save = False
-        if to_del:
-            for d in to_del:
-                del data[d]
-            needs_save = True
-            
-        for c in data.values():
-            if c.get('recurring') in ['daily', 'weekly']:
-                needs_save = True
-                break
-                
-        if needs_save:
-            self.save_json(self.sch_file, data)
+        schedules = self.load_scheduled_announcements()
+        now_wib = datetime.now(self.wib_timezone)
+        tasks_to_remove = []
+
+        for job_id, job_data in list(schedules.items()):
+            try:
+                sch_wib = datetime.fromisoformat(job_data['scheduled_time']).astimezone(self.wib_timezone)
+                if now_wib >= sch_wib:
+                    payload, _ = self.build_payload(job_data, self.bot)
+                    
+                    for cid in job_data.get('channels', []):
+                        try:
+                            ch = self.bot.get_channel(int(cid)) or await self.bot.fetch_channel(int(cid))
+                            if not ch: continue
+                            webhook = discord.utils.get(await ch.webhooks(), name="RTMBroadcast") or await ch.create_webhook(name="RTMBroadcast")
+                            sent = await webhook.send(wait=True, **payload)
+                            if sent and job_data.get('destruct'): self.register_destruct(ch.guild.id, ch.id, sent.id, job_data['destruct'])
+                        except: pass
+                    
+                    rec = job_data.get('recurring')
+                    if rec == 'daily': job_data['scheduled_time'] = (sch_wib + timedelta(days=1)).isoformat()
+                    elif rec == 'weekly': job_data['scheduled_time'] = (sch_wib + timedelta(days=7)).isoformat()
+                    else: tasks_to_remove.append(job_id)
+            except:
+                tasks_to_remove.append(job_id)
+
+        if tasks_to_remove or any(c.get('recurring') in ['daily','weekly'] for c in schedules.values()):
+            for d in tasks_to_remove: schedules.pop(d, None)
+            self.save_scheduled_announcements(schedules)
 
     @loop_destruct.before_loop
     @loop_sch.before_loop
@@ -1216,134 +885,93 @@ class RTMBroadcast(commands.Cog):
         await self.bot.wait_until_ready()
 
     def load_scheduled_announcements(self):
-        if not os.path.exists(self.sch_file):
-            return {}
+        if not os.path.exists(self.scheduled_announcements_file): return {}
         try:
-            with open(self.sch_file, 'r', encoding='utf-8') as f:
-                return json.load(f)
-        except Exception:
-            return {}
+            with open(self.scheduled_announcements_file, 'r', encoding='utf-8') as f: return json.load(f)
+        except: return {}
 
     def save_scheduled_announcements(self, data):
         os.makedirs(self.data_dir, exist_ok=True)
-        with open(self.sch_file, 'w', encoding='utf-8') as f:
-            json.dump(data, f, indent=4)
+        with open(self.scheduled_announcements_file, 'w', encoding='utf-8') as f: json.dump(data, f, indent=4)
 
     def _load_all_button_actions(self):
-        data = self.load_json(self.conf_file)
-        for g in data.values():
-            for c in g.values():
-                for conf in c.values():
-                    all_interactive = conf.get('buttons', []) + conf.get('dropdowns', [])
-                    for btn in all_interactive:
-                        if btn.get('id'):
-                            self.button_actions[btn['id']] = {
-                                'action': btn.get('action'), 
-                                'value': btn.get('value')
-                            }
+        if not os.path.exists(self.config_file): return
+        try:
+            with open(self.config_file, 'r', encoding='utf-8') as f: all_configs = json.load(f)
+            for g in all_configs.values():
+                for c in g.values():
+                    for conf in c.values():
+                        for btn in conf.get('buttons', []) + conf.get('dropdowns', []):
+                            if btn.get('id'):
+                                self.button_actions[btn['id']] = {'action': btn.get('action'), 'value': btn.get('value')}
+        except: pass
 
     def save_config_to_file(self, guild_id, channel_id, config_name, config_data):
-        data = self.load_json(self.conf_file)
-        g_id = str(guild_id)
-        c_id = str(channel_id)
+        os.makedirs(self.data_dir, exist_ok=True)
+        all_configs = {}
+        if os.path.exists(self.config_file):
+            try:
+                with open(self.config_file, 'r', encoding='utf-8') as f: all_configs = json.load(f)
+            except: pass
         
-        if g_id not in data:
-            data[g_id] = {}
-        if c_id not in data[g_id]:
-            data[g_id][c_id] = {}
-            
-        data[g_id][c_id][config_name] = config_data
-        self.save_json(self.conf_file, data)
+        g_id, c_id = str(guild_id), str(channel_id)
+        if g_id not in all_configs: all_configs[g_id] = {}
+        if c_id not in all_configs[g_id]: all_configs[g_id][c_id] = {}
+        all_configs[g_id][c_id][config_name] = config_data
+        
+        with open(self.config_file, 'w', encoding='utf-8') as f: json.dump(all_configs, f, indent=4)
 
     def load_single_role_messages(self):
-        if not os.path.exists(self.single_role_file):
-            return {} 
+        if not os.path.exists(self.single_role_file): return {} 
         try:
-            with open(self.single_role_file, 'r', encoding='utf-8') as f:
-                return json.load(f)
-        except Exception:
-            return {}
+            with open(self.single_role_file, 'r', encoding='utf-8') as f: return json.load(f)
+        except: return {}
 
     def save_single_role_messages(self):
         os.makedirs(self.data_dir, exist_ok=True)
-        with open(self.single_role_file, 'w', encoding='utf-8') as f:
-            json.dump(self.single_role_messages, f, indent=4)
+        with open(self.single_role_file, 'w', encoding='utf-8') as f: json.dump(self.single_role_messages, f, indent=4)
 
     @commands.command(aliases=['swh'])
     @commands.has_permissions(manage_webhooks=True)
     async def send_webhook(self, ctx, *channels: str):
-        try:
-            await ctx.message.delete()
-        except Exception:
-            pass
-            
+        try: await ctx.message.delete()
+        except: pass
         targets = []
         for c in channels:
             cid = re.sub(r'\D', '', c)
             if cid:
-                ch = self.bot.get_channel(int(cid))
-                if not ch:
-                    ch = await self.bot.fetch_channel(int(cid))
-                if ch:
-                    targets.append(ch)
-                    
-        if not targets:
-            targets = [ctx.channel]
-            
+                ch = self.bot.get_channel(int(cid)) or await self.bot.fetch_channel(int(cid))
+                if ch: targets.append(ch)
+        if not targets: targets = [ctx.channel]
         view = WebhookConfigView(self.bot, targets)
         await ctx.send(embed=view.build_embed(), view=view)
 
     @commands.command(aliases=['eb'])
     @commands.has_permissions(manage_messages=True)
     async def edit_broadcast(self, ctx, msg_id: int, channel_id: str = None):
-        try:
-            await ctx.message.delete()
-        except Exception:
-            pass
-            
-        if channel_id:
-            cid = int(re.sub(r'\D', '', channel_id))
-        else:
-            cid = ctx.channel.id
-            
-        ch = self.bot.get_channel(cid)
-        if not ch:
-            ch = await self.bot.fetch_channel(cid)
-            
+        try: await ctx.message.delete()
+        except: pass
+        cid = int(re.sub(r'\D', '', channel_id)) if channel_id else ctx.channel.id
+        ch = self.bot.get_channel(cid) or await self.bot.fetch_channel(cid)
         try:
             msg = await ch.fetch_message(msg_id)
             cfg = {'content': msg.content}
             if msg.embeds:
                 e = msg.embeds[0]
-                cfg['title'] = e.title
-                cfg['desc'] = e.description
-                if e.color:
-                    cfg['color'] = f"#{e.color.value:06x}"
-                else:
-                    cfg['color'] = None
-                if e.image:
-                    cfg['media_url'] = e.image.url
-                else:
-                    cfg['media_url'] = None
-                    
+                cfg.update({'title': e.title, 'desc': e.description, 'color': f"#{e.color.value:06x}" if e.color else None, 'media_url': e.image.url if e.image else None})
             view = WebhookConfigView(self.bot, [ch], cfg, msg_id)
             await ctx.send(embed=view.build_embed(), view=view)
-        except Exception:
+        except:
             await ctx.send("Pesan gagal diambil.", ephemeral=True, delete_after=5)
 
     @commands.command(name='announcement')
     @commands.has_permissions(manage_messages=True)
     async def announcement(self, ctx, channel_id: str = None):
-        try:
-            await ctx.message.delete()
-        except Exception:
-            pass
-            
+        try: await ctx.message.delete()
+        except: pass
         target = await self.get_target_channel(ctx, channel_id)
         if not target or not isinstance(target, discord.TextChannel):
-            await ctx.send("Kanal tidak valid.", ephemeral=True, delete_after=5)
-            return
-            
+            return await ctx.send("Kanal tidak valid.", ephemeral=True, delete_after=5)
         view = AnnouncementConfigView(self.bot, target)
         await ctx.send(embed=view.build_embed(), view=view)
     
@@ -1352,8 +980,7 @@ class RTMBroadcast(commands.Cog):
     async def send_media(self, ctx, channel_id: str = None):
         target = await self.get_target_channel(ctx, channel_id)
         if not target:
-            await ctx.send("Kanal tujuan tidak valid.", delete_after=5)
-            return
+            return await ctx.send("Kanal tujuan tidak valid.", delete_after=5)
 
         source_msg = None
 
@@ -1363,11 +990,9 @@ class RTMBroadcast(commands.Cog):
             try:
                 source_msg = await ctx.channel.fetch_message(ctx.message.reference.message_id)
                 if not source_msg.attachments:
-                    await ctx.send("Pesan yang dibalas tidak memiliki media.", delete_after=5)
-                    return
+                    return await ctx.send("Pesan yang dibalas tidak memiliki media.", delete_after=5)
             except Exception:
-                await ctx.send("Pesan yang dibalas tidak ditemukan.", delete_after=5)
-                return
+                return await ctx.send("Pesan yang dibalas tidak ditemukan.", delete_after=5)
         else:
             prompt_msg = await ctx.send(f"Kirim foto/video kamu sekarang di sini untuk diteruskan ke {target.mention}.\nWaktu tunggumu **3 menit** (biar aman pas upload).\nKetik `batal` buat cancel.")
             
@@ -1377,34 +1002,24 @@ class RTMBroadcast(commands.Cog):
             try:
                 msg = await self.bot.wait_for('message', timeout=180.0, check=check)
                 if msg.content.strip().lower() == 'batal':
-                    try:
-                        await prompt_msg.delete()
-                        await msg.delete()
-                    except Exception:
-                        pass
-                    await ctx.send("Operasi dibatalkan.", delete_after=5)
-                    return
+                    try: await prompt_msg.delete()
+                    except: pass
+                    try: await msg.delete()
+                    except: pass
+                    return await ctx.send("Operasi dibatalkan.", delete_after=5)
                 
                 if not msg.attachments:
-                    try:
-                        await prompt_msg.delete()
-                    except Exception:
-                        pass
-                    await ctx.send("Gagal: Pesanmu barusan gak ada file/media-nya.", delete_after=5)
-                    return
+                    try: await prompt_msg.delete()
+                    except: pass
+                    return await ctx.send("Gagal: Pesanmu barusan gak ada file/media-nya.", delete_after=5)
                 
                 source_msg = msg
-                try:
-                    await prompt_msg.delete()
-                except Exception:
-                    pass
+                try: await prompt_msg.delete()
+                except: pass
             except asyncio.TimeoutError:
-                try:
-                    await prompt_msg.delete()
-                except Exception:
-                    pass
-                await ctx.send("Waktu habis. Proses dibatalkan otomatis.", delete_after=5)
-                return
+                try: await prompt_msg.delete()
+                except: pass
+                return await ctx.send("Waktu habis. Proses dibatalkan otomatis.", delete_after=5)
 
         processing_msg = await ctx.send("Sedang memproses dan mengirim media...")
         try:
@@ -1424,52 +1039,20 @@ class RTMBroadcast(commands.Cog):
             await target.send(content=content_to_send, files=files)
             await processing_msg.edit(content=f"✅ Media berhasil terkirim ke {target.mention}!", delete_after=5)
             
-            try:
-                await ctx.message.delete()
-            except Exception:
-                pass
+            try: await ctx.message.delete()
+            except: pass
             if source_msg.id != ctx.message.id:
-                try:
-                    await source_msg.delete()
-                except Exception:
-                    pass
+                try: await source_msg.delete()
+                except: pass
         except Exception as e:
             await processing_msg.edit(content=f"❌ Gagal mengirim media: {e}", delete_after=10)
-
-    @commands.command(name='clone_msg')
-    @commands.has_permissions(manage_messages=True)
-    async def clone_message(self, ctx, message_id: int, channel_id: str = None):
-        target = await self.get_target_channel(ctx, channel_id)
-        if not target:
-            await ctx.send("Kanal tujuan tidak valid.", delete_after=5)
-            return
-        
-        try:
-            source_msg = await ctx.channel.fetch_message(message_id)
-            files = []
-            for att in source_msg.attachments:
-                files.append(await att.to_file())
-                
-            embeds = source_msg.embeds
-            
-            await target.send(content=source_msg.content, embeds=embeds, files=files)
-            await ctx.send(f"✅ Pesan sukses di-kloning ke {target.mention}!", delete_after=5)
-            try:
-                await ctx.message.delete()
-            except Exception:
-                pass
-        except Exception as e:
-            await ctx.send(f"❌ Gagal kloning pesan: {e}", delete_after=10)
-
+    
     @commands.command(name='schedule')
     @commands.has_permissions(manage_messages=True)
     async def schedule(self, ctx):
-        try:
-            await ctx.message.delete()
-        except Exception:
-            pass
-            
-        view = ScheduleView(self.bot)
+        try: await ctx.message.delete()
+        except: pass
+        view = ScheduleConfigView(self.bot)
         await ctx.send(embed=view.build_embed(), view=view)
 
     @commands.command(name='list_schedules')
@@ -1477,36 +1060,16 @@ class RTMBroadcast(commands.Cog):
     async def list_schedules(self, ctx):
         schedules = self.load_scheduled_announcements()
         if not schedules:
-            await ctx.send("Tidak ada pengumuman berjadwal.", ephemeral=True, delete_after=10)
-            return
-            
+            return await ctx.send("Tidak ada pengumuman berjadwal.", ephemeral=True, delete_after=10)
         embed = discord.Embed(title="Pengumuman Berjadwal", color=discord.Color.blue())
         for job_id, data in schedules.items():
             try:
                 dt = datetime.fromisoformat(data['scheduled_time']).astimezone(self.wib_timezone)
-                ch_id = int(data.get('channels', [data.get('channel_id')])[0])
-                ch = self.bot.get_channel(ch_id)
-                
-                if ch:
-                    ch_str = ch.mention
-                else:
-                    ch_str = f"ID: {ch_id}"
-                    
-                if data.get('content'):
-                    c_text = data.get('content')
-                elif data.get('title'):
-                    c_text = data.get('title')
-                else:
-                    c_text = "Tanpa teks"
-                    
-                embed.add_field(
-                    name=f"ID: {job_id[:8]}", 
-                    value=f"**Waktu:** `{dt.strftime('%H:%M WIB, %d-%m-%Y')}`\n**Kanal:** {ch_str}\n**Info:** `{truncate_text(c_text, 60)}`", 
-                    inline=False
-                )
-            except Exception:
-                pass
-                
+                ch = self.bot.get_channel(int(data.get('channels', [data.get('channel_id')])[0]))
+                ch_str = ch.mention if ch else f"ID"
+                c_text = data.get('content') or data.get('title') or "Tanpa teks"
+                embed.add_field(name=f"ID: {job_id[:8]}", value=f"**Waktu:** `{dt.strftime('%H:%M WIB, %d-%m-%Y')}`\n**Kanal:** {ch_str}\n**Info:** `{truncate_text(c_text, 60)}`", inline=False)
+            except: pass
         await ctx.send(embed=embed, ephemeral=True)
 
     @commands.command(name='load_config')
@@ -1514,12 +1077,10 @@ class RTMBroadcast(commands.Cog):
     async def load_config(self, ctx, config_name: str, channel_id: str = None):
         target = await self.get_target_channel(ctx, channel_id)
         if not target:
-            await ctx.send("Kanal tidak valid.", ephemeral=True)
-            return
-            
+            return await ctx.send("Kanal tidak valid.", ephemeral=True)
         try:
-            data = self.load_json(self.conf_file)
-            config_data = data[str(target.guild.id)][str(target.id)][config_name]
+            with open(self.config_file, 'r', encoding='utf-8') as f: all_configs = json.load(f)
+            config_data = all_configs[str(target.guild.id)][str(target.id)][config_name]
             view = WebhookConfigView(self.bot, [target], initial_config=config_data)
             await ctx.send(embed=view.build_embed(), view=view)
         except Exception:
@@ -1530,32 +1091,22 @@ class RTMBroadcast(commands.Cog):
     async def backup_config(self, ctx, message_id: int):
         try:
             msg = await ctx.channel.fetch_message(message_id)
-            data = self.load_json(self.conf_file)
-            config_data = data[str(ctx.guild.id)][str(ctx.channel.id)][str(msg.id)]
+            with open(self.config_file, 'r', encoding='utf-8') as f: all_configs = json.load(f)
+            config_data = all_configs[str(ctx.guild.id)][str(ctx.channel.id)][str(msg.id)]
             
             os.makedirs(self.data_dir, exist_ok=True)
             backup_configs = {}
             if os.path.exists(self.backup_file):
                 try:
-                    with open(self.backup_file, 'r', encoding='utf-8') as f:
-                        backup_configs = json.load(f)
-                except Exception:
-                    pass
+                    with open(self.backup_file, 'r', encoding='utf-8') as f: backup_configs = json.load(f)
+                except: pass
             
-            g_id = str(ctx.guild.id)
-            c_id = str(ctx.channel.id)
-            m_id = str(msg.id)
-            
-            if g_id not in backup_configs:
-                backup_configs[g_id] = {}
-            if c_id not in backup_configs[g_id]:
-                backup_configs[g_id][c_id] = {}
-                
+            g_id, c_id, m_id = str(ctx.guild.id), str(ctx.channel.id), str(msg.id)
+            if g_id not in backup_configs: backup_configs[g_id] = {}
+            if c_id not in backup_configs[g_id]: backup_configs[g_id][c_id] = {}
             backup_configs[g_id][c_id][m_id] = config_data
             
-            with open(self.backup_file, 'w', encoding='utf-8') as f:
-                json.dump(backup_configs, f, indent=4)
-                
+            with open(self.backup_file, 'w', encoding='utf-8') as f: json.dump(backup_configs, f, indent=4)
             await ctx.send(f"Pesan `{msg.id}` dicadangkan.", ephemeral=True)
         except Exception as e:
             await ctx.send(f"Gagal mencadangkan: {e}", ephemeral=True)
@@ -1563,229 +1114,150 @@ class RTMBroadcast(commands.Cog):
     @commands.command(name='list_configs')
     @commands.has_permissions(manage_webhooks=True)
     async def list_configs(self, ctx):
-        if not ctx.guild:
-            return
-            
+        if not ctx.guild: return
         try:
-            data = self.load_json(self.conf_file)
-            g_configs = data.get(str(ctx.guild.id))
-            if not g_configs:
-                raise ValueError
-                
+            with open(self.config_file, 'r', encoding='utf-8') as f: all_configs = json.load(f)
+            g_configs = all_configs.get(str(ctx.guild.id))
+            if not g_configs: raise ValueError
             embed = discord.Embed(title=f"Konfigurasi Tersimpan", color=discord.Color.blue())
             for c_id, configs in g_configs.items():
                 ch = ctx.guild.get_channel(int(c_id))
-                if ch:
-                    ch_name = ch.name
-                else:
-                    ch_name = str(c_id)
-                    
+                ch_name = ch.name if ch else str(c_id)
                 c_list = "\n".join([f"`{n}`" for n in configs.keys()])
-                if c_list:
-                    embed.add_field(name=f"#{ch_name}", value=c_list, inline=False)
-                    
+                if c_list: embed.add_field(name=f"#{ch_name}", value=c_list, inline=False)
             await ctx.send(embed=embed, ephemeral=True)
-        except Exception:
+        except:
             await ctx.send("Tidak ada konfigurasi tersimpan.", ephemeral=True)
 
     @commands.command(name='set_single_role')
     @commands.has_permissions(manage_roles=True)
     async def set_single_role(self, ctx, message_id: int, channel_id: str = None):
-        try:
-            await ctx.message.delete()
-        except Exception:
-            pass
-            
+        try: await ctx.message.delete()
+        except: pass
         target = await self.get_target_channel(ctx, channel_id)
-        if not target:
-            await ctx.send("Kanal tidak valid.", ephemeral=True)
-            return
-            
+        if not target: return await ctx.send("Kanal tidak valid.", ephemeral=True)
         try:
             msg = await target.fetch_message(message_id)
-            g_id = str(target.guild.id)
-            m_id = str(msg.id)
-            
-            if g_id not in self.single_role_messages:
-                self.single_role_messages[g_id] = []
-                
+            g_id, m_id = str(target.guild.id), str(msg.id)
+            if g_id not in self.single_role_messages: self.single_role_messages[g_id] = []
             if m_id in self.single_role_messages[g_id]:
                 self.single_role_messages[g_id].remove(m_id)
                 status = "dihapus"
             else:
                 self.single_role_messages[g_id].append(m_id)
                 status = "diaktifkan"
-                
-            self.save_json(self.single_role_file, self.single_role_messages)
+            self.save_single_role_messages()
             await ctx.send(f"Single role pesan `{m_id}` {status}.", ephemeral=True)
         except Exception:
             await ctx.send("Pesan tidak ditemukan atau bot tidak memiliki akses.", ephemeral=True)
 
     @commands.Cog.listener()
     async def on_interaction(self, interaction: discord.Interaction):
-        if interaction.type != discord.InteractionType.component:
-            return
-            
+        if interaction.type != discord.InteractionType.component: return
         cid = interaction.data.get('custom_id')
         data = self.button_actions.get(cid)
         if not data and interaction.data.get('values'):
             data = self.button_actions.get(interaction.data['values'][0])
-            
-        if not data:
-            return
+        if not data: return
         
-        action = data.get('action')
-        value = data.get('value')
+        action, value = data.get('action'), data.get('value')
         
         if action == 'role':
             try:
-                r = interaction.guild.get_role(int(value))
-                if not r:
-                    await interaction.response.send_message("Role hilang.", ephemeral=True)
-                    return
-                    
-                if r in interaction.user.roles:
-                    await interaction.response.send_message(f"Sudah punya **{r.name}**.", ephemeral=True)
-                    return
+                role_to_add = interaction.guild.get_role(int(value))
+                if not role_to_add: return await interaction.response.send_message("Role hilang.", ephemeral=True)
+                if role_to_add in interaction.user.roles:
+                    return await interaction.response.send_message(f"Sudah memiliki role **{role_to_add.name}**.", ephemeral=True)
                 
-                is_single = False
-                if str(interaction.guild.id) in self.single_role_messages:
-                    if str(interaction.message.id) in self.single_role_messages[str(interaction.guild.id)]:
-                        is_single = True
-                        
-                to_rm = []
+                is_single = str(interaction.guild.id) in self.single_role_messages and str(interaction.message.id) in self.single_role_messages[str(interaction.guild.id)]
+                to_remove = []
                 if is_single:
-                    msg_r_ids = set()
+                    msg_role_ids = set()
                     for comp in interaction.message.components:
                         for child in comp.children:
                             btn_data = self.button_actions.get(child.custom_id)
                             if btn_data and btn_data.get('action') == 'role':
-                                try:
-                                    msg_r_ids.add(int(btn_data.get('value')))
-                                except Exception:
-                                    pass
-                                    
-                    for user_role in interaction.user.roles:
-                        if user_role.id in msg_r_ids and user_role.id != r.id:
-                            to_rm.append(user_role)
+                                try: msg_role_ids.add(int(btn_data.get('value')))
+                                except: pass
+                    for r in interaction.user.roles:
+                        if r.id in msg_role_ids and r.id != role_to_add.id:
+                            to_remove.append(r)
                 
-                if to_rm:
-                    await interaction.user.remove_roles(*to_rm)
-                    
-                await interaction.user.add_roles(r)
-                await interaction.response.send_message(f"Role **{r.name}** ditambahkan!", ephemeral=True)
+                if to_remove: await interaction.user.remove_roles(*to_remove)
+                await interaction.user.add_roles(role_to_add)
+                await interaction.response.send_message(f"Role **{role_to_add.name}** ditambahkan!", ephemeral=True)
             except Exception as e:
-                await interaction.response.send_message(f"Error set role: {e}", ephemeral=True)
-            
+                await interaction.response.send_message(f"Error: {e}", ephemeral=True)
+                
         elif action == 'ticket':
-            if isinstance(value, dict):
-                cfg = value
-            else:
-                cfg = {'category_id': value, 'allowed_roles': [], 'blocked_roles': []}
-                
-            if cfg.get('category_id'):
-                cat_id = int(cfg.get('category_id'))
-            else:
-                cat_id = None
-                
-            allowed = []
-            for r in cfg.get('allowed_roles', []):
-                allowed.append(int(r))
-                
-            blocked = []
-            for r in cfg.get('blocked_roles', []):
-                blocked.append(int(r))
-                
-            u_roles = []
-            for r in interaction.user.roles:
-                u_roles.append(r.id)
+            cfg = value if isinstance(value, dict) else {'category_id': value, 'allowed_roles': [], 'blocked_roles': []}
+            cat_id = int(cfg.get('category_id')) if cfg.get('category_id') else None
+            allowed = [int(r) for r in cfg.get('allowed_roles', [])]
+            blocked = [int(r) for r in cfg.get('blocked_roles', [])]
+            u_roles = [r.id for r in interaction.user.roles]
 
-            for r in u_roles:
-                if r in blocked:
-                    await interaction.response.send_message("Akses ditolak.", ephemeral=True)
-                    return
-                    
-            if allowed:
-                has_allowed = False
-                for r in u_roles:
-                    if r in allowed:
-                        has_allowed = True
-                        break
-                if not has_allowed:
-                    await interaction.response.send_message("Akses ditolak.", ephemeral=True)
-                    return
-                    
-            if interaction.user.id in self.active_tickets:
-                await interaction.response.send_message("Tiket udah aktif.", ephemeral=True)
-                return
+            if any(r in blocked for r in u_roles): return await interaction.response.send_message("Akses ditolak.", ephemeral=True)
+            if allowed and not any(r in allowed for r in u_roles): return await interaction.response.send_message("Akses ditolak.", ephemeral=True)
+            if interaction.user.id in self.active_tickets: return await interaction.response.send_message("Tiket aktif sudah ada.", ephemeral=True)
 
             await interaction.response.defer(ephemeral=True)
-            
-            if cat_id:
-                cat = interaction.guild.get_channel(cat_id)
-            else:
-                cat = None
-                
-            r_vip = interaction.guild.get_role(1264935423184998422)
-            
+            category = interaction.guild.get_channel(cat_id) if cat_id else None
+            specific_role = interaction.guild.get_role(1264935423184998422)
+
             ow = {
                 interaction.guild.default_role: discord.PermissionOverwrite(view_channel=False),
                 interaction.user: discord.PermissionOverwrite(view_channel=True, send_messages=True)
             }
-            if r_vip:
-                ow[r_vip] = discord.PermissionOverwrite(view_channel=True, send_messages=True)
+            if specific_role: ow[specific_role] = discord.PermissionOverwrite(view_channel=True, send_messages=True)
 
-            tc = await interaction.guild.create_text_channel(f"ticket-{interaction.user.name.lower()}", overwrites=ow, category=cat)
+            tc = await interaction.guild.create_text_channel(f"ticket-{interaction.user.name.lower()}", overwrites=ow, category=category)
             cid = str(uuid.uuid4())
             self.button_actions[cid] = {'action': 'close_ticket', 'value': str(interaction.user.id)}
             view = discord.ui.View(timeout=None)
             view.add_item(discord.ui.Button(label="Tutup Tiket", style=discord.ButtonStyle.red, custom_id=cid))
-            
-            if r_vip:
-                mention_text = r_vip.mention
-            else:
-                mention_text = ""
-                
-            await tc.send(f"Tiket dari {interaction.user.mention} {mention_text}", view=view)
-            await interaction.followup.send(f"Tiket dibuka: {tc.mention}", ephemeral=True)
+            m_str = specific_role.mention if specific_role else ""
+            await tc.send(f"Tiket dari {interaction.user.mention} {m_str}", view=view)
+            await interaction.followup.send(f"Tiket: {tc.mention}", ephemeral=True)
             self.active_tickets[interaction.user.id] = tc.id
+            self.bot.loop.create_task(self.delete_ticket_after_delay(tc, interaction.user.id))
 
         elif action == 'close_ticket':
             await interaction.response.defer()
             uid = int(value)
-            if uid in self.active_tickets:
-                del self.active_tickets[uid]
-            try:
-                await interaction.channel.delete()
-            except Exception:
-                pass
+            if uid in self.active_tickets: del self.active_tickets[uid]
+            try: await interaction.channel.delete()
+            except: pass
             
         elif action == 'channel':
             try:
                 tc = interaction.guild.get_channel(int(value))
-                await tc.set_permissions(interaction.user, view_channel=True)
-                await interaction.response.send_message(f"Akses ke {tc.mention} dibuka!", ephemeral=True)
-            except Exception:
+                if tc:
+                    await tc.set_permissions(interaction.user, view_channel=True)
+                    await interaction.response.send_message(f"Akses ke {tc.mention} dibuka!", ephemeral=True)
+            except:
                 await interaction.response.send_message("Gagal akses kanal.", ephemeral=True)
 
         elif action == 'translate':
             await interaction.response.defer(ephemeral=True)
-            
-            if interaction.message.content:
-                txt = interaction.message.content
-            else:
-                txt = ""
-                
-            if interaction.message.embeds:
-                if interaction.message.embeds[0].description:
-                    txt += "\n" + interaction.message.embeds[0].description
-                    
+            txt = interaction.message.content or ""
+            if interaction.message.embeds: txt += "\n" + (interaction.message.embeds[0].description or "")
             try:
-                model = genai.GenerativeModel('gemini-2.5-flash')
-                res = await model.generate_content_async(f"Terjemahkan ke {value}:\n{txt}")
+                res = await genai.GenerativeModel('gemini-2.5-flash').generate_content_async(f"Terjemahkan ke {value}:\n{txt}")
                 await interaction.followup.send(res.text, ephemeral=True)
-            except Exception as e:
-                await interaction.followup.send(f"Error AI: {e}", ephemeral=True)
+            except Exception as e: await interaction.followup.send(f"Error AI: {e}", ephemeral=True)
+
+    async def delete_ticket_after_delay(self, channel, user_id):
+        await asyncio.sleep(3600)
+        if user_id in self.active_tickets and self.active_tickets[user_id] == channel.id:
+            replied = False
+            async for msg in channel.history(limit=50):
+                if msg.author.guild_permissions.manage_channels and msg.author.id != self.bot.user.id:
+                    replied = True
+                    break
+            if not replied:
+                try: await channel.delete()
+                except: pass
+                if user_id in self.active_tickets: del self.active_tickets[user_id]
 
 async def setup(bot):
     await bot.add_cog(RTMBroadcast(bot))
