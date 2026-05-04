@@ -52,7 +52,7 @@ class ButtonsModal(discord.ui.Modal, title='Edit JSON Tombol'):
         self.buttons_input = discord.ui.TextInput(
             label='Data Tombol (JSON)',
             style=discord.TextStyle.paragraph,
-            placeholder='[{"label": "Ambil Role", "style": "green", "action": "role", "value": "123"}]',
+            placeholder='[{"label": "Web", "style": "grey", "action": "url", "value": "https://..."}]',
             default=json.dumps(config.get('buttons', []), indent=2),
             required=False
         )
@@ -77,10 +77,10 @@ class ButtonBuilderModal(discord.ui.Modal, title='Wizard Tambah Tombol'):
         super().__init__()
         self.config = config
         self.view = view
-        self.label_input = discord.ui.TextInput(label='Teks Tombol', placeholder='Misal: Ambil Role', max_length=80)
+        self.label_input = discord.ui.TextInput(label='Teks Tombol', placeholder='Misal: Buka Web', max_length=80)
         self.style_input = discord.ui.TextInput(label='Warna (blurple/green/red/grey)', default='blurple', max_length=20)
-        self.action_input = discord.ui.TextInput(label='Aksi (role/ticket/channel)', placeholder='Misal: role', max_length=50)
-        self.value_input = discord.ui.TextInput(label='ID Target (ID Role/Kategori/Kanal)', placeholder='123456789012345678', max_length=100)
+        self.action_input = discord.ui.TextInput(label='Aksi (role/ticket/channel/url)', placeholder='Misal: url', max_length=50)
+        self.value_input = discord.ui.TextInput(label='ID Target / Link URL', placeholder='ID Angka / https://...', max_length=500)
         self.add_item(self.label_input)
         self.add_item(self.style_input)
         self.add_item(self.action_input)
@@ -276,23 +276,27 @@ class WebhookConfigView(discord.ui.View):
             try:
                 actions_map = {}
                 for btn_data in buttons_data:
-                    btn_id = btn_data.get('id') or str(uuid.uuid4())
-                    btn_data['id'] = btn_id
-                    actions_map[btn_id] = {'action': btn_data.get('action'), 'value': btn_data.get('value')}
+                    if btn_data.get('action') != 'url':
+                        btn_id = btn_data.get('id') or str(uuid.uuid4())
+                        btn_data['id'] = btn_id
+                        actions_map[btn_id] = {'action': btn_data.get('action'), 'value': btn_data.get('value')}
                 self.bot.get_cog('WebhookCog').button_actions.update(actions_map)
                 view = WebhookButtonView(buttons_data)
             except Exception:
                 return await interaction.followup.send("Gagal membuat tombol. Mohon periksa format JSON.", ephemeral=True)
 
+        payload = {
+            'content': self.config.get('content'),
+            'username': self.config.get('author') or self.bot.user.name,
+            'avatar_url': self.config.get('avatar') or self.bot.user.display_avatar.url,
+            'embeds': [embed] if embed else [],
+            'wait': True
+        }
+        if view:
+            payload['view'] = view
+
         try:
-            sent_message = await webhook.send(
-                content=self.config.get('content'),
-                username=self.config.get('author') or self.bot.user.name,
-                avatar_url=self.config.get('avatar') or self.bot.user.display_avatar.url,
-                embeds=[embed] if embed else [],
-                view=view,
-                wait=True
-            )
+            sent_message = await webhook.send(**payload)
             if sent_message:
                 config_name = str(sent_message.id)
                 self.bot.get_cog('WebhookCog').save_config_to_file(self.channel.guild.id, self.channel.id, config_name, self.config)
@@ -315,6 +319,12 @@ class WebhookButtonView(discord.ui.View):
             self.add_item(self.create_button(data))
 
     def create_button(self, data):
+        action = data.get('action')
+        label = data.get('label', 'Tombol')
+        
+        if action == 'url':
+            return discord.ui.Button(label=label, url=data.get('value'))
+            
         style_map = {
             'blurple': discord.ButtonStyle.blurple,
             'red': discord.ButtonStyle.red,
@@ -322,7 +332,7 @@ class WebhookButtonView(discord.ui.View):
             'grey': discord.ButtonStyle.grey,
         }
         style = style_map.get(data.get('style', 'blurple'), discord.ButtonStyle.blurple)
-        return discord.ui.Button(label=data.get('label', 'Tombol'), style=style, custom_id=data['id'])
+        return discord.ui.Button(label=label, style=style, custom_id=data['id'])
 
 class AnnouncementConfigView(discord.ui.View):
     def __init__(self, bot, channel: discord.TextChannel, initial_config=None):
@@ -815,7 +825,7 @@ class WebhookCog(commands.Cog):
             with open(self.config_file, 'r', encoding='utf-8') as f: all_configs = json.load(f)
             config_data = all_configs[str(ctx.guild.id)][str(ctx.channel.id)][str(msg.id)]
             
-            os.makedirs(self.data_dir, exist_ok=True)
+            osmakedirs(self.data_dir, exist_ok=True)
             backup_configs = {}
             if os.path.exists(self.backup_file):
                 try:
