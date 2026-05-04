@@ -1,5 +1,5 @@
 import discord
-from discord.ext import commands
+from discord.ext import commands, tasks
 import json
 import uuid
 import asyncio
@@ -8,8 +8,11 @@ from datetime import datetime, timedelta
 import logging
 import pytz
 import re
+import google.generativeai as genai
 
 logging.basicConfig(level=logging.INFO, format='[%(asctime)s] %(levelname)s: %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
+
+genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 
 def truncate_text(text, limit=1000):
     text_str = str(text) if text else "Belum diatur"
@@ -70,7 +73,83 @@ class ButtonsModal(discord.ui.Modal, title='Edit JSON Tombol'):
             self.config['buttons'] = buttons_data
             await interaction.response.edit_message(embed=self.view.build_embed())
         except (json.JSONDecodeError, ValueError):
-            await interaction.response.send_message("Format JSON tidak valid. Pastikan menggunakan format Array (kurung siku).", ephemeral=True)
+            await interaction.response.send_message("Format JSON tidak valid.", ephemeral=True)
+
+class DropdownModal(discord.ui.Modal, title='Edit JSON Dropdown'):
+    def __init__(self, config, view):
+        super().__init__()
+        self.config = config
+        self.view = view
+        self.drops_input = discord.ui.TextInput(
+            label='Data Dropdown (JSON)',
+            style=discord.TextStyle.paragraph,
+            placeholder='[{"placeholder": "Pilih", "options": [{"label": "A", "value": "1", "action": "role"}]}]',
+            default=json.dumps(config.get('dropdowns', []), indent=2),
+            required=False
+        )
+        self.add_item(self.drops_input)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        val = self.drops_input.value.strip()
+        if not val:
+            self.config['dropdowns'] = []
+            return await interaction.response.edit_message(embed=self.view.build_embed())
+        try:
+            drops_data = json.loads(val)
+            if not isinstance(drops_data, list):
+                raise ValueError
+            self.config['dropdowns'] = drops_data
+            await interaction.response.edit_message(embed=self.view.build_embed())
+        except (json.JSONDecodeError, ValueError):
+            await interaction.response.send_message("Format JSON tidak valid.", ephemeral=True)
+
+class AIWriterModal(discord.ui.Modal, title='AI Auto-Writer'):
+    def __init__(self, config, view):
+        super().__init__()
+        self.config = config
+        self.view = view
+        self.prompt_input = discord.ui.TextInput(
+            label='Perintah untuk AI',
+            style=discord.TextStyle.paragraph,
+            placeholder='Bikinin pengumuman mabar nanti malam jam 8 bahasa tongkrongan...',
+            required=True
+        )
+        self.add_item(self.prompt_input)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        await interaction.response.defer()
+        try:
+            model = genai.GenerativeModel('gemini-2.5-flash')
+            prompt = f"Buatkan pengumuman Discord: {self.prompt_input.value}. Balas HANYA dengan JSON murni tanpa format markdown: {{\"title\": \"Judul\", \"desc\": \"Deskripsi embed panjang\", \"content\": \"Teks biasa opsional\", \"color\": \"#HexColorTerkaitTema\"}}"
+            res = await model.generate_content_async(prompt)
+            clean_json = res.text.replace('```json', '').replace('```', '').strip()
+            data = json.loads(clean_json)
+            self.config.update(data)
+            await interaction.message.edit(embed=self.view.build_embed())
+            await interaction.followup.send("AI berhasil merakit pengumuman!", ephemeral=True)
+        except Exception as e:
+            await interaction.followup.send(f"Gagal pakai AI: {e}", ephemeral=True)
+
+class DestructModal(discord.ui.Modal, title='Auto-Hapus (Self Destruct)'):
+    def __init__(self, config, view):
+        super().__init__()
+        self.config = config
+        self.view = view
+        self.min_input = discord.ui.TextInput(
+            label='Menit',
+            placeholder='Misal: 60',
+            default=str(config.get('destruct', '')),
+            required=False
+        )
+        self.add_item(self.min_input)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        val = self.min_input.value.strip()
+        if val.isdigit():
+            self.config['destruct'] = int(val)
+        else:
+            self.config['destruct'] = None
+        await interaction.response.edit_message(embed=self.view.build_embed())
 
 class ButtonBuilderModal(discord.ui.Modal, title='Wizard Tambah Tombol'):
     def __init__(self, config, view):
@@ -79,8 +158,8 @@ class ButtonBuilderModal(discord.ui.Modal, title='Wizard Tambah Tombol'):
         self.view = view
         self.label_input = discord.ui.TextInput(label='Teks Tombol', placeholder='Misal: Buka Web', max_length=80)
         self.style_input = discord.ui.TextInput(label='Warna (blurple/green/red/grey)', default='blurple', max_length=20)
-        self.action_input = discord.ui.TextInput(label='Aksi (role/ticket/channel/url)', placeholder='Misal: url', max_length=50)
-        self.value_input = discord.ui.TextInput(label='ID Target / Link URL', placeholder='ID Angka / https://...', max_length=500)
+        self.action_input = discord.ui.TextInput(label='Aksi (role/ticket/channel/url/translate)', placeholder='Misal: url', max_length=50)
+        self.value_input = discord.ui.TextInput(label='ID Target / Link URL / Bahasa', placeholder='ID Angka / https://... / English', max_length=500)
         self.add_item(self.label_input)
         self.add_item(self.style_input)
         self.add_item(self.action_input)
@@ -181,17 +260,40 @@ class SaveConfigModal(discord.ui.Modal, title='Simpan Konfigurasi'):
         self.cog.save_config_to_file(self.target_channel.guild.id, self.target_channel.id, config_name, self.config)
         await interaction.response.send_message(f"Konfigurasi '{config_name}' berhasil disimpan!", ephemeral=True)
 
+class InteractiveView(discord.ui.View):
+    def __init__(self, config):
+        super().__init__(timeout=None)
+        for b in config.get('buttons', []):
+            if b.get('action') == 'url':
+                self.add_item(discord.ui.Button(label=b.get('label'), url=b.get('value')))
+            else:
+                style = {'blurple': discord.ButtonStyle.blurple, 'green': discord.ButtonStyle.green, 'red': discord.ButtonStyle.red, 'grey': discord.ButtonStyle.grey}.get(b.get('style'), discord.ButtonStyle.blurple)
+                self.add_item(discord.ui.Button(label=b.get('label'), style=style, custom_id=b.get('id')))
+        
+        for d in config.get('dropdowns', []):
+            opts = [discord.SelectOption(label=o['label'], value=o['value']) for o in d.get('options', [])]
+            if opts:
+                sel = discord.ui.Select(custom_id=d.get('id'), placeholder=d.get('placeholder', 'Pilih...'), options=opts)
+                self.add_item(sel)
+
 class WebhookConfigView(discord.ui.View):
-    def __init__(self, bot, channel: discord.TextChannel, initial_config=None):
+    def __init__(self, bot, channels, initial_config=None, msg_id_to_edit=None):
         super().__init__(timeout=600)
         self.bot = bot
-        self.channel = channel
+        self.channels = channels
         self.config = initial_config or {}
+        self.msg_id_to_edit = msg_id_to_edit
+        self.config.setdefault('pin', False)
+        self.config.setdefault('lock', False)
 
     def build_embed(self):
+        ch_mentions = " ".join([ch.mention for ch in self.channels][:5])
+        if len(self.channels) > 5: ch_mentions += f" (+{len(self.channels)-5} lainnya)"
+        
+        mode_text = f"EDIT PESAN ID: {self.msg_id_to_edit}" if self.msg_id_to_edit else "BUAT BARU"
         embed = discord.Embed(
-            title="Konfigurasi Pesan Webhook",
-            description=f"Target: {self.channel.mention} di {self.channel.guild.name}",
+            title=f"Konfigurasi Pesan | {mode_text}",
+            description=f"Target: {ch_mentions}",
             color=0x2b2d31
         )
         embed.add_field(name="Judul", value=f"`{truncate_text(self.config.get('title'))}`", inline=False)
@@ -199,7 +301,12 @@ class WebhookConfigView(discord.ui.View):
         embed.add_field(name="Warna", value=f"`{truncate_text(self.config.get('color'))}`", inline=False)
         embed.add_field(name="Pengirim", value=f"`{truncate_text(self.config.get('author'))}`", inline=False)
         embed.add_field(name="Foto Pengirim", value=f"`{truncate_text(self.config.get('avatar'))}`", inline=False)
-        embed.add_field(name="Tombol", value=f"`{len(self.config.get('buttons', []))} tombol`", inline=False)
+        embed.add_field(name="Interaktif", value=f"Tombol: `{len(self.config.get('buttons', []))}` | Dropdown: `{len(self.config.get('dropdowns', []))}`", inline=False)
+        
+        pin_lock = f"Pin: {'✅' if self.config['pin'] else '❌'} | Lock: {'✅' if self.config['lock'] else '❌'}"
+        destruct = f"💣 Auto-Hapus: {self.config['destruct']} Menit" if self.config.get('destruct') else "💣 Auto-Hapus: ❌"
+        embed.add_field(name="Ekstra", value=f"{pin_lock}\n{destruct}", inline=False)
+        
         return embed
 
     @discord.ui.button(label="Judul & Deskripsi", style=discord.ButtonStyle.blurple, row=0)
@@ -237,102 +344,261 @@ class WebhookConfigView(discord.ui.View):
     async def avatar_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.send_modal(TextModal('avatar', self.config, self))
 
+    @discord.ui.button(label="🤖 AI Auto-Writer", style=discord.ButtonStyle.primary, row=1)
+    async def ai_writer_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.send_modal(AIWriterModal(self.config, self))
+
     @discord.ui.button(label="Tambah Tombol (+)", style=discord.ButtonStyle.green, row=1)
     async def add_btn_wizard(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.send_modal(ButtonBuilderModal(self.config, self))
 
-    @discord.ui.button(label="Edit JSON Tombol", style=discord.ButtonStyle.secondary, row=1)
+    @discord.ui.button(label="JSON Tombol", style=discord.ButtonStyle.secondary, row=1)
     async def buttons_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.send_modal(ButtonsModal(self.config, self))
+        
+    @discord.ui.button(label="JSON Dropdown", style=discord.ButtonStyle.secondary, row=1)
+    async def drops_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.send_modal(DropdownModal(self.config, self))
 
-    @discord.ui.button(label="Hapus Semua Tombol", style=discord.ButtonStyle.red, row=1)
+    @discord.ui.button(label="Hapus Tombol & Menu", style=discord.ButtonStyle.red, row=1)
     async def clear_btns(self, interaction: discord.Interaction, button: discord.ui.Button):
         self.config['buttons'] = []
+        self.config['dropdowns'] = []
         await interaction.response.edit_message(embed=self.build_embed())
 
-    @discord.ui.button(label="Simpan Konfigurasi", style=discord.ButtonStyle.secondary, row=2)
+    @discord.ui.button(label="Toggle Pin & Lock", style=discord.ButtonStyle.secondary, row=2)
+    async def toggle_pin_lock(self, interaction: discord.Interaction, button: discord.ui.Button):
+        self.config['pin'] = not self.config['pin']
+        self.config['lock'] = not self.config['lock']
+        await interaction.response.edit_message(embed=self.build_embed())
+
+    @discord.ui.button(label="💣 Auto-Hapus", style=discord.ButtonStyle.secondary, row=2)
+    async def destruct_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.send_modal(DestructModal(self.config, self))
+
+    @discord.ui.button(label="Kirim Preview (DM)", style=discord.ButtonStyle.secondary, row=2)
+    async def preview_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.defer(ephemeral=True)
+        payload, _ = self.bot.get_cog('RTMBroadcast').build_payload(self.config, self.bot)
+        try:
+            await interaction.user.send(**payload)
+            await interaction.followup.send("Preview dikirim ke DM!", ephemeral=True)
+        except:
+            await interaction.followup.send("Gagal DM preview. Pastikan DM tidak dikunci.", ephemeral=True)
+
+    @discord.ui.button(label="Simpan Konfig", style=discord.ButtonStyle.grey, row=2)
     async def save_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.send_modal(SaveConfigModal(self.config, self.bot.get_cog('WebhookCog'), self.channel))
+        await interaction.response.send_modal(SaveConfigModal(self.config, self.bot.get_cog('RTMBroadcast'), self.channels[0]))
 
     @discord.ui.button(label="Kirim Webhook", style=discord.ButtonStyle.green, row=2)
     async def send_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.defer(ephemeral=True)
-        embed = None
-        if self.config.get('title') or self.config.get('desc') or self.config.get('color'):
+        cog = self.bot.get_cog('RTMBroadcast')
+        payload, view = cog.build_payload(self.config, self.bot)
+
+        success_count = 0
+        for ch in self.channels:
             try:
-                color = int(self.config['color'].replace('#', ''), 16) if self.config.get('color') else 0x2b2d31
-                embed = discord.Embed(title=self.config.get('title'), description=self.config.get('desc'), color=color)
-            except (ValueError, TypeError):
-                return await interaction.followup.send("Format warna tidak valid. Pesan tidak dikirim.", ephemeral=True)
+                if self.msg_id_to_edit:
+                    try:
+                        msg = await ch.fetch_message(self.msg_id_to_edit)
+                        edit_payload = {k: v for k, v in payload.items() if k in ['content', 'embeds', 'view']}
+                        await msg.edit(**edit_payload)
+                        success_count += 1
+                        continue
+                    except: pass
 
-        webhook = discord.utils.get(await self.channel.webhooks(), name="Webhook Bot")
-        if not webhook:
-            try: webhook = await self.channel.create_webhook(name="Webhook Bot")
-            except discord.Forbidden: return await interaction.followup.send("Gagal membuat webhook. Pastikan bot memiliki izin Manage Webhooks di channel tujuan.", ephemeral=True)
+                webhook = discord.utils.get(await ch.webhooks(), name="RTMBroadcast")
+                if not webhook:
+                    webhook = await ch.create_webhook(name="RTMBroadcast")
 
-        view = None
-        buttons_data = self.config.get('buttons', [])
-        if buttons_data:
-            try:
-                actions_map = {}
-                for btn_data in buttons_data:
-                    if btn_data.get('action') != 'url':
-                        btn_id = btn_data.get('id') or str(uuid.uuid4())
-                        btn_data['id'] = btn_id
-                        actions_map[btn_id] = {'action': btn_data.get('action'), 'value': btn_data.get('value')}
-                self.bot.get_cog('WebhookCog').button_actions.update(actions_map)
-                view = WebhookButtonView(buttons_data)
-            except Exception:
-                return await interaction.followup.send("Gagal membuat tombol. Mohon periksa format JSON.", ephemeral=True)
-
-        payload = {
-            'content': self.config.get('content'),
-            'username': self.config.get('author') or self.bot.user.name,
-            'avatar_url': self.config.get('avatar') or self.bot.user.display_avatar.url,
-            'embeds': [embed] if embed else [],
-            'wait': True
-        }
-        if view:
-            payload['view'] = view
-
-        try:
-            sent_message = await webhook.send(**payload)
-            if sent_message:
-                config_name = str(sent_message.id)
-                self.bot.get_cog('WebhookCog').save_config_to_file(self.channel.guild.id, self.channel.id, config_name, self.config)
-                await interaction.followup.send(f"Pesan webhook berhasil dikirim ke {self.channel.mention}!", ephemeral=True)
-            try: await interaction.message.delete()
+                sent_msg = await webhook.send(wait=True, **payload)
+                if sent_msg:
+                    success_count += 1
+                    cog.save_config_to_file(ch.guild.id, ch.id, str(sent_msg.id), self.config)
+                    if self.config.get('pin'):
+                        try: await sent_msg.pin()
+                        except: pass
+                    if self.config.get('lock'):
+                        try: await ch.set_permissions(ch.guild.default_role, send_messages=False)
+                        except: pass
+                    if self.config.get('destruct'):
+                        cog.register_destruct(ch.guild.id, ch.id, sent_msg.id, self.config['destruct'])
             except: pass
-        except Exception as e:
-            await interaction.followup.send(f"Gagal mengirim pesan: {e}", ephemeral=True)
+
+        await interaction.followup.send(f"Berhasil diproses di {success_count}/{len(self.channels)} channel!", ephemeral=True)
+        try: await interaction.message.delete()
+        except: pass
+
+class ScheduleTimeModal(discord.ui.Modal, title='Tentukan Jadwal & Kanal'):
+    def __init__(self, config, view):
+        super().__init__()
+        self.config = config
+        self.view = view
+        self.date_input = discord.ui.TextInput(
+            label='Tanggal (YYYY-MM-DD)',
+            placeholder=datetime.now().strftime('%Y-%m-%d'),
+            style=discord.TextStyle.short,
+            required=True
+        )
+        self.add_item(self.date_input)
+        
+        self.time_input = discord.ui.TextInput(
+            label='Waktu (HH:MM WIB)',
+            placeholder='15:30',
+            style=discord.TextStyle.short,
+            required=True
+        )
+        self.add_item(self.time_input)
+        
+        self.rec_input = discord.ui.TextInput(
+            label='Ulang Jadwal (none/daily/weekly)',
+            placeholder='none',
+            default='none',
+            style=discord.TextStyle.short,
+            required=False
+        )
+        self.add_item(self.rec_input)
+
+        self.channel_input = discord.ui.TextInput(
+            label='ID Kanal Tujuan (Bisa banyak dipisah koma)',
+            placeholder='123456789, 987654321',
+            style=discord.TextStyle.paragraph,
+            required=True
+        )
+        self.add_item(self.channel_input)
+    
+    async def on_submit(self, interaction: discord.Interaction):
+        try:
+            scheduled_time_str = f"{self.date_input.value} {self.time_input.value}"
+            wib_timezone = pytz.timezone('Asia/Jakarta')
+            scheduled_datetime_wib = wib_timezone.localize(datetime.strptime(scheduled_time_str, "%Y-%m-%d %H:%M"))
+
+            now_wib = datetime.now(wib_timezone)
+            if scheduled_datetime_wib < now_wib - timedelta(minutes=5):
+                return await interaction.response.send_message("Waktu harus di masa mendatang.", ephemeral=True)
             
-    @discord.ui.button(label="Batalkan", style=discord.ButtonStyle.red, row=2)
+            self.config['scheduled_time'] = scheduled_datetime_wib.isoformat()
+            self.config['recurring'] = self.rec_input.value.strip().lower()
+            
+            cids = [re.sub(r'\D', '', c) for c in self.channel_input.value.split(',') if re.sub(r'\D', '', c)]
+            if not cids:
+                return await interaction.response.send_message("Tidak ada ID kanal yang valid.", ephemeral=True)
+            self.config['channels'] = cids
+
+            await interaction.response.edit_message(embed=self.view.build_embed())
+        except ValueError:
+            await interaction.response.send_message("Format tanggal atau waktu tidak valid.", ephemeral=True)
+
+class ScheduleConfigView(discord.ui.View):
+    def __init__(self, bot, initial_config=None):
+        super().__init__(timeout=600)
+        self.bot = bot
+        self.config = initial_config or {}
+
+    def build_embed(self):
+        embed = discord.Embed(
+            title="Konfigurasi Pengumuman Berjadwal",
+            description="Atur pesan dan jadwal pengumuman di sini.",
+            color=0x2b2d31
+        )
+        
+        sch_time = self.config.get('scheduled_time')
+        sch_display = datetime.fromisoformat(sch_time).astimezone(pytz.timezone('Asia/Jakarta')).strftime('%d %B %Y, %H:%M WIB') if sch_time else "Belum diatur"
+
+        ch_len = len(self.config.get('channels', []))
+        ch_display = f"{ch_len} Kanal Target" if ch_len else "Belum diatur"
+
+        embed.add_field(name="Waktu Terjadwal", value=f"`{sch_display}` | Ulang: `{self.config.get('recurring', 'none')}`", inline=False)
+        embed.add_field(name="Kanal Tujuan", value=ch_display, inline=False)
+        embed.add_field(name="Judul Embed", value=f"`{truncate_text(self.config.get('title'))}`", inline=False)
+        embed.add_field(name="Deskripsi Embed", value=f"`{truncate_text(self.config.get('desc'))}`", inline=False)
+        embed.add_field(name="Warna", value=f"`{truncate_text(self.config.get('color'))}`", inline=False)
+        embed.add_field(name="Pesan Teks", value=f"`{truncate_text(self.config.get('content'))}`", inline=False)
+        embed.add_field(name="Media (URL)", value=f"`{truncate_text(self.config.get('media_url'))}`", inline=False)
+        
+        return embed
+
+    @discord.ui.button(label="Tentukan Jadwal & Kanal", style=discord.ButtonStyle.primary, row=0)
+    async def schedule_time_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.send_modal(ScheduleTimeModal(self.config, self))
+
+    @discord.ui.button(label="Judul & Deskripsi", style=discord.ButtonStyle.blurple, row=1)
+    async def title_desc_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        class TitleDescModal(discord.ui.Modal, title="Judul & Deskripsi"):
+            def __init__(self, config, view):
+                super().__init__()
+                self.config = config
+                self.view = view
+                self.title_input = discord.ui.TextInput(label="Judul Embed", default=config.get('title', ''), required=False, max_length=256)
+                self.desc_input = discord.ui.TextInput(label="Deskripsi Embed", style=discord.TextStyle.paragraph, default=config.get('desc', ''), required=False, max_length=4000)
+                self.add_item(self.title_input)
+                self.add_item(self.desc_input)
+            
+            async def on_submit(self, interaction: discord.Interaction):
+                self.config['title'] = self.title_input.value or None
+                self.config['desc'] = self.desc_input.value or None
+                await interaction.response.edit_message(embed=self.view.build_embed())
+        
+        await interaction.response.send_modal(TitleDescModal(self.config, self))
+
+    @discord.ui.button(label="Pesan Teks Biasa", style=discord.ButtonStyle.blurple, row=1)
+    async def content_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        class ContentModal(discord.ui.Modal, title='Teks Pesan'):
+            def __init__(self, config, view):
+                super().__init__()
+                self.config = config
+                self.view = view
+                self.text_input = discord.ui.TextInput(label='Teks Pesan Biasa', style=discord.TextStyle.paragraph, default=config.get('content', ''), required=False, max_length=4000)
+                self.add_item(self.text_input)
+
+            async def on_submit(self, interaction: discord.Interaction):
+                self.config['content'] = self.text_input.value or None
+                await interaction.response.edit_message(embed=self.view.build_embed())
+        
+        await interaction.response.send_modal(ContentModal(self.config, self))
+        
+    @discord.ui.button(label="Media URL", style=discord.ButtonStyle.blurple, row=1)
+    async def media_url_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        class MediaUrlModal(discord.ui.Modal, title='URL Media'):
+            def __init__(self, config, view):
+                super().__init__()
+                self.config = config
+                self.view = view
+                self.url_input = discord.ui.TextInput(label='URL', placeholder='https://...', default=config.get('media_url', ''), required=False)
+                self.add_item(self.url_input)
+
+            async def on_submit(self, interaction: discord.Interaction):
+                self.config['media_url'] = self.url_input.value or None
+                await interaction.response.edit_message(embed=self.view.build_embed())
+
+        await interaction.response.send_modal(MediaUrlModal(self.config, self))
+
+    @discord.ui.button(label="Warna", style=discord.ButtonStyle.blurple, row=1)
+    async def color_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.edit_message(view=ColorView(self.config, self))
+        
+    @discord.ui.button(label="Jadwalkan", style=discord.ButtonStyle.green, row=2)
+    async def schedule_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.defer(ephemeral=True)
+        if not self.config.get('scheduled_time') or not self.config.get('channels'):
+            return await interaction.followup.send("Tentukan jadwal dan kanal tujuan terlebih dahulu.", ephemeral=True)
+
+        scheduled_announcements = self.bot.get_cog('RTMBroadcast').load_scheduled_announcements()
+        job_id = str(uuid.uuid4())
+        scheduled_announcements[job_id] = self.config
+        self.bot.get_cog('RTMBroadcast').save_scheduled_announcements(scheduled_announcements)
+        
+        dt_wib = datetime.fromisoformat(self.config['scheduled_time']).astimezone(pytz.timezone('Asia/Jakarta'))
+        await interaction.followup.send(f"Pengumuman dijadwalkan ke {len(self.config['channels'])} kanal pada **{dt_wib.strftime('%d %B %Y pukul %H:%M WIB')}**.", ephemeral=True)
+        try: await interaction.message.delete()
+        except: pass
+
+    @discord.ui.button(label="Batal", style=discord.ButtonStyle.red, row=2)
     async def cancel_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         try: await interaction.message.delete()
         except: pass
         self.stop()
-        
-class WebhookButtonView(discord.ui.View):
-    def __init__(self, buttons_data):
-        super().__init__(timeout=None)
-        for data in buttons_data:
-            self.add_item(self.create_button(data))
-
-    def create_button(self, data):
-        action = data.get('action')
-        label = data.get('label', 'Tombol')
-        
-        if action == 'url':
-            return discord.ui.Button(label=label, url=data.get('value'))
-            
-        style_map = {
-            'blurple': discord.ButtonStyle.blurple,
-            'red': discord.ButtonStyle.red,
-            'green': discord.ButtonStyle.green,
-            'grey': discord.ButtonStyle.grey,
-        }
-        style = style_map.get(data.get('style', 'blurple'), discord.ButtonStyle.blurple)
-        return discord.ui.Button(label=label, style=style, custom_id=data['id'])
 
 class AnnouncementConfigView(discord.ui.View):
     def __init__(self, bot, channel: discord.TextChannel, initial_config=None):
@@ -423,7 +689,7 @@ class AnnouncementConfigView(discord.ui.View):
 
         try:
             msg = await self.channel.send(content=self.config.get('content'), embeds=[embed] if embed else [])
-            self.bot.get_cog('WebhookCog').save_config_to_file(self.channel.guild.id, self.channel.id, str(msg.id), self.config)
+            self.bot.get_cog('RTMBroadcast').save_config_to_file(self.channel.guild.id, self.channel.id, str(msg.id), self.config)
             await interaction.followup.send(f"Pengumuman terkirim ke {self.channel.mention}!", ephemeral=True)
             try: await interaction.message.delete()
             except: pass
@@ -435,188 +701,8 @@ class AnnouncementConfigView(discord.ui.View):
         try: await interaction.message.delete()
         except: pass
         self.stop()
-        
-class ScheduleTimeModal(discord.ui.Modal, title='Tentukan Jadwal & Kanal'):
-    def __init__(self, config, view):
-        super().__init__()
-        self.config = config
-        self.view = view
-        self.date_input = discord.ui.TextInput(
-            label='Tanggal (YYYY-MM-DD)',
-            placeholder=datetime.now().strftime('%Y-%m-%d'),
-            style=discord.TextStyle.short,
-            required=True
-        )
-        self.add_item(self.date_input)
-        
-        self.time_input = discord.ui.TextInput(
-            label='Waktu (HH:MM WIB)',
-            placeholder='15:30',
-            style=discord.TextStyle.short,
-            required=True
-        )
-        self.add_item(self.time_input)
 
-        self.channel_input = discord.ui.TextInput(
-            label='ID Kanal Tujuan',
-            placeholder='Masukkan ID Kanal Server',
-            style=discord.TextStyle.short,
-            required=True
-        )
-        self.add_item(self.channel_input)
-    
-    async def on_submit(self, interaction: discord.Interaction):
-        try:
-            scheduled_time_str = f"{self.date_input.value} {self.time_input.value}"
-            wib_timezone = pytz.timezone('Asia/Jakarta')
-            scheduled_datetime_wib = wib_timezone.localize(datetime.strptime(scheduled_time_str, "%Y-%m-%d %H:%M"))
-
-            now_wib = datetime.now(wib_timezone)
-            if scheduled_datetime_wib < now_wib - timedelta(minutes=5):
-                return await interaction.response.send_message("Waktu harus di masa mendatang.", ephemeral=True)
-            
-            self.config['scheduled_time'] = scheduled_datetime_wib.isoformat()
-            
-            try:
-                channel_id = int(re.sub(r'\D', '', self.channel_input.value))
-                channel = interaction.client.get_channel(channel_id)
-                if not channel:
-                    channel = await interaction.client.fetch_channel(channel_id)
-                self.config['channel_id'] = channel.id
-                self.config['guild_id'] = channel.guild.id
-            except Exception:
-                return await interaction.response.send_message("ID kanal tidak valid atau bot tidak memiliki akses ke kanal tersebut.", ephemeral=True)
-
-            await interaction.response.edit_message(embed=self.view.build_embed())
-        except ValueError:
-            await interaction.response.send_message("Format tanggal atau waktu tidak valid.", ephemeral=True)
-
-class ScheduleConfigView(discord.ui.View):
-    def __init__(self, bot, initial_config=None):
-        super().__init__(timeout=600)
-        self.bot = bot
-        self.config = initial_config or {}
-
-    def build_embed(self):
-        embed = discord.Embed(
-            title="Konfigurasi Pengumuman Berjadwal",
-            description="Atur pesan dan jadwal pengumuman di sini.",
-            color=0x2b2d31
-        )
-        
-        sch_time = self.config.get('scheduled_time')
-        sch_display = datetime.fromisoformat(sch_time).astimezone(pytz.timezone('Asia/Jakarta')).strftime('%d %B %Y, %H:%M WIB') if sch_time else "Belum diatur"
-
-        c_id = self.config.get('channel_id')
-        channel = self.bot.get_channel(c_id) if c_id else None
-        ch_display = f"{channel.mention} ({channel.guild.name})" if channel else (f"ID: {c_id}" if c_id else "Belum diatur")
-
-        embed.add_field(name="Waktu Terjadwal", value=f"`{sch_display}`", inline=False)
-        embed.add_field(name="Kanal Tujuan", value=ch_display, inline=False)
-        embed.add_field(name="Judul Embed", value=f"`{truncate_text(self.config.get('title'))}`", inline=False)
-        embed.add_field(name="Deskripsi Embed", value=f"`{truncate_text(self.config.get('desc'))}`", inline=False)
-        embed.add_field(name="Warna", value=f"`{truncate_text(self.config.get('color'))}`", inline=False)
-        embed.add_field(name="Pesan Teks", value=f"`{truncate_text(self.config.get('content'))}`", inline=False)
-        embed.add_field(name="Media (URL)", value=f"`{truncate_text(self.config.get('media_url'))}`", inline=False)
-        
-        return embed
-
-    @discord.ui.button(label="Tentukan Jadwal & Kanal", style=discord.ButtonStyle.primary, row=0)
-    async def schedule_time_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.send_modal(ScheduleTimeModal(self.config, self))
-
-    @discord.ui.button(label="Judul & Deskripsi", style=discord.ButtonStyle.blurple, row=1)
-    async def title_desc_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        class TitleDescModal(discord.ui.Modal, title="Judul & Deskripsi"):
-            def __init__(self, config, view):
-                super().__init__()
-                self.config = config
-                self.view = view
-                self.title_input = discord.ui.TextInput(label="Judul Embed", default=config.get('title', ''), required=False, max_length=256)
-                self.desc_input = discord.ui.TextInput(label="Deskripsi Embed", style=discord.TextStyle.paragraph, default=config.get('desc', ''), required=False, max_length=4000)
-                self.add_item(self.title_input)
-                self.add_item(self.desc_input)
-            
-            async def on_submit(self, interaction: discord.Interaction):
-                self.config['title'] = self.title_input.value or None
-                self.config['desc'] = self.desc_input.value or None
-                await interaction.response.edit_message(embed=self.view.build_embed())
-        
-        await interaction.response.send_modal(TitleDescModal(self.config, self))
-
-    @discord.ui.button(label="Pesan Teks", style=discord.ButtonStyle.blurple, row=1)
-    async def content_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        class ContentModal(discord.ui.Modal, title='Teks Pesan'):
-            def __init__(self, config, view):
-                super().__init__()
-                self.config = config
-                self.view = view
-                self.text_input = discord.ui.TextInput(label='Teks Pesan Biasa', style=discord.TextStyle.paragraph, default=config.get('content', ''), required=False, max_length=4000)
-                self.add_item(self.text_input)
-
-            async def on_submit(self, interaction: discord.Interaction):
-                self.config['content'] = self.text_input.value or None
-                await interaction.response.edit_message(embed=self.view.build_embed())
-        
-        await interaction.response.send_modal(ContentModal(self.config, self))
-        
-    @discord.ui.button(label="Media URL", style=discord.ButtonStyle.blurple, row=1)
-    async def media_url_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        class MediaUrlModal(discord.ui.Modal, title='URL Media'):
-            def __init__(self, config, view):
-                super().__init__()
-                self.config = config
-                self.view = view
-                self.url_input = discord.ui.TextInput(label='URL', placeholder='https://...', default=config.get('media_url', ''), required=False)
-                self.add_item(self.url_input)
-
-            async def on_submit(self, interaction: discord.Interaction):
-                self.config['media_url'] = self.url_input.value or None
-                await interaction.response.edit_message(embed=self.view.build_embed())
-
-        await interaction.response.send_modal(MediaUrlModal(self.config, self))
-
-    @discord.ui.button(label="Warna", style=discord.ButtonStyle.blurple, row=1)
-    async def color_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.edit_message(view=ColorView(self.config, self))
-        
-    @discord.ui.button(label="Jadwalkan", style=discord.ButtonStyle.green, row=2)
-    async def schedule_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.defer(ephemeral=True)
-        if not self.config.get('scheduled_time') or not self.config.get('channel_id'):
-            return await interaction.followup.send("Tentukan jadwal dan kanal tujuan terlebih dahulu.", ephemeral=True)
-        if not self.config.get('content') and not self.config.get('title') and not self.config.get('media_url'):
-            return await interaction.followup.send("Pesan harus memiliki konten, judul, atau media URL.", ephemeral=True)
-
-        scheduled_announcements = self.bot.get_cog('WebhookCog').load_scheduled_announcements()
-        job_id = str(uuid.uuid4())
-        job_data = {
-            'guild_id': self.config['guild_id'],
-            'channel_id': self.config['channel_id'],
-            'scheduled_time': self.config['scheduled_time'],
-            'content': self.config.get('content'),
-            'title': self.config.get('title'),
-            'desc': self.config.get('desc'),
-            'media_url': self.config.get('media_url'),
-            'color': self.config.get('color')
-        }
-        scheduled_announcements[job_id] = job_data
-        self.bot.get_cog('WebhookCog').save_scheduled_announcements(scheduled_announcements)
-        
-        dt_wib = datetime.fromisoformat(self.config['scheduled_time']).astimezone(pytz.timezone('Asia/Jakarta'))
-        channel = self.bot.get_channel(self.config['channel_id'])
-        ch_str = channel.mention if channel else f"ID {self.config['channel_id']}"
-        await interaction.followup.send(f"Pengumuman dijadwalkan ke {ch_str} pada **{dt_wib.strftime('%d %B %Y pukul %H:%M WIB')}**.", ephemeral=True)
-        try: await interaction.message.delete()
-        except: pass
-
-    @discord.ui.button(label="Batal", style=discord.ButtonStyle.red, row=2)
-    async def cancel_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        try: await interaction.message.delete()
-        except: pass
-        self.stop()
-
-class WebhookCog(commands.Cog):
+class RTMBroadcast(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.button_actions = {}
@@ -625,10 +711,17 @@ class WebhookCog(commands.Cog):
         self.config_file = os.path.join(self.data_dir, 'webhook.json')
         self.backup_file = os.path.join(self.data_dir, 'configbackup.json')
         self.scheduled_announcements_file = os.path.join(self.data_dir, 'scheduled_announcements.json')
+        self.destruct_file = os.path.join(self.data_dir, 'broadcast_destructs.json')
         self.wib_timezone = pytz.timezone('Asia/Jakarta')
-        self.scheduler_task = self.bot.loop.create_task(self.check_scheduled_announcements())
+        
+        self.loop_destruct.start()
+        self.loop_sch.start()
         self.single_role_file = os.path.join(self.data_dir, 'single_role_messages.json')
         self.single_role_messages = self.load_single_role_messages()
+
+    def cog_unload(self):
+        self.loop_destruct.cancel()
+        self.loop_sch.cancel()
 
     @commands.Cog.listener()
     async def on_ready(self):
@@ -646,42 +739,99 @@ class WebhookCog(commands.Cog):
         except Exception:
             return None
 
-    async def check_scheduled_announcements(self):
-        await self.bot.wait_until_ready()
-        while not self.bot.is_closed():
+    def load_json(self, path):
+        if not os.path.exists(path): return {}
+        try:
+            with open(path, 'r', encoding='utf-8') as f: return json.load(f)
+        except: return {}
+
+    def save_json(self, path, data):
+        os.makedirs(self.data_dir, exist_ok=True)
+        with open(path, 'w', encoding='utf-8') as f: json.dump(data, f, indent=4)
+
+    def register_destruct(self, g_id, c_id, m_id, mins):
+        data = self.load_json(self.destruct_file)
+        dt = (datetime.utcnow() + timedelta(minutes=mins)).isoformat()
+        data[str(m_id)] = {'g': g_id, 'c': c_id, 'time': dt}
+        self.save_json(self.destruct_file, data)
+
+    def build_payload(self, config, bot):
+        embed = None
+        if config.get('title') or config.get('desc') or config.get('color') or config.get('media_url'):
+            color = int(config.get('color', '#2b2d31').replace('#', ''), 16) if config.get('color') else 0x2b2d31
+            embed = discord.Embed(title=config.get('title'), description=config.get('desc'), color=color)
+            if config.get('media_url'): embed.set_image(url=config['media_url'])
+
+        for obj in config.get('buttons', []) + config.get('dropdowns', []):
+            if obj.get('action') != 'url' and not obj.get('id'):
+                obj['id'] = str(uuid.uuid4())
+            if obj.get('id'):
+                self.button_actions[obj['id']] = {'action': obj.get('action'), 'value': obj.get('value')}
+
+        view = InteractiveView(config) if (config.get('buttons') or config.get('dropdowns')) else None
+
+        payload = {
+            'content': config.get('content'),
+            'username': config.get('author') or bot.user.name,
+            'avatar_url': config.get('avatar') or bot.user.display_avatar.url,
+            'embeds': [embed] if embed else []
+        }
+        if view: payload['view'] = view
+        return payload, view
+
+    @tasks.loop(minutes=1)
+    async def loop_destruct(self):
+        data = self.load_json(self.destruct_file)
+        now = datetime.utcnow()
+        to_del = []
+        for m_id, info in data.items():
+            if now >= datetime.fromisoformat(info['time']):
+                try:
+                    ch = self.bot.get_channel(info['c']) or await self.bot.fetch_channel(info['c'])
+                    msg = await ch.fetch_message(int(m_id))
+                    await msg.delete()
+                except: pass
+                to_del.append(m_id)
+        if to_del:
+            for d in to_del: del data[d]
+            self.save_json(self.destruct_file, data)
+
+    @tasks.loop(minutes=1)
+    async def loop_sch(self):
+        schedules = self.load_scheduled_announcements()
+        now_wib = datetime.now(self.wib_timezone)
+        tasks_to_remove = []
+
+        for job_id, job_data in list(schedules.items()):
             try:
-                schedules = self.load_scheduled_announcements()
-                now_wib = datetime.now(self.wib_timezone)
-                tasks_to_remove = []
-
-                for job_id, job_data in list(schedules.items()):
-                    sch_wib = datetime.fromisoformat(job_data['scheduled_time']).astimezone(self.wib_timezone)
-                    if now_wib >= sch_wib:
-                        channel = self.bot.get_channel(job_data['channel_id'])
-                        if not channel:
-                            try: channel = await self.bot.fetch_channel(job_data['channel_id'])
-                            except:
-                                tasks_to_remove.append(job_id)
-                                continue
-
-                        embed = None
-                        if job_data.get('title') or job_data.get('desc') or job_data.get('media_url') or job_data.get('color'):
-                            try:
-                                color = int(job_data['color'].replace('#', ''), 16) if job_data.get('color') else 0x2b2d31
-                                embed = discord.Embed(title=job_data.get('title'), description=job_data.get('desc'), color=color)
-                                if job_data.get('media_url'):
-                                    embed.set_image(url=job_data['media_url'])
-                            except: pass
-
+                sch_wib = datetime.fromisoformat(job_data['scheduled_time']).astimezone(self.wib_timezone)
+                if now_wib >= sch_wib:
+                    payload, _ = self.build_payload(job_data, self.bot)
+                    
+                    for cid in job_data.get('channels', []):
                         try:
-                            await channel.send(content=job_data.get('content'), embeds=[embed] if embed else [])
-                        except Exception: pass
-                        tasks_to_remove.append(job_id)
+                            ch = self.bot.get_channel(int(cid)) or await self.bot.fetch_channel(int(cid))
+                            if not ch: continue
+                            webhook = discord.utils.get(await ch.webhooks(), name="RTMBroadcast") or await ch.create_webhook(name="RTMBroadcast")
+                            sent = await webhook.send(wait=True, **payload)
+                            if sent and job_data.get('destruct'): self.register_destruct(ch.guild.id, ch.id, sent.id, job_data['destruct'])
+                        except: pass
+                    
+                    rec = job_data.get('recurring')
+                    if rec == 'daily': job_data['scheduled_time'] = (sch_wib + timedelta(days=1)).isoformat()
+                    elif rec == 'weekly': job_data['scheduled_time'] = (sch_wib + timedelta(days=7)).isoformat()
+                    else: tasks_to_remove.append(job_id)
+            except:
+                tasks_to_remove.append(job_id)
 
-                if tasks_to_remove:
-                    self.remove_scheduled_announcements(tasks_to_remove)
-            except Exception: pass
-            await asyncio.sleep(60)
+        if tasks_to_remove or any(c.get('recurring') in ['daily','weekly'] for c in schedules.values()):
+            for d in tasks_to_remove: schedules.pop(d, None)
+            self.save_scheduled_announcements(schedules)
+
+    @loop_destruct.before_loop
+    @loop_sch.before_loop
+    async def before_loops(self):
+        await self.bot.wait_until_ready()
 
     def load_scheduled_announcements(self):
         if not os.path.exists(self.scheduled_announcements_file): return {}
@@ -693,11 +843,6 @@ class WebhookCog(commands.Cog):
         os.makedirs(self.data_dir, exist_ok=True)
         with open(self.scheduled_announcements_file, 'w', encoding='utf-8') as f: json.dump(data, f, indent=4)
 
-    def remove_scheduled_announcements(self, ids):
-        schedules = self.load_scheduled_announcements()
-        for jid in ids: schedules.pop(jid, None)
-        self.save_scheduled_announcements(schedules)
-
     def _load_all_button_actions(self):
         if not os.path.exists(self.config_file): return
         try:
@@ -705,7 +850,7 @@ class WebhookCog(commands.Cog):
             for g in all_configs.values():
                 for c in g.values():
                     for conf in c.values():
-                        for btn in conf.get('buttons', []):
+                        for btn in conf.get('buttons', []) + conf.get('dropdowns', []):
                             if btn.get('id'):
                                 self.button_actions[btn['id']] = {'action': btn.get('action'), 'value': btn.get('value')}
         except: pass
@@ -737,14 +882,36 @@ class WebhookCog(commands.Cog):
 
     @commands.command(aliases=['swh'])
     @commands.has_permissions(manage_webhooks=True)
-    async def send_webhook(self, ctx, channel_id: str = None):
+    async def send_webhook(self, ctx, *channels: str):
         try: await ctx.message.delete()
         except: pass
-        target = await self.get_target_channel(ctx, channel_id)
-        if not target or not isinstance(target, discord.TextChannel):
-            return await ctx.send("Kanal tidak valid atau bot tidak memiliki akses.", ephemeral=True, delete_after=5)
-        view = WebhookConfigView(self.bot, target)
+        targets = []
+        for c in channels:
+            cid = re.sub(r'\D', '', c)
+            if cid:
+                ch = self.bot.get_channel(int(cid)) or await self.bot.fetch_channel(int(cid))
+                if ch: targets.append(ch)
+        if not targets: targets = [ctx.channel]
+        view = WebhookConfigView(self.bot, targets)
         await ctx.send(embed=view.build_embed(), view=view)
+
+    @commands.command(aliases=['eb'])
+    @commands.has_permissions(manage_messages=True)
+    async def edit_broadcast(self, ctx, msg_id: int, channel_id: str = None):
+        try: await ctx.message.delete()
+        except: pass
+        cid = int(re.sub(r'\D', '', channel_id)) if channel_id else ctx.channel.id
+        ch = self.bot.get_channel(cid) or await self.bot.fetch_channel(cid)
+        try:
+            msg = await ch.fetch_message(msg_id)
+            cfg = {'content': msg.content}
+            if msg.embeds:
+                e = msg.embeds[0]
+                cfg.update({'title': e.title, 'desc': e.description, 'color': f"#{e.color.value:06x}" if e.color else None, 'media_url': e.image.url if e.image else None})
+            view = WebhookConfigView(self.bot, [ch], cfg, msg_id)
+            await ctx.send(embed=view.build_embed(), view=view)
+        except:
+            await ctx.send("Pesan gagal diambil.", ephemeral=True, delete_after=5)
 
     @commands.command(name='announcement')
     @commands.has_permissions(manage_messages=True)
@@ -757,26 +924,77 @@ class WebhookCog(commands.Cog):
         view = AnnouncementConfigView(self.bot, target)
         await ctx.send(embed=view.build_embed(), view=view)
     
-    @commands.command(name='send_media')
+    @commands.command(name='send_media', aliases=['sm'])
     @commands.has_permissions(manage_messages=True)
     async def send_media(self, ctx, channel_id: str = None):
-        if not ctx.message.reference:
-            return await ctx.send("Silakan balas pesan yang berisi media.", ephemeral=True, delete_after=5)
+        target = await self.get_target_channel(ctx, channel_id)
+        if not target:
+            return await ctx.send("Kanal tujuan tidak valid.", delete_after=5)
+
+        source_msg = None
+
+        if ctx.message.attachments:
+            source_msg = ctx.message
+        elif ctx.message.reference:
+            try:
+                source_msg = await ctx.channel.fetch_message(ctx.message.reference.message_id)
+                if not source_msg.attachments:
+                    return await ctx.send("Pesan yang dibalas tidak memiliki media.", delete_after=5)
+            except Exception:
+                return await ctx.send("Pesan yang dibalas tidak ditemukan.", delete_after=5)
+        else:
+            prompt_msg = await ctx.send(f"Kirim foto/video kamu sekarang di sini untuk diteruskan ke {target.mention}.\nWaktu tunggumu **3 menit** (biar aman pas upload).\nKetik `batal` buat cancel.")
+            
+            def check(m):
+                return m.author == ctx.author and m.channel == ctx.channel
+
+            try:
+                msg = await self.bot.wait_for('message', timeout=180.0, check=check)
+                if msg.content.strip().lower() == 'batal':
+                    try: await prompt_msg.delete()
+                    except: pass
+                    try: await msg.delete()
+                    except: pass
+                    return await ctx.send("Operasi dibatalkan.", delete_after=5)
+                
+                if not msg.attachments:
+                    try: await prompt_msg.delete()
+                    except: pass
+                    return await ctx.send("Gagal: Pesanmu barusan gak ada file/media-nya.", delete_after=5)
+                
+                source_msg = msg
+                try: await prompt_msg.delete()
+                except: pass
+            except asyncio.TimeoutError:
+                try: await prompt_msg.delete()
+                except: pass
+                return await ctx.send("Waktu habis. Proses dibatalkan otomatis.", delete_after=5)
+
+        processing_msg = await ctx.send("Sedang memproses dan mengirim media...")
         try:
-            replied_message = await ctx.channel.fetch_message(ctx.message.reference.message_id)
-            if not replied_message.attachments:
-                return await ctx.send("Pesan tidak memiliki lampiran media.", ephemeral=True, delete_after=5)
-            target = await self.get_target_channel(ctx, channel_id)
-            if not target:
-                return await ctx.send("Kanal tujuan tidak valid.", ephemeral=True, delete_after=5)
-            for attachment in replied_message.attachments:
-                file_to_send = await attachment.to_file()
-                await target.send(content=replied_message.content, file=file_to_send)
-            await ctx.send(f"Media terkirim ke {target.mention}!", ephemeral=True, delete_after=5)
+            files = []
+            for attachment in source_msg.attachments:
+                files.append(await attachment.to_file())
+            
+            content_to_send = source_msg.content
+            if content_to_send and content_to_send.startswith(('!send_media', '!sm')):
+                if channel_id:
+                    content_to_send = content_to_send.replace(f'!send_media {channel_id}', '').replace(f'!sm {channel_id}', '').strip()
+                else:
+                    content_to_send = content_to_send.replace('!send_media', '').replace('!sm', '').strip()
+                if not content_to_send:
+                    content_to_send = None
+
+            await target.send(content=content_to_send, files=files)
+            await processing_msg.edit(content=f"✅ Media berhasil terkirim ke {target.mention}!", delete_after=5)
+            
             try: await ctx.message.delete()
             except: pass
+            if source_msg.id != ctx.message.id:
+                try: await source_msg.delete()
+                except: pass
         except Exception as e:
-            await ctx.send(f"Gagal mengirim media: {e}", ephemeral=True, delete_after=10)
+            await processing_msg.edit(content=f"❌ Gagal mengirim media: {e}", delete_after=10)
     
     @commands.command(name='schedule')
     @commands.has_permissions(manage_messages=True)
@@ -796,8 +1014,8 @@ class WebhookCog(commands.Cog):
         for job_id, data in schedules.items():
             try:
                 dt = datetime.fromisoformat(data['scheduled_time']).astimezone(self.wib_timezone)
-                ch = self.bot.get_channel(data['channel_id'])
-                ch_str = ch.mention if ch else f"ID: {data['channel_id']}"
+                ch = self.bot.get_channel(int(data.get('channels', [data.get('channel_id')])[0]))
+                ch_str = ch.mention if ch else f"ID"
                 c_text = data.get('content') or data.get('title') or "Tanpa teks"
                 embed.add_field(name=f"ID: {job_id[:8]}", value=f"**Waktu:** `{dt.strftime('%H:%M WIB, %d-%m-%Y')}`\n**Kanal:** {ch_str}\n**Info:** `{truncate_text(c_text, 60)}`", inline=False)
             except: pass
@@ -812,7 +1030,7 @@ class WebhookCog(commands.Cog):
         try:
             with open(self.config_file, 'r', encoding='utf-8') as f: all_configs = json.load(f)
             config_data = all_configs[str(target.guild.id)][str(target.id)][config_name]
-            view = WebhookConfigView(self.bot, target, initial_config=config_data)
+            view = WebhookConfigView(self.bot, [target], initial_config=config_data)
             await ctx.send(embed=view.build_embed(), view=view)
         except Exception:
             await ctx.send("Konfigurasi tidak ditemukan.", ephemeral=True)
@@ -825,7 +1043,7 @@ class WebhookCog(commands.Cog):
             with open(self.config_file, 'r', encoding='utf-8') as f: all_configs = json.load(f)
             config_data = all_configs[str(ctx.guild.id)][str(ctx.channel.id)][str(msg.id)]
             
-            osmakedirs(self.data_dir, exist_ok=True)
+            os.makedirs(self.data_dir, exist_ok=True)
             backup_configs = {}
             if os.path.exists(self.backup_file):
                 try:
@@ -885,8 +1103,12 @@ class WebhookCog(commands.Cog):
     @commands.Cog.listener()
     async def on_interaction(self, interaction: discord.Interaction):
         if interaction.type != discord.InteractionType.component: return
-        data = self.button_actions.get(interaction.data.get('custom_id'))
+        cid = interaction.data.get('custom_id')
+        data = self.button_actions.get(cid)
+        if not data and interaction.data.get('values'):
+            data = self.button_actions.get(interaction.data['values'][0])
         if not data: return
+        
         action, value = data.get('action'), data.get('value')
         
         if action == 'role':
@@ -964,6 +1186,15 @@ class WebhookCog(commands.Cog):
             except:
                 await interaction.response.send_message("Gagal akses kanal.", ephemeral=True)
 
+        elif action == 'translate':
+            await interaction.response.defer(ephemeral=True)
+            txt = interaction.message.content or ""
+            if interaction.message.embeds: txt += "\n" + (interaction.message.embeds[0].description or "")
+            try:
+                res = await genai.GenerativeModel('gemini-2.5-flash').generate_content_async(f"Terjemahkan ke {value}:\n{txt}")
+                await interaction.followup.send(res.text, ephemeral=True)
+            except Exception as e: await interaction.followup.send(f"Error AI: {e}", ephemeral=True)
+
     async def delete_ticket_after_delay(self, channel, user_id):
         await asyncio.sleep(3600)
         if user_id in self.active_tickets and self.active_tickets[user_id] == channel.id:
@@ -978,4 +1209,4 @@ class WebhookCog(commands.Cog):
                 if user_id in self.active_tickets: del self.active_tickets[user_id]
 
 async def setup(bot):
-    await bot.add_cog(WebhookCog(bot))
+    await bot.add_cog(RTMBroadcast(bot))
