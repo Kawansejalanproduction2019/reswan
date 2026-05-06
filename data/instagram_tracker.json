@@ -10,7 +10,7 @@
                 "post": {
                     "title": "[📸 Postingan Baru]({url})",
                     "description": "Ada feed baru nih dari @{username}!\n\n{url}",
-                    "content": "!iga rnboyz 771629447253590036 Update Feed IG!",
+                    "content": "<@&1498673916208746506> Update Feed IG!",
                     "button_label": "Lihat Postingan",
                     "button_style": 1,
                     "button_color": "#E1306C",
@@ -30,12 +30,12 @@
                 "story": {
                     "title": "[⏱️ Story Baru]({url})",
                     "description": "Ada Story baru dari @{username}!\n\n{url}",
-                    "content": "@everyone Update Story IG!",
+                    "content": "<@&1498673916208746506> Update Story IG!",
                     "button_label": "Lihat Story",
                     "button_style": 4,
                     "button_color": "#ed4245",
                     "embed_color": "#f1c40f",
-                    "use_embed": true
+                    "use_embed": false
                 }
             },
             "toggles": {
