@@ -109,7 +109,8 @@
         "verification_button_label": "Verifikasi Membership",
         "spam_whitelist_roles": [],
         "goodbye_message": "sampai jumpa, {user} ! Kami sangat menyayangkan kepergian Anda 🥹. Terima kasih banyak atas waktu dan kontribusi Anda selama berada di komunitas kami. Semoga kita bisa bertemu lagi di masa depan! \n\nJika ada masalah yang membuat Anda keluar, kami mohon maaf dan berharap Anda baik-baik saja.",
-        "panel_role_stats": []
+        "panel_role_stats": [],
+        "role_panels": {}
     },
     "788337048997199882": {
         "auto_role_id": null,
@@ -248,7 +249,7 @@
         "boost_image_url": null,
         "announcement_webhooks": {},
         "welcome_banner_url": null,
-        "mod_panel_message_id": 1472237138178342914,
+        "mod_panel_message_id": 1520804692211273932,
         "mod_panel_channel_id": 1382047607702028339,
         "main_membership_role_id": null,
         "membership_roles": {},
@@ -257,7 +258,8 @@
         "verification_button_label": "Verifikasi Membership",
         "spam_whitelist_roles": [],
         "goodbye_message": "Selamat tinggal, **{user}**. Sampai jumpa lagi! 👋",
-        "panel_role_stats": []
+        "panel_role_stats": [],
+        "role_panels": {}
     },
     "765138959625486357": {
         "auto_role_id": null,
@@ -678,7 +680,8 @@
             1279003289643646996,
             1279003289643646997,
             1279003289643646998
-        ]
+        ],
+        "role_panels": {}
     },
     "1417636227179483221": {
         "auto_role_id": null,
@@ -741,7 +744,8 @@
         "verification_button_label": "Verifikasi Membership",
         "spam_whitelist_roles": [],
         "goodbye_message": "Selamat tinggal, **{user}**. Sampai jumpa lagi! 👋",
-        "panel_role_stats": []
+        "panel_role_stats": [],
+        "role_panels": {}
     },
     "722619465644113962": {
         "auto_role_id": null,
@@ -916,7 +920,8 @@
         "verification_button_label": "Verifikasi Membership",
         "spam_whitelist_roles": [],
         "goodbye_message": "sampai jumpa, {user} ! Kami sangat menyayangkan kepergian Anda 🥹. Terima kasih banyak atas waktu dan kontribusi Anda selama berada di komunitas kami. Semoga kita bisa bertemu lagi di masa depan! \n\nJika ada masalah yang membuat Anda keluar, kami mohon maaf dan berharap Anda baik-baik saja.",
-        "panel_role_stats": []
+        "panel_role_stats": [],
+        "role_panels": {}
     },
     "1446026825708081246": {
         "auto_role_id": null,
@@ -970,6 +975,35 @@
         "spam_whitelist_roles": [],
         "goodbye_message": "Selamat tinggal, **{user}**. Sampai jumpa lagi! 👋",
         "panel_role_stats": [],
+        "announcement_webhooks": {},
+        "role_panels": {}
+    },
+    "691817231214182474": {
+        "auto_role_id": null,
+        "welcome_channel_id": null,
+        "welcome_message": "Selamat datang di **{guild_name}**, {user}! 🎉",
+        "welcome_embed_title": "SELAMAT DATANG!",
+        "welcome_sender_name": "Admin Server",
+        "welcome_banner_url": null,
+        "log_channel_id": null,
+        "reaction_roles": {},
+        "channel_rules": {},
+        "boost_channel_id": null,
+        "boost_message": "Terima kasih banyak, {user}, telah menjadi **Server Booster** kami di {guild_name}! Kami sangat menghargai dukunganmu! ❤️",
+        "boost_embed_title": "TERIMA KASIH SERVER BOOSTER!",
+        "boost_sender_name": "Tim Server",
+        "boost_image_url": null,
+        "mod_panel_message_id": null,
+        "mod_panel_channel_id": null,
+        "main_membership_role_id": null,
+        "membership_roles": {},
+        "membership_invite_message": "🥺 Anda belum menjadi anggota channel YouTube. Silakan berlangganan untuk mendapatkan role eksklusif! [LINK MEMBERSHIP]",
+        "membership_confirm_message": "🎉 Anda sudah menjadi anggota! Anda adalah anggota tier: **{tier_name}**.",
+        "verification_button_label": "Verifikasi Membership",
+        "spam_whitelist_roles": [],
+        "goodbye_message": "Selamat tinggal, **{user}**. Sampai jumpa lagi! 👋",
+        "panel_role_stats": [],
+        "role_panels": {},
         "announcement_webhooks": {}
     }
 }
