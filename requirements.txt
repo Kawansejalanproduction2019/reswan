@@ -1,4 +1,6 @@
-discord.py==2.5.2
+discord.py[voice]
+discord.py
+git+https://github.com/imayhaveborkedit/discord-ext-voice-recv.git
 Flask
 aiohttp
 Pillow
@@ -19,3 +21,7 @@ google-auth-httplib2
 google.generativeai
 google.genai
 apscheduler
+ffmpeg
+nodejs
+imagehash
+pilmoji
