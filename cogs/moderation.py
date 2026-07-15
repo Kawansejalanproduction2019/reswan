@@ -726,11 +726,12 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
     async def _create_welcome_card(self, member: discord.Member, title: str) -> io.BytesIO:
         width = 800
         height = 250
-        background = Image.new('RGBA', (width, height), (30, 31, 34, 255))
+        background = Image.new('RGBA', (width, height), (20, 22, 26, 255))
         draw = ImageDraw.Draw(background)
         
-        draw.ellipse((-100, -100, 350, 350), fill=(20, 22, 25, 255)) 
-        draw.ellipse((-90, -90, 340, 340), outline=(88, 101, 242, 150), width=6) 
+        # Left accent circle
+        draw.ellipse((-150, -50, 320, 400), fill=(30, 34, 45, 255)) 
+        draw.ellipse((-130, -30, 300, 380), outline=(88, 101, 242, 180), width=4) 
         
         try:
             avatar_bytes = await member.display_avatar.replace(size=128, format="png").read()
@@ -738,8 +739,8 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
             avatar_img = avatar_img.resize((150, 150))
             mask = Image.new("L", (150, 150), 0)
             ImageDraw.Draw(mask).ellipse((0, 0, 150, 150), fill=255)
-            background.paste(avatar_img, (50, 50), mask)
-            draw.ellipse((46, 46, 204, 204), outline=(88, 101, 242, 255), width=5)
+            background.paste(avatar_img, (60, 50), mask)
+            draw.ellipse((56, 46, 214, 214), outline=(88, 101, 242, 255), width=6)
         except Exception:
             pass
 
@@ -749,26 +750,35 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
             async with aiohttp.ClientSession() as session:
                 async with session.get(url_bold) as r1:
                     font_bold_bytes = await r1.read()
-                    font_bold = ImageFont.truetype(io.BytesIO(font_bold_bytes), 38)
-                    font_title = ImageFont.truetype(io.BytesIO(font_bold_bytes), 20)
+                    font_bold = ImageFont.truetype(io.BytesIO(font_bold_bytes), 42)
+                    font_title = ImageFont.truetype(io.BytesIO(font_bold_bytes), 22)
                 async with session.get(url_reg) as r2:
                     font_reg_bytes = await r2.read()
-                    font_sub = ImageFont.truetype(io.BytesIO(font_reg_bytes), 18)
+                    font_sub = ImageFont.truetype(io.BytesIO(font_reg_bytes), 20)
+                    font_small = ImageFont.truetype(io.BytesIO(font_reg_bytes), 16)
         except Exception:
             font_bold = ImageFont.load_default()
             font_title = ImageFont.load_default()
             font_sub = ImageFont.load_default()
+            font_small = ImageFont.load_default()
 
         import unicodedata
         safe_guild = unicodedata.normalize('NFKC', member.guild.name)
         safe_name = unicodedata.normalize('NFKC', member.display_name)
         
-        draw.text((320, 40), title, font=font_title, fill=(88, 101, 242, 255))
-        draw.text((320, 70), safe_name, font=font_bold, fill=(255, 255, 255, 255))
-        draw.text((320, 125), f"Selamat datang di {safe_guild}!", font=font_sub, fill=(200, 200, 200, 255))
-        draw.text((320, 155), "Semoga betah dan aktif terus ya! 🎉", font=font_sub, fill=(180, 255, 180, 255))
+        text_x = 360
         
-        draw.text((615, 205), f"Member #{member.guild.member_count}", font=font_sub, fill=(200, 200, 200, 255))
+        draw.text((text_x, 40), title, font=font_title, fill=(114, 137, 218, 255))
+        draw.text((text_x, 70), safe_name, font=font_bold, fill=(255, 255, 255, 255))
+        
+        draw.line([(text_x, 135), (750, 135)], fill=(100, 100, 100, 80), width=2)
+        
+        draw.text((text_x, 150), f"Selamat datang di {safe_guild}!", font=font_sub, fill=(200, 200, 200, 255))
+        draw.text((text_x, 185), "Semoga betah dan aktif terus ya!", font=font_sub, fill=(150, 255, 150, 255))
+        
+        badge_text = f"Member #{member.guild.member_count}"
+        draw.rounded_rectangle([(630, 20), (760, 50)], radius=15, fill=(40, 44, 52, 255), outline=(88, 101, 242, 180), width=1)
+        draw.text((650, 25), badge_text, font=font_small, fill=(200, 200, 200, 255))
 
         buffer = io.BytesIO()
         background.save(buffer, format="PNG")
@@ -778,11 +788,11 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
     async def _create_goodbye_card(self, member: discord.Member, title: str) -> io.BytesIO:
         width = 800
         height = 250
-        background = Image.new('RGBA', (width, height), (30, 31, 34, 255))
+        background = Image.new('RGBA', (width, height), (26, 20, 20, 255))
         draw = ImageDraw.Draw(background)
         
-        draw.ellipse((-100, -100, 350, 350), fill=(25, 20, 20, 255)) 
-        draw.ellipse((-90, -90, 340, 340), outline=(242, 88, 88, 100), width=6)
+        draw.ellipse((-150, -50, 320, 400), fill=(40, 25, 25, 255)) 
+        draw.ellipse((-130, -30, 300, 380), outline=(242, 88, 88, 180), width=4)
         
         try:
             avatar_bytes = await member.display_avatar.replace(size=128, format="png").read()
@@ -795,8 +805,8 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
             grayscale_rgba = Image.new("RGBA", grayscale.size)
             grayscale_rgba.paste(grayscale, (0, 0), mask)
             
-            background.paste(grayscale_rgba, (50, 50), mask)
-            draw.ellipse((46, 46, 204, 204), outline=(242, 88, 88, 255), width=5)
+            background.paste(grayscale_rgba, (60, 50), mask)
+            draw.ellipse((56, 46, 214, 214), outline=(242, 88, 88, 255), width=6)
         except Exception:
             pass
 
@@ -806,11 +816,11 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
             async with aiohttp.ClientSession() as session:
                 async with session.get(url_bold) as r1:
                     font_bold_bytes = await r1.read()
-                    font_bold = ImageFont.truetype(io.BytesIO(font_bold_bytes), 38)
-                    font_title = ImageFont.truetype(io.BytesIO(font_bold_bytes), 20)
+                    font_bold = ImageFont.truetype(io.BytesIO(font_bold_bytes), 42)
+                    font_title = ImageFont.truetype(io.BytesIO(font_bold_bytes), 22)
                 async with session.get(url_reg) as r2:
                     font_reg_bytes = await r2.read()
-                    font_sub = ImageFont.truetype(io.BytesIO(font_reg_bytes), 18)
+                    font_sub = ImageFont.truetype(io.BytesIO(font_reg_bytes), 20)
         except Exception:
             font_bold = ImageFont.load_default()
             font_title = ImageFont.load_default()
@@ -820,10 +830,15 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
         safe_guild = unicodedata.normalize('NFKC', member.guild.name)
         safe_name = unicodedata.normalize('NFKC', member.display_name)
         
-        draw.text((320, 40), title, font=font_title, fill=(242, 88, 88, 255))
-        draw.text((320, 70), safe_name, font=font_bold, fill=(255, 255, 255, 255))
-        draw.text((320, 125), f"Telah meninggalkan {safe_guild}...", font=font_sub, fill=(180, 180, 180, 255))
-        draw.text((320, 155), "Yah, padahal lagi seru-serunya... 🥀", font=font_sub, fill=(255, 150, 150, 255))
+        text_x = 360
+        
+        draw.text((text_x, 40), title, font=font_title, fill=(235, 100, 100, 255))
+        draw.text((text_x, 70), safe_name, font=font_bold, fill=(255, 255, 255, 255))
+        
+        draw.line([(text_x, 135), (750, 135)], fill=(100, 100, 100, 80), width=2)
+        
+        draw.text((text_x, 150), f"Telah meninggalkan {safe_guild}...", font=font_sub, fill=(180, 180, 180, 255))
+        draw.text((text_x, 185), "Yah, padahal lagi seru-serunya...", font=font_sub, fill=(255, 150, 150, 255))
 
         buffer = io.BytesIO()
         background.save(buffer, format="PNG")

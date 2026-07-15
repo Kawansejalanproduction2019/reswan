@@ -1313,26 +1313,28 @@ class UnifiedAI(commands.Cog, name="RTM Moderation Center"):
                 except: pass
 
         prefix = "!"
-        if "<@&1447151123340329010>" in message.content and str(message.author.id) != "1000737066822410311" and not message.content.startswith(prefix):
-            try:
-                ctx_data = self.get_brain_context(message.content, getattr(message, 'guild', None), message.channel.id)
-                await self.process_and_send_response(message, message.author, ctx_data, "Ada user yang nge-tag role penting di server. Lu sebagai Raka, kasih balasan singkat sarkas karena keganggu.")
-            except: pass
-            return
+        # Fitur auto-reply jika nge-tag role penting dimatikan
+        # if "<@&1447151123340329010>" in message.content and str(message.author.id) != "1000737066822410311" and not message.content.startswith(prefix):
+        #     try:
+        #         ctx_data = self.get_brain_context(message.content, getattr(message, 'guild', None), message.channel.id)
+        #         await self.process_and_send_response(message, message.author, ctx_data, "Ada user yang nge-tag role penting di server. Lu sebagai Raka, kasih balasan singkat sarkas karena keganggu.")
+        #     except: pass
+        #     return
 
-        if message.content.startswith(prefix) and not message.content.startswith(prefix + " "):
-            content_body = message.content[len(prefix):].strip()
-            if content_body:
-                first_word = content_body.split()[0].lower()
-                valid_cmds = [cmd.name for cmd in self.bot.commands] + [alias for cmd in self.bot.commands for alias in cmd.aliases]
-                if first_word not in valid_cmds:
-                    try:
-                        async with message.channel.typing():
-                            images = await self.get_images_from_message(message)
-                            ctx_data = self.get_brain_context(content_body, getattr(message, 'guild', None), message.channel.id)
-                            await self.process_and_send_response(message, message.author, ctx_data, content_body, images, guild_id=guild_id)
-                    except: pass
-                    return
+        # Fitur membalas pesan berawalan prefix (!) tapi bukan command dimatikan
+        # if message.content.startswith(prefix) and not message.content.startswith(prefix + " "):
+        #     content_body = message.content[len(prefix):].strip()
+        #     if content_body:
+        #         first_word = content_body.split()[0].lower()
+        #         valid_cmds = [cmd.name for cmd in self.bot.commands] + [alias for cmd in self.bot.commands for alias in cmd.aliases]
+        #         if first_word not in valid_cmds:
+        #             try:
+        #                 async with message.channel.typing():
+        #                     images = await self.get_images_from_message(message)
+        #                     ctx_data = self.get_brain_context(content_body, getattr(message, 'guild', None), message.channel.id)
+        #                     await self.process_and_send_response(message, message.author, ctx_data, content_body, images, guild_id=guild_id)
+        #             except: pass
+        #             return
 
         if not message.guild and not message.content.startswith(prefix):
             try:
@@ -1343,14 +1345,22 @@ class UnifiedAI(commands.Cog, name="RTM Moderation Center"):
             except: pass
             return
 
-        if message.guild and self.bot.user in message.mentions and str(message.guild.id) in self.auto_config.get("active_guilds", []):
+        # Perbaikan: Bot akan merespons jika di-tag ATAU jika pesannya di-reply (meskipun tag dimatikan oleh user)
+        if message.guild and (self.bot.user in message.mentions or is_reply_to_bot) and str(message.guild.id) in self.auto_config.get("active_guilds", []):
             try:
                 async with message.channel.typing():
                     bot_id = self.bot.user.id
                     clean_content = message.content.replace(f"<@{bot_id}>", "").replace(f"<@!{bot_id}>", "").strip()
                     images = await self.get_images_from_message(message)
                     ctx_data = self.get_brain_context(clean_content, getattr(message, 'guild', None), message.channel.id)
-                    await self.process_and_send_response(message, message.author, ctx_data, f"Nge-tag lu dan bilang: {clean_content}", images, guild_id=guild_id)
+                    
+                    # Berikan prompt yang sesuai apakah di-reply atau di-tag
+                    if is_reply_to_bot and self.bot.user not in message.mentions:
+                        prompt = f"User mereply pesan lu: {clean_content}"
+                    else:
+                        prompt = f"Nge-tag lu dan bilang: {clean_content}"
+                        
+                    await self.process_and_send_response(message, message.author, ctx_data, prompt, images, guild_id=guild_id)
             except: pass
             return
 
@@ -1360,7 +1370,15 @@ class UnifiedAI(commands.Cog, name="RTM Moderation Center"):
             expert_active = True
 
         chat_session = self.active_chats.get(message.channel.id)
+        
+        # Cek apakah user sedang mereply orang lain (bukan bot)
+        is_reply_to_other = message.reference and isinstance(message.reference.resolved, discord.Message) and message.reference.resolved.author.id != self.bot.user.id
+        
         if (chat_session or expert_active) and not message.content.startswith(prefix):
+            # Jika mereply orang lain dan bot tidak ditag, abaikan (jangan nimbrung)
+            if is_reply_to_other and self.bot.user not in message.mentions:
+                return
+                
             try:
                 async with message.channel.typing():
                     images = await self.get_images_from_message(message)
