@@ -5,10 +5,9 @@ import json
 import time
 from pymongo import MongoClient
 
-MONGO_URI = os.getenv("MONGODB_URI")
-mongo_client = MongoClient(MONGO_URI) if MONGO_URI else None
-mongo_db = mongo_client["reSwan"] if mongo_client is not None else None
-mongo_col = mongo_db["bot_data"] if mongo_db is not None else None
+mongo_client = None
+mongo_db = None
+mongo_col = None
 
 ACTIVITY_FILE = 'data/bot_activity.json'
 
@@ -159,4 +158,9 @@ class BotActivity(commands.Cog, name="Bot Activity Manager"):
         await ctx.send(embed=embed, view=ActView(self))
 
 async def setup(bot):
+    global mongo_client, mongo_db, mongo_col
+    mongo_client = getattr(bot, 'mongo_client', None)
+    if mongo_client:
+        mongo_db = mongo_client["reSwan"]
+        mongo_col = mongo_db["bot_data"]
     await bot.add_cog(BotActivity(bot))

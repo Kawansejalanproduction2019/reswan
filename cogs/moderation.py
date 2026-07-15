@@ -678,19 +678,33 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
         self.fast_spam_cooldown = commands.CooldownMapping.from_cooldown(5, 10.0, commands.BucketType.user)
         self.global_spam_cooldown = commands.CooldownMapping.from_cooldown(8, 15.0, commands.BucketType.user)
         self.multi_media_cooldown = commands.CooldownMapping.from_cooldown(1, 5.0, commands.BucketType.user)
-        self.settings = load_data(self.settings_file)
-        self.filters = load_data(self.filters_file)
-        self.warnings = load_data(self.warnings_file)
-        self.status = load_data(self.status_file)
+
+        self.mongo_client = getattr(bot, 'mongo_client', None)
+        if self.mongo_client:
+            self.db = self.mongo_client["reSwan"]
+            self.settings_col = self.db["moderation_settings"]
+            self.filters_col = self.db["moderation_filters"]
+            self.warnings_col = self.db["moderation_warnings"]
+            self.status_col = self.db["moderation_status"]
+        else:
+            self.settings_col = None
+            self.filters_col = None
+            self.warnings_col = None
+            self.status_col = None
+
+        self.settings = self.load_data_from_mongo(self.settings_col, self.settings_file)
+        self.filters = self.load_data_from_mongo(self.filters_col, self.filters_file)
+        self.warnings = self.load_data_from_mongo(self.warnings_col, self.warnings_file)
+        self.status = self.load_data_from_mongo(self.status_col, self.status_file)
         
         for guild_id_str in self.settings.keys():
             if "announcement_webhooks" not in self.settings[guild_id_str]:
                 self.settings[guild_id_str]["announcement_webhooks"] = {}
-        save_data(self.settings_file, self.settings)
+        self.save_settings()
 
         if "status" not in self.status:
             self.status["status"] = "online"
-            save_data(self.status_file, self.status)
+            self.save_status()
         
         for guild_id_str, settings in self.settings.items():
             if 'verification_button_label' in settings:
@@ -802,10 +816,85 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
             save_data(self.filters_file, self.filters)
         return self.filters[guild_id_str]
         
-    def save_settings(self): save_data(self.settings_file, self.settings)
-    def save_filters(self): save_data(self.filters_file, self.filters)
-    def save_warnings(self): save_data(self.warnings_file, self.warnings)
-    def save_status(self): save_data(self.status_file, self.status)
+    def load_data_from_mongo(self, collection, local_path):
+        if collection is not None:
+            try:
+                doc = collection.find_one({"_id": local_path})
+                if doc and "data" in doc:
+                    return doc["data"]
+            except Exception:
+                pass
+        return load_data(local_path)
+
+    def save_settings(self):
+        save_data(self.settings_file, self.settings)
+        if self.settings_col is not None:
+            try:
+                self.settings_col.replace_one({"_id": self.settings_file}, {"_id": self.settings_file, "data": self.settings}, upsert=True)
+            except Exception:
+                pass
+
+    def save_filters(self):
+        save_data(self.filters_file, self.filters)
+        if self.filters_col is not None:
+            try:
+                self.filters_col.replace_one({"_id": self.filters_file}, {"_id": self.filters_file, "data": self.filters}, upsert=True)
+            except Exception:
+                pass
+
+    def save_warnings(self):
+        save_data(self.warnings_file, self.warnings)
+        if self.warnings_col is not None:
+            try:
+                self.warnings_col.replace_one({"_id": self.warnings_file}, {"_id": self.warnings_file, "data": self.warnings}, upsert=True)
+            except Exception:
+                pass
+
+    def save_status(self):
+        save_data(self.status_file, self.status)
+        if self.status_col is not None:
+            try:
+                self.status_col.replace_one({"_id": self.status_file}, {"_id": self.status_file, "data": self.status}, upsert=True)
+            except Exception:
+                pass
+
+    async def check_and_escalate_warnings(self, guild, member, moderator):
+        guild_id_str = str(guild.id)
+        member_id_str = str(member.id)
+        user_warnings = self.warnings.get(guild_id_str, {}).get(member_id_str, [])
+        warn_count = len(user_warnings)
+
+        escalation_applied = None
+        duration = None
+
+        if warn_count == 3:
+            duration = timedelta(hours=1)
+            escalation_applied = "Auto-Timeout (1 Hour) due to 3 warnings"
+        elif warn_count >= 5:
+            duration = timedelta(days=1)
+            escalation_applied = "Auto-Timeout (1 Day) due to 5+ warnings"
+
+        if duration:
+            try:
+                await member.timeout(duration, reason=escalation_applied)
+                # Log escalation to channel
+                log_embed = self._create_embed(
+                    title="🚨 Auto Escalation Triggered",
+                    description=f"{member.mention} has been auto-timed out because they have reached **{warn_count} warnings**.",
+                    color=self.color_error
+                )
+                log_embed.add_field(name="Member", value=f"{member} ({member.id})", inline=True)
+                log_embed.add_field(name="Action", value=escalation_applied, inline=True)
+
+                log_channel_id = self.get_guild_settings(guild.id).get("log_channel_id")
+                if log_channel_id:
+                    log_channel = self.bot.get_channel(log_channel_id)
+                    if log_channel:
+                        await log_channel.send(embed=log_embed)
+                return escalation_applied
+            except Exception:
+                pass
+        return None
 
     def _create_embed(self, title: str = "", description: str = "", color: int = 0, author_name: str = "", author_icon_url: str = ""):
         embed = discord.Embed(title=title, description=description, color=color, timestamp=datetime.now(WIB))
@@ -2070,6 +2159,39 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
         except Exception as e:
             await ctx.send(embed=self._create_embed(description=f"❌ An error occurred while banning the member: {e}", color=self.color_error))
 
+    @commands.hybrid_command(name="softban", description="Ban member dan langsung unban untuk bersihkan pesan dalam 7 hari")
+    @app_commands.default_permissions(ban_members=True)
+    @app_commands.describe(member="Member target", reason="Alasan softban")
+    @commands.has_permissions(ban_members=True)
+    async def softban(self, ctx: commands.Context, member: discord.Member, *, reason: str = "No reason provided."):
+        if member.top_role >= ctx.author.top_role and ctx.author != ctx.guild.owner:
+            await ctx.send(embed=self._create_embed(description="❌ You cannot softban a member with an equal or higher role.", color=self.color_error))
+            return
+        if member.top_role >= ctx.guild.me.top_role:
+            await ctx.send(embed=self._create_embed(description="❌ Bot tidak dapat memblokir anggota ini karena peran mereka sama atau lebih tinggi dari peran bot.", color=self.color_error)); return
+        if member.id == ctx.guild.owner.id:
+            await ctx.send(embed=self._create_embed(description="❌ You cannot softban the server owner.", color=self.color_error)); return
+        if member.id == self.bot.user.id:
+            await ctx.send(embed=self._create_embed(description="❌ You cannot softban this bot itself.", color=self.color_error)); return
+
+        try:
+            dm_embed = self._create_embed(title=f"🚨 You Were Softbanned from {ctx.guild.name}", color=self.color_error)
+            dm_embed.add_field(name="Reason", value=reason, inline=False)
+            await member.send(embed=dm_embed)
+        except discord.Forbidden:
+            pass
+
+        try:
+            await member.ban(reason=f"Softban: {reason}", delete_message_seconds=604800)
+            await ctx.guild.unban(member, reason="Softban cleanup complete")
+
+            await ctx.send(embed=self._create_embed(description=f"✅ **{member.display_name}** has been softbanned (messages from the last 7 days cleared).", color=self.color_success))
+            await self.log_action(ctx.guild, "🔨 Member Softbanned", {"Member": f"{member} ({member.id})", "Moderator": ctx.author.mention, "Reason": reason}, self.color_error)
+        except discord.Forbidden:
+            await ctx.send(embed=self._create_embed(description="❌ Bot does not have sufficient permissions to ban/unban this member.", color=self.color_error))
+        except Exception as e:
+            await ctx.send(embed=self._create_embed(description=f"❌ An error occurred during softban: {e}", color=self.color_error))
+
     @commands.hybrid_command(name="unban", description="Cabut blokir member")
     @app_commands.default_permissions(ban_members=True)
     @app_commands.describe(user_identifier="ID atau Username target", reason="Alasan pencabutan")
@@ -2143,6 +2265,7 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
             
         await ctx.send(embed=self._create_embed(description=confirm_desc, color=self.color_success))
         await self.log_action(ctx.guild, "⚠️ Member Warned", {"Member": f"{member} ({member.id})", "Moderator": ctx.author.mention, "Reason": reason}, self.color_warning)
+        await self.check_and_escalate_warnings(ctx.guild, member, ctx.author)
 
     @commands.hybrid_command(name="unwarn", description="Hapus peringatan member")
     @app_commands.default_permissions(kick_members=True)
@@ -3565,7 +3688,7 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
         }
         guild_id_str = str(interaction.guild.id)
         member_id_str = str(member.id)
-        
+
         self.warnings.setdefault(guild_id_str, {}).setdefault(member_id_str, []).append(warning_data)
         self.save_warnings()
 
@@ -3576,6 +3699,8 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
             await member.send(embed=dm_embed)
         except discord.Forbidden:
             pass
+
+        await self.check_and_escalate_warnings(interaction.guild, member, interaction.user)
     
     async def timeout_from_modal(self, interaction, member, duration, reason):
         delta = parse_duration(duration)

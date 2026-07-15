@@ -50,23 +50,19 @@ URL_REGEX = re.compile(r'https?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*(),]|%[0-9a-fA-
 INVITE_REGEX = re.compile(r'(?:https?://)?(?:www\.)?(?:discord\.(?:gg|io|me|li)|discordapp\.com/invite)/[a-zA-Z0-9]+', re.IGNORECASE)
 SARA_REGEX = re.compile(r'\b(babi|anjing|monyet|hitam|cina|pribumi|kafir|yatim|lonte|bangsat|tolol|ngentot|memek|kontol)\b', re.IGNORECASE)
 
-MONGO_URI = os.getenv("MONGODB_URI")
-mongo_client = MongoClient(MONGO_URI) if MONGO_URI else None
-mongo_db = mongo_client["reSwan"] if mongo_client is not None else None
-mongo_col = mongo_db["bot_data"] if mongo_db is not None else None
+mongo_client = None
+mongo_db = None
+mongo_col = None
 
 API_KEYS = []
-if os.getenv("GOOGLE_API_KEY"):
-    API_KEYS.append(os.getenv("GOOGLE_API_KEY"))
+default_key = os.getenv("GOOGLE_API_KEY")
+if default_key:
+    API_KEYS.append(default_key)
 
-key_index = 2
-while True:
-    extra_key = os.getenv(f"GOOGLE_API_KEY_{key_index}")
-    if extra_key:
+for i in range(1, 10):
+    extra_key = os.getenv(f"GOOGLE_API_KEY_{i}")
+    if extra_key and extra_key not in API_KEYS:
         API_KEYS.append(extra_key)
-        key_index += 1
-    else:
-        break
 
 current_key_idx = 0
 
@@ -384,6 +380,8 @@ class UnifiedAI(commands.Cog, name="RTM Moderation Center"):
         self.dm_history = {}
         self.active_chats = {}
         self.system_instructions = {}
+        self.last_nimbrung_time = {}
+        self.message_counters = {}
         
         self.auto_config = load_json_file(AUTO_CONFIG_PATH, {
             "active_guilds": [],
@@ -1044,11 +1042,10 @@ class UnifiedAI(commands.Cog, name="RTM Moderation Center"):
     @commands.Cog.listener()
     async def on_message(self, message):
         if message.author.bot: return
-    
+
         guild_id = message.guild.id if message.guild else None
-    
-    
-        
+        images = []
+
         self.cyber_config = load_json_file(CYBER_CONFIG_FILE, {
             "whitelist_users": [], "whitelist_channels": [],
             "blacklist_words": [], "sara_words": [], "is_active": True,
@@ -1274,6 +1271,7 @@ class UnifiedAI(commands.Cog, name="RTM Moderation Center"):
                 try:
                     async with message.channel.typing():
                         prompt = f"[SYSTEM OVERRIDE PROXY]: User {mentioned_user.display_name} sedang AFK/Pergi. TUGAS LU SEKARANG ADALAH MENJADI {mentioned_user.display_name}. Balas pesan ini murni 100% meniru gaya bahasa dan sifat {mentioned_user.display_name} berdasarkan [DATA HASIL BELAJAR]. JANGAN menyebut lu Raka!"
+                        images = await self.get_images_from_message(message)
                         ctx_data = self.get_brain_context(message.content, getattr(message, 'guild', None), message.channel.id)
                         await self.process_and_send_response(message, message.author, ctx_data, prompt, images, guild_id=guild_id)
                     return
@@ -1339,7 +1337,7 @@ class UnifiedAI(commands.Cog, name="RTM Moderation Center"):
                         async with message.channel.typing():
                             images = await self.get_images_from_message(message)
                             ctx_data = self.get_brain_context(content_body, getattr(message, 'guild', None), message.channel.id)
-                            await self.process_and_send_response(message, message.author, ctx_data, prompt, images, guild_id=guild_id)
+                            await self.process_and_send_response(message, message.author, ctx_data, content_body, images, guild_id=guild_id)
                     except: pass
                     return
 
@@ -1348,7 +1346,7 @@ class UnifiedAI(commands.Cog, name="RTM Moderation Center"):
                 async with message.channel.typing():
                     images = await self.get_images_from_message(message)
                     ctx_data = self.get_brain_context(message.content, None, message.channel.id)
-                    await self.process_and_send_response(message, message.author, ctx_data, prompt, images, guild_id=guild_id)
+                    await self.process_and_send_response(message, message.author, ctx_data, message.content, images, guild_id=guild_id)
             except: pass
             return
 
@@ -1374,19 +1372,50 @@ class UnifiedAI(commands.Cog, name="RTM Moderation Center"):
                 async with message.channel.typing():
                     images = await self.get_images_from_message(message)
                     ctx_data = self.get_brain_context(message.content, getattr(message, 'guild', None), message.channel.id)
-                    await self.process_and_send_response(message, message.author, ctx_data, prompt, images, guild_id=guild_id)
+                    await self.process_and_send_response(message, message.author, ctx_data, message.content, images, guild_id=guild_id)
             except: pass
             return
 
         if message.guild and str(message.guild.id) in self.auto_config.get("active_guilds", []):
-            if not message.content.startswith(prefix) and not is_curhat_trigger and not is_koreksi and not message.mentions:
-                if random.random() < 0.05:
-                    try:
-                        async with message.channel.typing():
-                            prompt = f"Ikut nimbrung obrolan tongkrongan ini secara natural tanpa dipanggil. Pesan terakhir dari user: '{message.content}'. Jangan kepanjangan balasannya."
-                            ctx_data = self.get_brain_context(message.content, getattr(message, 'guild', None), message.channel.id)
-                            await self.process_and_send_response(message, message.author, ctx_data, prompt, images, guild_id=guild_id)
-                    except: pass
+            if not message.content.startswith(prefix) and not is_curhat_trigger and not is_koreksi and self.bot.user not in message.mentions:
+                channel_id = message.channel.id
+                if channel_id not in self.active_chats:
+                    self.message_counters[channel_id] = self.message_counters.get(channel_id, 0) + 1
+
+                    now_time = time.time()
+                    last_time = self.last_nimbrung_time.get(channel_id, 0)
+
+                    if self.message_counters[channel_id] >= 5 and (now_time - last_time) >= 180:
+                        self.message_counters[channel_id] = 0
+                        try:
+                            history_list = list(self.chat_history.get(channel_id, []))[-5:]
+                            history_text = "\n".join(history_list)
+
+                            think_prompt = (
+                                "Lu adalah Raka, AI sarkas, baperan, sumbu pendek, bergaya tongkrongan Jakarta (lo-gue).\n"
+                                "Berikut adalah log obrolan terbaru di grup:\n"
+                                f"{history_text}\n\n"
+                                "Berdasarkan log chat di atas, apakah ada topik menarik yang cocok untuk lu ikuti secara natural/sarkas/lucu tanpa perlu dipanggil?\n"
+                                "Jawab HANYA dengan kata YA atau TIDAK."
+                            )
+
+                            think_res = await generate_smart_response([think_prompt])
+                            think_text = think_res.text.strip().upper() if think_res else "TIDAK"
+
+                            if "YA" in think_text:
+                                self.last_nimbrung_time[channel_id] = now_time
+                                async with message.channel.typing():
+                                    prompt = (
+                                        f"Ikut nimbrung obrolan tongkrongan ini secara natural tanpa dipanggil/di-tag. "
+                                        f"Gaya bahasa lu Raka (sarkas, tongkrongan Jakarta lo-gue). "
+                                        f"Berikut log chat terakhir:\n{history_text}\n"
+                                        f"Berikan respons singkat (1-3 kalimat) yang nyambung dengan obrolan tersebut."
+                                    )
+                                    ctx_data = self.get_brain_context(message.content, getattr(message, 'guild', None), channel_id)
+                                    images = await self.get_images_from_message(message)
+                                    await self.process_and_send_response(message, message.author, ctx_data, prompt, images, guild_id=guild_id)
+                        except Exception:
+                            pass
 
     @commands.hybrid_command(name="cyber_toggle", aliases=["cybertoggle", "onoffcyber"], description="Nyalakan atau matikan sistem pertahanan AI RTM")
     @commands.has_permissions(administrator=True)
@@ -1980,6 +2009,12 @@ class UnifiedAI(commands.Cog, name="RTM Moderation Center"):
         await self.bot.wait_until_ready()
 
 async def setup(bot):
+    global mongo_client, mongo_db, mongo_col
+    mongo_client = getattr(bot, 'mongo_client', None)
+    if mongo_client:
+        mongo_db = mongo_client["reSwan"]
+        mongo_col = mongo_db["bot_data"]
+
     await bot.add_cog(UnifiedAI(bot))
     actions = load_json_file(PENDING_ACTIONS_FILE, {})
     for aid, data in actions.items():

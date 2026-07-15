@@ -21,17 +21,14 @@ import tempfile
 load_dotenv()
 
 API_KEYS = []
-if os.getenv("GOOGLE_API_KEY"):
-    API_KEYS.append(os.getenv("GOOGLE_API_KEY"))
+default_key = os.getenv("GOOGLE_API_KEY")
+if default_key:
+    API_KEYS.append(default_key)
 
-key_index = 1
-while True:
-    extra_key = os.getenv(f"GOOGLE_API_KEY_{key_index}")
-    if extra_key:
+for i in range(1, 10):
+    extra_key = os.getenv(f"GOOGLE_API_KEY_{i}")
+    if extra_key and extra_key not in API_KEYS:
         API_KEYS.append(extra_key)
-        key_index += 1
-    else:
-        break
 
 current_key_idx = 0
 
@@ -465,8 +462,15 @@ class Notif(commands.Cog, name="🔔 Notification"):
     def __init__(self, bot):
         self.bot = bot
         self.config_file = "data/notif.json"
-        
-        self.default_messages = self._get_default_messages() 
+
+        self.mongo_client = getattr(bot, 'mongo_client', None)
+        if self.mongo_client:
+            self.db = self.mongo_client["reSwan"]
+            self.collection = self.db["notif_config"]
+        else:
+            self.collection = None
+
+        self.default_messages = self._get_default_messages()
         self.config = self._load_config()
         self.daily_reset_task.start()
 
@@ -702,39 +706,60 @@ class Notif(commands.Cog, name="🔔 Notification"):
 
     def _load_config(self):
         default_config = {
-            "notification_paths": {}, 
+            "notification_paths": {},
             "recent_video_ids": [],
             "next_daily_reset_timestamp": None
         }
         config = {}
-        try:
-            with open(self.config_file, "r") as f:
-                config = json.load(f)
-        except (FileNotFoundError, json.JSONDecodeError):
-            pass
-        
+        if self.collection is not None:
+            try:
+                doc = self.collection.find_one({"_id": "notif_config"})
+                if doc and "data" in doc:
+                    config = doc["data"]
+            except Exception:
+                pass
+
+        if not config:
+            try:
+                with open(self.config_file, "r") as f:
+                    config = json.load(f)
+            except (FileNotFoundError, json.JSONDecodeError):
+                pass
+
         final_config = {**default_config, **config}
-        
+
         keys_to_remove = ["mirrored_users", "last_daily_reset_timestamp", "last_link_after_reset"]
         for key in keys_to_remove:
             if key in final_config:
                 del final_config[key]
-        
+
         for path_id, path_data in final_config["notification_paths"].items():
             if "custom_messages" in path_data:
                 for message_type in self.default_messages.keys():
                     if message_type not in path_data["custom_messages"]:
                         path_data["custom_messages"][message_type] = self.default_messages[message_type].copy()
-        
-        os.makedirs(os.path.dirname(self.config_file), exist_ok=True)
-        with open(self.config_file, "w") as f:
-            json.dump(final_config, f, indent=4)
+
+        try:
+            os.makedirs(os.path.dirname(self.config_file), exist_ok=True)
+            with open(self.config_file, "w") as f:
+                json.dump(final_config, f, indent=4)
+        except Exception:
+            pass
         return final_config
 
     def save_config(self):
-        os.makedirs(os.path.dirname(self.config_file), exist_ok=True)
-        with open(self.config_file, "w") as f:
-            json.dump(self.config, f, indent=4)
+        try:
+            os.makedirs(os.path.dirname(self.config_file), exist_ok=True)
+            with open(self.config_file, "w") as f:
+                json.dump(self.config, f, indent=4)
+        except Exception:
+            pass
+
+        if self.collection is not None:
+            try:
+                self.collection.replace_one({"_id": "notif_config"}, {"_id": "notif_config", "data": self.config}, upsert=True)
+            except Exception:
+                pass
             
     async def _perform_daily_reset(self):
         now = datetime.datetime.now(datetime.UTC) 
