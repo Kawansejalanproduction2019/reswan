@@ -25,3 +25,4 @@ ffmpeg
 nodejs
 imagehash
 pilmoji
+yt-dlp-youtube-oauth2

@@ -74,11 +74,15 @@ else:
     log.warning("Variabel LOG_WEBHOOK_URL tidak ditemukan di .env. Logging error ke Discord dinonaktifkan.")
 
 def save_cookies_from_env():
+    if os.path.exists("cookies.txt") and os.path.getsize("cookies.txt") > 0:
+        log.info("ℹ️ Local cookies.txt already exists. Skipping creation from environment variable.")
+        return
+
     encoded = os.getenv("COOKIES_BASE64")
     if not encoded:
         log.warning("Environment variable COOKIES_BASE64 not found. Skipping cookies.txt creation.")
         return
-    
+
     try:
         decoded = base64.b64decode(encoded)
         with open("cookies.txt", "wb") as f:
@@ -258,6 +262,7 @@ intents.members = True
 intents.voice_states = True
 
 bot = commands.Bot(command_prefix=("!", "?"), intents=intents, help_command=None)
+bot.mongo_client = client
 
 @bot.event
 async def on_resumed():
@@ -608,6 +613,17 @@ async def sendbackup(ctx):
         await ctx.send(f"❌ Terjadi error saat mengambil data backup: {e}")
         log.error(f"❌ Terjadi error saat mengambil data backup: {e}", exc_info=True)
 
+
+@bot.command(name="sync")
+@commands.is_owner()
+async def sync_commands(ctx):
+    try:
+        synced = await bot.tree.sync()
+        await ctx.send(f"✅ Berhasil menyinkronkan {len(synced)} Slash Commands secara instan!")
+    except Exception as e:
+        await ctx.send(f"❌ Gagal melakukan sinkronisasi: {e}")
+
+
 @bot.command(name="cogbackup")
 @commands.is_owner()
 async def cog_backup(ctx):
@@ -655,7 +671,7 @@ async def cog_backup_error(ctx, error):
 async def load_cogs():
     initial_extensions = [
         "cogs.leveling", "cogs.moderation", "cogs.quotes", "cogs.endgame",
-        "cogs.webhook", "cogs.dev", "cogs.uang",  "cogs.notif", "cogs.multi", "cogs.info", "cogs.gemini", "cogs.game", "cogs.music"
+        "cogs.webhook", "cogs.uang",  "cogs.notif", "cogs.multi", "cogs.info", "cogs.gemini", "cogs.game", "cogs.music"
     ]
     for extension in initial_extensions:
         try:
