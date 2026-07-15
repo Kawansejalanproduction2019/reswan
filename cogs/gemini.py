@@ -1055,11 +1055,9 @@ class UnifiedAI(commands.Cog, name="RTM Moderation Center"):
         })
 
         block_channel_id = self.cyber_config.get("image_block_channel_id")
-        log.info(f"[BLOCK_CH] configured={block_channel_id} | current={message.channel.id} | attachments={len(message.attachments)}")
-
+        
         if block_channel_id and message.channel.id == block_channel_id and message.attachments:
             valid_images = await self.get_images_from_message(message)
-            log.info(f"[BLOCK_CH] Images to hash: {len(valid_images)}")
             if valid_images:
                 self.cyber_config.setdefault("blocked_image_hashes", [])
                 new_hashes = 0
@@ -1068,9 +1066,7 @@ class UnifiedAI(commands.Cog, name="RTM Moderation Center"):
                     if img_hash not in self.cyber_config["blocked_image_hashes"]:
                         self.cyber_config["blocked_image_hashes"].append(img_hash)
                         new_hashes += 1
-                        log.info(f"[BLOCK_CH] New hash stored: {img_hash}")
                 save_json_file(CYBER_CONFIG_FILE, self.cyber_config)
-                log.info(f"[BLOCK_CH] Saved. Total hashes now: {len(self.cyber_config['blocked_image_hashes'])}")
                 if (message.author.id == 1000737066822410311
                         or message.author.guild_permissions.administrator):
                     await message.reply(
@@ -1078,9 +1074,6 @@ class UnifiedAI(commands.Cog, name="RTM Moderation Center"):
                         f"Total blacklist: {len(self.cyber_config['blocked_image_hashes'])} hash."
                     )
             return
-        
-        uid_str = str(message.author.id)
-        log.info(f"[FLOW_DEBUG] Melewati block_channel check | guild={bool(message.guild)} | attachments={len(message.attachments)} | author={message.author}")
 
         uid_str = str(message.author.id)
         user_karma = self.auto_config.get("karma_scores", {}).get(uid_str, 0)
@@ -1376,46 +1369,47 @@ class UnifiedAI(commands.Cog, name="RTM Moderation Center"):
             except: pass
             return
 
-        if message.guild and str(message.guild.id) in self.auto_config.get("active_guilds", []):
-            if not message.content.startswith(prefix) and not is_curhat_trigger and not is_koreksi and self.bot.user not in message.mentions:
-                channel_id = message.channel.id
-                if channel_id not in self.active_chats:
-                    self.message_counters[channel_id] = self.message_counters.get(channel_id, 0) + 1
-
-                    now_time = time.time()
-                    last_time = self.last_nimbrung_time.get(channel_id, 0)
-
-                    if self.message_counters[channel_id] >= 5 and (now_time - last_time) >= 180:
-                        self.message_counters[channel_id] = 0
-                        try:
-                            history_list = list(self.chat_history.get(channel_id, []))[-5:]
-                            history_text = "\n".join(history_list)
-
-                            think_prompt = (
-                                "Lu adalah Raka, AI sarkas, baperan, sumbu pendek, bergaya tongkrongan Jakarta (lo-gue).\n"
-                                "Berikut adalah log obrolan terbaru di grup:\n"
-                                f"{history_text}\n\n"
-                                "Berdasarkan log chat di atas, apakah ada topik menarik yang cocok untuk lu ikuti secara natural/sarkas/lucu tanpa perlu dipanggil?\n"
-                                "Jawab HANYA dengan kata YA atau TIDAK."
-                            )
-
-                            think_res = await generate_smart_response([think_prompt])
-                            think_text = think_res.text.strip().upper() if think_res else "TIDAK"
-
-                            if "YA" in think_text:
-                                self.last_nimbrung_time[channel_id] = now_time
-                                async with message.channel.typing():
-                                    prompt = (
-                                        f"Ikut nimbrung obrolan tongkrongan ini secara natural tanpa dipanggil/di-tag. "
-                                        f"Gaya bahasa lu Raka (sarkas, tongkrongan Jakarta lo-gue). "
-                                        f"Berikut log chat terakhir:\n{history_text}\n"
-                                        f"Berikan respons singkat (1-3 kalimat) yang nyambung dengan obrolan tersebut."
-                                    )
-                                    ctx_data = self.get_brain_context(message.content, getattr(message, 'guild', None), channel_id)
-                                    images = await self.get_images_from_message(message)
-                                    await self.process_and_send_response(message, message.author, ctx_data, prompt, images, guild_id=guild_id)
-                        except Exception:
-                            pass
+        # Fitur nimbrung otomatis dimatikan atas permintaan user untuk menghemat API
+        # if message.guild and str(message.guild.id) in self.auto_config.get("active_guilds", []):
+        #     if not message.content.startswith(prefix) and not is_curhat_trigger and not is_koreksi and self.bot.user not in message.mentions:
+        #         channel_id = message.channel.id
+        #         if channel_id not in self.active_chats:
+        #             self.message_counters[channel_id] = self.message_counters.get(channel_id, 0) + 1
+        # 
+        #             now_time = time.time()
+        #             last_time = self.last_nimbrung_time.get(channel_id, 0)
+        # 
+        #             if self.message_counters[channel_id] >= 5 and (now_time - last_time) >= 180:
+        #                 self.message_counters[channel_id] = 0
+        #                 try:
+        #                     history_list = list(self.chat_history.get(channel_id, []))[-5:]
+        #                     history_text = "\n".join(history_list)
+        # 
+        #                     think_prompt = (
+        #                         "Lu adalah Raka, AI sarkas, baperan, sumbu pendek, bergaya tongkrongan Jakarta (lo-gue).\n"
+        #                         "Berikut adalah log obrolan terbaru di grup:\n"
+        #                         f"{history_text}\n\n"
+        #                         "Berdasarkan log chat di atas, apakah ada topik menarik yang cocok untuk lu ikuti secara natural/sarkas/lucu tanpa perlu dipanggil?\n"
+        #                         "Jawab HANYA dengan kata YA atau TIDAK."
+        #                     )
+        # 
+        #                     think_res = await generate_smart_response([think_prompt])
+        #                     think_text = think_res.text.strip().upper() if think_res else "TIDAK"
+        # 
+        #                     if "YA" in think_text:
+        #                         self.last_nimbrung_time[channel_id] = now_time
+        #                         async with message.channel.typing():
+        #                             prompt = (
+        #                                 f"Ikut nimbrung obrolan tongkrongan ini secara natural tanpa dipanggil/di-tag. "
+        #                                 f"Gaya bahasa lu Raka (sarkas, tongkrongan Jakarta lo-gue). "
+        #                                 f"Berikut log chat terakhir:\n{history_text}\n"
+        #                                 f"Berikan respons singkat (1-3 kalimat) yang nyambung dengan obrolan tersebut."
+        #                             )
+        #                             ctx_data = self.get_brain_context(message.content, getattr(message, 'guild', None), channel_id)
+        #                             images = await self.get_images_from_message(message)
+        #                             await self.process_and_send_response(message, message.author, ctx_data, prompt, images, guild_id=guild_id)
+        #                 except Exception:
+        #                     pass
 
     @commands.hybrid_command(name="cyber_toggle", aliases=["cybertoggle", "onoffcyber"], description="Nyalakan atau matikan sistem pertahanan AI RTM")
     @commands.has_permissions(administrator=True)

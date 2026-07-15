@@ -11,6 +11,9 @@ import aiohttp
 import sys
 from discord import app_commands
 from datetime import datetime, timedelta, timezone
+from PIL import Image, ImageDraw, ImageFont
+import io
+import unicodedata
 
 WIB = timezone(timedelta(hours=7))
 
@@ -719,6 +722,113 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
     def cog_unload(self):
         self.update_panel_task.cancel()
         self.cleanup_spam_history.cancel()
+
+    async def _create_welcome_card(self, member: discord.Member, title: str) -> io.BytesIO:
+        width = 800
+        height = 250
+        background = Image.new('RGBA', (width, height), (30, 31, 34, 255))
+        draw = ImageDraw.Draw(background)
+        
+        draw.ellipse((-100, -100, 350, 350), fill=(20, 22, 25, 255)) 
+        draw.ellipse((-90, -90, 340, 340), outline=(88, 101, 242, 150), width=6) 
+        
+        try:
+            avatar_bytes = await member.display_avatar.replace(size=128, format="png").read()
+            avatar_img = Image.open(io.BytesIO(avatar_bytes)).convert("RGBA")
+            avatar_img = avatar_img.resize((150, 150))
+            mask = Image.new("L", (150, 150), 0)
+            ImageDraw.Draw(mask).ellipse((0, 0, 150, 150), fill=255)
+            background.paste(avatar_img, (50, 50), mask)
+            draw.ellipse((46, 46, 204, 204), outline=(88, 101, 242, 255), width=5)
+        except Exception:
+            pass
+
+        try:
+            url_bold = "https://github.com/google/fonts/raw/main/ofl/poppins/Poppins-Bold.ttf"
+            url_reg = "https://github.com/google/fonts/raw/main/ofl/poppins/Poppins-Regular.ttf"
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url_bold) as r1:
+                    font_bold_bytes = await r1.read()
+                    font_bold = ImageFont.truetype(io.BytesIO(font_bold_bytes), 38)
+                    font_title = ImageFont.truetype(io.BytesIO(font_bold_bytes), 20)
+                async with session.get(url_reg) as r2:
+                    font_reg_bytes = await r2.read()
+                    font_sub = ImageFont.truetype(io.BytesIO(font_reg_bytes), 18)
+        except Exception:
+            font_bold = ImageFont.load_default()
+            font_title = ImageFont.load_default()
+            font_sub = ImageFont.load_default()
+
+        import unicodedata
+        safe_guild = unicodedata.normalize('NFKC', member.guild.name)
+        safe_name = unicodedata.normalize('NFKC', member.display_name)
+        
+        draw.text((320, 40), title, font=font_title, fill=(88, 101, 242, 255))
+        draw.text((320, 70), safe_name, font=font_bold, fill=(255, 255, 255, 255))
+        draw.text((320, 125), f"Selamat datang di {safe_guild}!", font=font_sub, fill=(200, 200, 200, 255))
+        draw.text((320, 155), "Semoga betah dan aktif terus ya! 🎉", font=font_sub, fill=(180, 255, 180, 255))
+        
+        draw.text((615, 205), f"Member #{member.guild.member_count}", font=font_sub, fill=(200, 200, 200, 255))
+
+        buffer = io.BytesIO()
+        background.save(buffer, format="PNG")
+        buffer.seek(0)
+        return buffer
+
+    async def _create_goodbye_card(self, member: discord.Member, title: str) -> io.BytesIO:
+        width = 800
+        height = 250
+        background = Image.new('RGBA', (width, height), (30, 31, 34, 255))
+        draw = ImageDraw.Draw(background)
+        
+        draw.ellipse((-100, -100, 350, 350), fill=(25, 20, 20, 255)) 
+        draw.ellipse((-90, -90, 340, 340), outline=(242, 88, 88, 100), width=6)
+        
+        try:
+            avatar_bytes = await member.display_avatar.replace(size=128, format="png").read()
+            avatar_img = Image.open(io.BytesIO(avatar_bytes)).convert("RGBA")
+            avatar_img = avatar_img.resize((150, 150))
+            mask = Image.new("L", (150, 150), 0)
+            ImageDraw.Draw(mask).ellipse((0, 0, 150, 150), fill=255)
+            
+            grayscale = avatar_img.convert('L')
+            grayscale_rgba = Image.new("RGBA", grayscale.size)
+            grayscale_rgba.paste(grayscale, (0, 0), mask)
+            
+            background.paste(grayscale_rgba, (50, 50), mask)
+            draw.ellipse((46, 46, 204, 204), outline=(242, 88, 88, 255), width=5)
+        except Exception:
+            pass
+
+        try:
+            url_bold = "https://github.com/google/fonts/raw/main/ofl/poppins/Poppins-Bold.ttf"
+            url_reg = "https://github.com/google/fonts/raw/main/ofl/poppins/Poppins-Regular.ttf"
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url_bold) as r1:
+                    font_bold_bytes = await r1.read()
+                    font_bold = ImageFont.truetype(io.BytesIO(font_bold_bytes), 38)
+                    font_title = ImageFont.truetype(io.BytesIO(font_bold_bytes), 20)
+                async with session.get(url_reg) as r2:
+                    font_reg_bytes = await r2.read()
+                    font_sub = ImageFont.truetype(io.BytesIO(font_reg_bytes), 18)
+        except Exception:
+            font_bold = ImageFont.load_default()
+            font_title = ImageFont.load_default()
+            font_sub = ImageFont.load_default()
+
+        import unicodedata
+        safe_guild = unicodedata.normalize('NFKC', member.guild.name)
+        safe_name = unicodedata.normalize('NFKC', member.display_name)
+        
+        draw.text((320, 40), title, font=font_title, fill=(242, 88, 88, 255))
+        draw.text((320, 70), safe_name, font=font_bold, fill=(255, 255, 255, 255))
+        draw.text((320, 125), f"Telah meninggalkan {safe_guild}...", font=font_sub, fill=(180, 180, 180, 255))
+        draw.text((320, 155), "Yah, padahal lagi seru-serunya... 🥀", font=font_sub, fill=(255, 150, 150, 255))
+
+        buffer = io.BytesIO()
+        background.save(buffer, format="PNG")
+        buffer.seek(0)
+        return buffer
 
     def get_guild_settings(self, guild_id: int):
         guild_id_str = str(guild_id)
@@ -1471,12 +1581,25 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
                 timestamp=discord.utils.utcnow()
             )
             embed.set_author(name=member.guild.name, icon_url=member.guild.icon.url if member.guild.icon else None)
-            if member.display_avatar.url:
-                embed.set_image(url=member.display_avatar.url)
+            file = None
+            welcome_banner_url = guild_settings.get("welcome_banner_url")
+            if welcome_banner_url:
+                embed.set_image(url=welcome_banner_url)
+            else:
+                try:
+                    card_buffer = await self._create_goodbye_card(member, "SELAMAT TINGGAL!")
+                    file = discord.File(fp=card_buffer, filename="goodbye.png")
+                    embed.set_image(url="attachment://goodbye.png")
+                except Exception:
+                    pass
+
             embed.set_footer(text=f"Anggota tersisa {member.guild.member_count}.")
             
             try:
-                await channel.send(embed=embed)
+                if file:
+                    await channel.send(embed=embed, file=file)
+                else:
+                    await channel.send(embed=embed)
             except discord.Forbidden:
                 pass
             except Exception:
@@ -1545,11 +1668,22 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
             embed.set_thumbnail(url=member.display_avatar.url)
             embed.set_footer(text=f"Kamu adalah anggota ke-{member.guild.member_count}!")
 
+            file = None
             if welcome_banner_url:
                 embed.set_image(url=welcome_banner_url)
+            else:
+                try:
+                    card_buffer = await self._create_welcome_card(member, welcome_embed_title)
+                    file = discord.File(fp=card_buffer, filename="welcome.png")
+                    embed.set_image(url="attachment://welcome.png")
+                except Exception:
+                    pass
             
             try:
-                await channel.send(f"Halo, {member.mention}! Selamat datang!", embed=embed)
+                if file:
+                    await channel.send(f"Halo, {member.mention}! Selamat datang!", embed=embed, file=file)
+                else:
+                    await channel.send(f"Halo, {member.mention}! Selamat datang!", embed=embed)
             except discord.Forbidden:
                 pass
             except Exception as e:
@@ -3003,36 +3137,42 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
         status_data = load_data(self.status_file)
         current_status = status_data.get("status", "online")
         
-        embed = discord.Embed(
-            title=f"{guild.name}",
-            color=self.color_info
-        )
-        embed.set_author(name=f"Panel Kontrol Server & Statistik", icon_url=guild.icon.url if guild.icon else None)
+        import random
+        TIPS = [
+            "Nyari teman mabar itu gampang, yang susah itu nyari yang nggak ngilang setelah sebulan.",
+            "Online tiap hari di server, tapi tetep aja nggak ada yang nyadar pas off seminggu. 🚬",
+            "Mute server sana-sini demi nungguin notif dari satu orang. Eh dia lagi DnD.",
+            "Level di server udah mentok, tapi skill mabar masih di situ-situ aja. 🥲",
+            "Discord cuma tempat mampir, dunia nyata tetep tempat kembali.",
+            "Udah join banyak server, tetep aja ujung-ujungnya nongkrong di satu voice channel yang itu-itu lagi.",
+            "Ngetik panjang di general, dibalesnya pake reaction doang. Sabar ya.",
+            "Role lu emang paling atas, tapi kalau soal cari teman ngobrol, kita semua sama.",
+            "Kalau sepi ya ngeramein sendiri, kalau rame malah jadi sider. Valid no debat.",
+            "Kadang yang dicari di Discord bukan game-nya, tapi obrolan random jam 3 paginya. ☕"
+        ]
+        
+        embed = discord.Embed(title="🛡️ Moderator Control Panel", description="Statistik real-time mengenai status server dan anggota.", color=self.color_info)
+        embed.set_author(name=f"{guild.name} - Keamanan", icon_url=guild.icon.url if guild.icon else None)
         
         if current_status == "online":
             status_emoji = '🟢'
-            status_text = 'Online'
+            status_text = 'Online & Berjalan'
         else:
             status_emoji = '🔴'
-            status_text = 'Offline'
-        
-        status_value = f"```\n{status_emoji} {status_text}\n```"
-        
-        players_value = f"```\n{total_members}\n```"
+            status_text = 'Offline / DnD'
 
-        channels_value = f"```\n{total_channels}\n```"
+        tip = random.choice(TIPS)
 
-        embed.add_field(name="STATUS BOT", value=status_value, inline=True)
-        embed.add_field(name="Jumlah Anggota", value=players_value, inline=True)
-        embed.add_field(name="Jumlah Channel", value=channels_value, inline=True)
-        
-        embed.add_field(name="\u200B", value="\u200B", inline=False)
-        
-        human_value = f"```\n🧍 {human_members}\n```"
-        bot_value = f"```\n🤖 {bot_members}\n```"
-        
-        embed.add_field(name="Anggota Manusia", value=human_value, inline=True)
-        embed.add_field(name="Anggota Bot", value=bot_value, inline=True)
+        embed.add_field(
+            name="📊 Statistik Server", 
+            value=f"👥 **Member:** `{total_members}` (🧍 `{human_members}` | 🤖 `{bot_members}`)\n📁 **Channel:** `{total_channels}`", 
+            inline=True
+        )
+        embed.add_field(
+            name="🌐 Status Sistem", 
+            value=f"{status_emoji} **{status_text}**\n\n*💡 {tip}*", 
+            inline=True
+        )
 
         panel_roles = []
         for role_id in guild_settings.get("panel_role_stats", []):
@@ -3041,11 +3181,10 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
 
         if panel_roles:
             embed.add_field(name="\u200B", value="\u200B", inline=False)
-            embed.add_field(name="STATISTIK MEMBERSHIP", value="\u200B", inline=False)
-            for i, role in enumerate(panel_roles):
+            embed.add_field(name="✨ STATISTIK MEMBERSHIP", value="\u200B", inline=False)
+            for role in panel_roles:
                 member_count = len(role.members)
-                role_value = f"```\n{member_count}\n```"
-                embed.add_field(name=f"✨ {role.name}", value=role_value, inline=True)
+                embed.add_field(name=f"{role.name}", value=f"```\n{member_count} Member\n```", inline=True)
         
         embed.set_footer(text=f"Terakhir diperbarui: {datetime.now(WIB).strftime('%d/%m/%Y %H:%M:%S')} WIB")
         
@@ -3069,32 +3208,59 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
                 total_members = len(guild.members)
                 bot_members = sum(1 for member in guild.members if member.bot)
                 human_members = total_members - bot_members
+                total_channels = len(guild.channels)
 
                 status_data = load_data(self.status_file)
                 current_status = status_data.get("status", "online")
                 
-                embed = discord.Embed(color=self.color_info)
-                embed.set_author(name=guild.name, icon_url=guild.icon.url if guild.icon else None)
-                embed.description = "Panel Kontrol Server & Statistik"
+                import random
+                TIPS = [
+                    "Nyari teman mabar itu gampang, yang susah itu nyari yang nggak ngilang setelah sebulan.",
+                    "Online tiap hari di server, tapi tetep aja nggak ada yang nyadar pas off seminggu. 🚬",
+                    "Mute server sana-sini demi nungguin notif dari satu orang. Eh dia lagi DnD.",
+                    "Level di server udah mentok, tapi skill mabar masih di situ-situ aja. 🥲",
+                    "Discord cuma tempat mampir, dunia nyata tetep tempat kembali.",
+                    "Udah join banyak server, tetep aja ujung-ujungnya nongkrong di satu voice channel yang itu-itu lagi.",
+                    "Ngetik panjang di general, dibalesnya pake reaction doang. Sabar ya.",
+                    "Role lu emang paling atas, tapi kalau soal cari teman ngobrol, kita semua sama.",
+                    "Kalau sepi ya ngeramein sendiri, kalau rame malah jadi sider. Valid no debat.",
+                    "Kadang yang dicari di Discord bukan game-nya, tapi obrolan random jam 3 paginya. ☕"
+                ]
+                
+                embed = discord.Embed(title="🛡️ Moderator Control Panel", description="Statistik real-time mengenai status server dan anggota.", color=self.color_info)
+                embed.set_author(name=f"{guild.name} - Keamanan", icon_url=guild.icon.url if guild.icon else None)
                 
                 if current_status == "online":
                     status_emoji = '🟢'
-                    status_text = 'Online'
+                    status_text = 'Online & Berjalan'
                 else:
                     status_emoji = '🔴'
-                    status_text = 'Offline/DnD'
-                
-                status_value = f"```\n{status_emoji} {status_text}\n```"
-                
-                players_value = f"```\n{total_members}\n```"
-                human_value = f"```\n🧍 {human_members}\n```"
-                bot_value = f"```\n🤖 {bot_members}\n```"
-                
-                embed.add_field(name="STATUS BOT", value=status_value, inline=True)
-                embed.add_field(name="Jumlah Anggota", value=players_value, inline=True)
-                embed.add_field(name="\u200B", value="\u200B", inline=False)
-                embed.add_field(name="Anggota Manusia", value=human_value, inline=True)
-                embed.add_field(name="Anggota Bot", value=bot_value, inline=True)
+                    status_text = 'Offline / DnD'
+
+                tip = random.choice(TIPS)
+
+                embed.add_field(
+                    name="📊 Statistik Server", 
+                    value=f"👥 **Member:** `{total_members}` (🧍 `{human_members}` | 🤖 `{bot_members}`)\n📁 **Channel:** `{total_channels}`", 
+                    inline=True
+                )
+                embed.add_field(
+                    name="🌐 Status Sistem", 
+                    value=f"{status_emoji} **{status_text}**\n\n*💡 {tip}*", 
+                    inline=True
+                )
+
+                panel_roles = []
+                for role_id in guild_settings.get("panel_role_stats", []):
+                    if role := guild.get_role(role_id):
+                        panel_roles.append(role)
+
+                if panel_roles:
+                    embed.add_field(name="\u200B", value="\u200B", inline=False)
+                    embed.add_field(name="✨ STATISTIK MEMBERSHIP", value="\u200B", inline=False)
+                    for role in panel_roles:
+                        member_count = len(role.members)
+                        embed.add_field(name=f"{role.name}", value=f"```\n{member_count} Member\n```", inline=True)
                 
                 embed.set_footer(text=f"Terakhir diperbarui: {datetime.now(WIB).strftime('%d/%m/%Y %H:%M:%S')} WIB")
                 
@@ -3105,7 +3271,7 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
                 guild_settings['mod_panel_channel_id'] = channel.id
                 self.save_settings()
 
-    @commands.command(name="modpanel")
+    @commands.hybrid_command(name="modpanel", description="Membuat panel statistik dan moderasi server.")
     @commands.has_permissions(manage_guild=True)
     async def modpanel(self, ctx: commands.Context):
         try:
@@ -3131,35 +3297,59 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
             total_members = len(ctx.guild.members)
             bot_members = sum(1 for member in ctx.guild.members if member.bot)
             human_members = total_members - bot_members
+            total_channels = len(ctx.guild.channels)
             
             status_data = load_data(self.status_file)
             current_status = status_data.get("status", "online")
             
-            embed = discord.Embed(color=self.color_info)
-            embed.set_author(name=ctx.guild.name, icon_url=ctx.guild.icon.url if ctx.guild.icon else None)
-            embed.description = "Panel Kontrol Server & Statistik"
+            import random
+            TIPS = [
+                "Nyari teman mabar itu gampang, yang susah itu nyari yang nggak ngilang setelah sebulan.",
+                "Online tiap hari di server, tapi tetep aja nggak ada yang nyadar pas off seminggu. 🚬",
+                "Mute server sana-sini demi nungguin notif dari satu orang. Eh dia lagi DnD.",
+                "Level di server udah mentok, tapi skill mabar masih di situ-situ aja. 🥲",
+                "Discord cuma tempat mampir, dunia nyata tetep tempat kembali.",
+                "Udah join banyak server, tetep aja ujung-ujungnya nongkrong di satu voice channel yang itu-itu lagi.",
+                "Ngetik panjang di general, dibalesnya pake reaction doang. Sabar ya.",
+                "Role lu emang paling atas, tapi kalau soal cari teman ngobrol, kita semua sama.",
+                "Kalau sepi ya ngeramein sendiri, kalau rame malah jadi sider. Valid no debat.",
+                "Kadang yang dicari di Discord bukan game-nya, tapi obrolan random jam 3 paginya. ☕"
+            ]
+            
+            embed = discord.Embed(title="🛡️ Moderator Control Panel", description="Statistik real-time mengenai status server dan anggota.", color=self.color_info)
+            embed.set_author(name=f"{ctx.guild.name} - Keamanan", icon_url=ctx.guild.icon.url if ctx.guild.icon else None)
             
             if current_status == "online":
                 status_emoji = '🟢'
-                status_text = 'Online'
+                status_text = 'Online & Berjalan'
             else:
                 status_emoji = '🔴'
-                status_text = 'Offline/DnD'
+                status_text = 'Offline / DnD'
 
-            status_value = f"```\n{status_emoji} {status_text}\n```"
-            
-            players_value = f"```\n{total_members}\n```"
+            tip = random.choice(TIPS)
 
-            embed.add_field(name="STATUS BOT", value=status_value, inline=True)
-            embed.add_field(name="Jumlah Anggota", value=players_value, inline=True)
-            
-            embed.add_field(name="\u200B", value="\u200B", inline=False)
-            
-            human_value = f"```\n🧍 {human_members}\n```"
-            bot_value = f"```\n🤖 {bot_members}\n```"
-            
-            embed.add_field(name="Anggota Manusia", value=human_value, inline=True)
-            embed.add_field(name="Anggota Bot", value=bot_value, inline=True)
+            embed.add_field(
+                name="📊 Statistik Server", 
+                value=f"👥 **Member:** `{total_members}` (🧍 `{human_members}` | 🤖 `{bot_members}`)\n📁 **Channel:** `{total_channels}`", 
+                inline=True
+            )
+            embed.add_field(
+                name="🌐 Status Sistem", 
+                value=f"{status_emoji} **{status_text}**\n\n*💡 {tip}*", 
+                inline=True
+            )
+
+            panel_roles = []
+            for role_id in guild_settings.get("panel_role_stats", []):
+                if role := ctx.guild.get_role(role_id):
+                    panel_roles.append(role)
+
+            if panel_roles:
+                embed.add_field(name="\u200B", value="\u200B", inline=False)
+                embed.add_field(name="✨ STATISTIK MEMBERSHIP", value="\u200B", inline=False)
+                for role in panel_roles:
+                    member_count = len(role.members)
+                    embed.add_field(name=f"{role.name}", value=f"```\n{member_count} Member\n```", inline=True)
             
             embed.set_footer(text=f"Terakhir diperbarui: {datetime.now(WIB).strftime('%d/%m/%Y %H:%M:%S')} WIB")
             
@@ -3561,52 +3751,82 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
         except (ValueError, discord.NotFound):
             return guild.get_member_named(identifier)
 
+    @commands.hybrid_command(name="remove_modpanel", description="Menghapus panel moderasi saat ini dari channel.")
+    @commands.has_permissions(manage_guild=True)
+    async def remove_modpanel(self, ctx: commands.Context):
+        guild_settings = self.get_guild_settings(ctx.guild.id)
+        panel_id = guild_settings.get('mod_panel_message_id')
+        channel_id = guild_settings.get('mod_panel_channel_id')
+        
+        if panel_id and channel_id:
+            try:
+                channel = ctx.guild.get_channel(channel_id)
+                if channel:
+                    message = await channel.fetch_message(panel_id)
+                    await message.delete()
+            except Exception:
+                pass
+            
+            guild_settings['mod_panel_message_id'] = None
+            guild_settings['mod_panel_channel_id'] = None
+            self.save_settings()
+            await ctx.send("✅ Panel moderasi berhasil dihapus dan dinonaktifkan.", ephemeral=True)
+        else:
+            await ctx.send("⚠️ Tidak ada panel moderasi aktif di server ini.", ephemeral=True)
+
     class RealtimeModPanelView(discord.ui.View):
         def __init__(self, cog_instance):
             super().__init__(timeout=None)
             self.cog = cog_instance
             self.add_buttons()
 
+        async def interaction_check(self, interaction: discord.Interaction) -> bool:
+            if not interaction.user.guild_permissions.manage_guild:
+                await interaction.response.send_message("❌ Anda harus memiliki izin `Manage Server` untuk menggunakan tombol moderasi ini.", ephemeral=True)
+                return False
+            return True
+
         def add_buttons(self):
-            warn_button = discord.ui.Button(label="Warn", style=discord.ButtonStyle.primary, emoji="⚠️")
+            # Baris 0: Tindakan Hukuman (Punishments)
+            warn_button = discord.ui.Button(label="Warn", style=discord.ButtonStyle.secondary, emoji="⚠️", row=0)
             warn_button.callback = self.warn_user_callback
             self.add_item(warn_button)
 
-            timeout_button = discord.ui.Button(label="Timeout", style=discord.ButtonStyle.primary, emoji="⏳")
+            timeout_button = discord.ui.Button(label="Timeout", style=discord.ButtonStyle.primary, emoji="⏳", row=0)
             timeout_button.callback = self.timeout_user_callback
             self.add_item(timeout_button)
 
-            kick_button = discord.ui.Button(label="Kick", style=discord.ButtonStyle.secondary, emoji="👢")
+            kick_button = discord.ui.Button(label="Kick", style=discord.ButtonStyle.danger, emoji="👢", row=0)
             kick_button.callback = self.kick_user_callback
             self.add_item(kick_button)
 
-            ban_button = discord.ui.Button(label="Ban", style=discord.ButtonStyle.red, emoji="🔨")
+            ban_button = discord.ui.Button(label="Ban", style=discord.ButtonStyle.danger, emoji="🔨", row=0)
             ban_button.callback = self.ban_user_callback
             self.add_item(ban_button)
             
-            self.add_item(discord.ui.Button(label="\u200B", style=discord.ButtonStyle.gray, disabled=True, row=1))
-            
-            unwarn_button = discord.ui.Button(label="Unwarn", style=discord.ButtonStyle.green, emoji="✅", row=1)
+            # Baris 1: Cabut Hukuman (Reversals)
+            unwarn_button = discord.ui.Button(label="Unwarn", style=discord.ButtonStyle.success, emoji="🛡️", row=1)
             unwarn_button.callback = self.unwarn_user_callback
             self.add_item(unwarn_button)
 
-            remove_timeout_button = discord.ui.Button(label="Remove Timeout", style=discord.ButtonStyle.green, emoji="⏱️", row=1)
+            remove_timeout_button = discord.ui.Button(label="Untimeout", style=discord.ButtonStyle.success, emoji="⏱️", row=1)
             remove_timeout_button.callback = self.remove_timeout_callback
             self.add_item(remove_timeout_button)
 
-            unban_button = discord.ui.Button(label="Unban", style=discord.ButtonStyle.green, emoji="🤝", row=1)
+            unban_button = discord.ui.Button(label="Unban", style=discord.ButtonStyle.success, emoji="🤝", row=1)
             unban_button.callback = self.unban_user_callback
             self.add_item(unban_button)
 
-            clear_button = discord.ui.Button(label="Clear Messages", style=discord.ButtonStyle.danger, emoji="🗑️", row=2)
+            # Baris 2: Manajemen Channel (Channel Tools)
+            clear_button = discord.ui.Button(label="Clear Chat", style=discord.ButtonStyle.danger, emoji="🧹", row=2)
             clear_button.callback = self.clear_messages_callback
             self.add_item(clear_button)
 
-            self.lock_button = discord.ui.Button(label="Lock Channel", style=discord.ButtonStyle.red, emoji="🔒", row=2)
+            self.lock_button = discord.ui.Button(label="Lock", style=discord.ButtonStyle.danger, emoji="🔒", row=2)
             self.lock_button.callback = self.lock_channel_callback
             self.add_item(self.lock_button)
 
-            self.unlock_button = discord.ui.Button(label="Unlock Channel", style=discord.ButtonStyle.green, emoji="🔓", row=2)
+            self.unlock_button = discord.ui.Button(label="Unlock", style=discord.ButtonStyle.success, emoji="🔓", row=2)
             self.unlock_button.callback = self.unlock_channel_callback
             self.add_item(self.unlock_button)
 

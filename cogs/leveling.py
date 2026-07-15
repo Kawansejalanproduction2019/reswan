@@ -13,6 +13,7 @@ import requests
 from io import BytesIO
 import io
 import aiohttp
+import unicodedata
 
 LEVEL_FILE = "data/level_data.json"
 BANK_FILE = "data/bank_data.json"
@@ -728,6 +729,9 @@ class Leveling(commands.Cog, name="⭐ Leveling Exp"):
             font_text = ImageFont.load_default()
             font_small = ImageFont.load_default()
 
+        safe_guild_name = unicodedata.normalize('NFKC', guild.name)
+        safe_target_name = unicodedata.normalize('NFKC', target.display_name)
+
         if guild.icon:
             try:
                 g_icon_bytes = await guild.icon.replace(size=64, format="png").read()
@@ -735,13 +739,13 @@ class Leveling(commands.Cog, name="⭐ Leveling Exp"):
                 g_mask = Image.new("L", (35, 35), 0)
                 ImageDraw.Draw(g_mask).ellipse((0, 0, 35, 35), fill=255)
                 background.paste(g_img, (480, 45), g_mask)
-                draw.text((525, 50), f"{guild.name}", font=font_small, fill=(180, 180, 180, 255))
+                draw.text((525, 50), f"{safe_guild_name}", font=font_small, fill=(180, 180, 180, 255))
             except Exception:
-                draw.text((480, 50), f"Server: {guild.name}", font=font_small, fill=(180, 180, 180, 255))
+                draw.text((480, 50), f"Server: {safe_guild_name}", font=font_small, fill=(180, 180, 180, 255))
         else:
-            draw.text((480, 50), f"Server: {guild.name}", font=font_small, fill=(180, 180, 180, 255))
+            draw.text((480, 50), f"Server: {safe_guild_name}", font=font_small, fill=(180, 180, 180, 255))
 
-        draw.text((480, 85), f"{target.display_name}", font=font_title, fill=(255, 255, 255, 255))
+        draw.text((480, 85), f"{safe_target_name}", font=font_title, fill=(255, 255, 255, 255))
         
         draw.text((480, 145), f"Level {level}", font=font_subtitle, fill=(0, 255, 200, 255))
         draw.text((650, 155), f"|  Saldo: {balance} RSWN", font=font_text, fill=(255, 215, 0, 255))
@@ -888,10 +892,6 @@ class Leveling(commands.Cog, name="⭐ Leveling Exp"):
                 user_level_data["exp"] += reward_exp
                 bank_data[user_id]["balance"] += reward_rswn
                 user_level_data["last_daily"] = now.isoformat()
-                try:
-                    await message.author.send(f"🎉 Kamu mendapatkan hadiah harian: **{reward_exp} EXP** dan **{reward_rswn} RSWN**!")
-                except discord.Forbidden:
-                    pass
         else:
             user_level_data["last_daily"] = now.isoformat()
 
@@ -1361,10 +1361,11 @@ class Leveling(commands.Cog, name="⭐ Leveling Exp"):
         else:
             save_json(LEVEL_FILE, all_level_data)
             
-        try:
-            await member.send(f"🎁 Kamu telah menerima **{amount} EXP gratis** dari {ctx.author.mention}!")
-        except discord.Forbidden:
-            pass
+        # DM disabled based on request
+        # try:
+        #     await member.send(f"🎁 Kamu telah menerima **{amount} EXP gratis** dari {ctx.author.mention}!")
+        # except discord.Forbidden:
+        #     pass
         await ctx.send(f"✅ Kamu telah memberikan **{amount} EXP** ke {member.mention}.", ephemeral=True)
 
     @commands.hybrid_command(name="givecoins", description="Berikan RSWN gratis kepada member tertentu")
@@ -1376,10 +1377,11 @@ class Leveling(commands.Cog, name="⭐ Leveling Exp"):
             bank_data[user_id] = {"balance": 0, "debt": 0}
         bank_data[user_id]["balance"] += amount
         save_json(BANK_FILE, bank_data)
-        try:
-            await member.send(f"🎉 Kamu telah menerima **{amount} 🪙RSWN gratis** dari admin {ctx.author.mention}!")
-        except discord.Forbidden:
-            pass
+        # DM disabled
+        # try:
+        #     await member.send(f"🎉 Kamu telah menerima **{amount} 🪙RSWN gratis** dari admin {ctx.author.mention}!")
+        # except discord.Forbidden:
+        #     pass
         await ctx.send(f"✅ Kamu telah memberikan **{amount} 🪙RSWN gratis** ke {member.mention}.", ephemeral=True)
 
     @commands.hybrid_command(name="transfercoins", description="Transfer RSWN milikmu ke pengguna lain")
@@ -1396,10 +1398,11 @@ class Leveling(commands.Cog, name="⭐ Leveling Exp"):
         bank_data[sender_id]["balance"] -= amount
         bank_data[receiver_id]["balance"] += amount
         save_json(BANK_FILE, bank_data)
-        try:
-            await member.send(f"🎉 Kamu telah menerima **{amount} 🪙RSWN** dari {ctx.author.mention}!")
-        except discord.Forbidden:
-            pass
+        # DM disabled
+        # try:
+        #     await member.send(f"🎉 Kamu telah menerima **{amount} 🪙RSWN** dari {ctx.author.mention}!")
+        # except discord.Forbidden:
+        #     pass
         await ctx.send(f"✅ Transfer **{amount} 🪙RSWN** ke {member.mention} berhasil.", ephemeral=True)
 
     @commands.hybrid_command(name="setlevel", description="Ubah level member secara instan")
