@@ -671,7 +671,7 @@ async def cog_backup_error(ctx, error):
 async def load_cogs():
     initial_extensions = [
         "cogs.leveling", "cogs.moderation", "cogs.quotes", "cogs.endgame",
-        "cogs.webhook", "cogs.uang",  "cogs.notif", "cogs.multi", "cogs.info", "cogs.gemini", "cogs.game", "cogs.music"
+        "cogs.webhook", "cogs.uang",  "cogs.notif", "cogs.multi", "cogs.info", "cogs.gemini", "cogs.game", "cogs.music", "cogs.fun"
     ]
     for extension in initial_extensions:
         try:
