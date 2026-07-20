@@ -1379,6 +1379,12 @@ class UnifiedAI(commands.Cog, name="RTM Moderation Center"):
             if is_reply_to_other and self.bot.user not in message.mentions:
                 return
                 
+            # Tambahan: Jangan membalas pesan Owner kecuali dia nge-tag/me-reply bot
+            is_owner = (await self.bot.is_owner(message.author)) or str(message.author.id) == "1000737066822410311" or (message.guild and message.author.id == message.guild.owner_id)
+            is_replying_to_bot = message.reference and isinstance(message.reference.resolved, discord.Message) and message.reference.resolved.author.id == self.bot.user.id
+            if is_owner and not (self.bot.user in message.mentions or is_replying_to_bot):
+                return
+                
             try:
                 async with message.channel.typing():
                     images = await self.get_images_from_message(message)

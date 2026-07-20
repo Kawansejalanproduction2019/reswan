@@ -182,19 +182,34 @@ class Fun(commands.Cog):
                 original_nicks = doc.get("original_nicknames", {})
                 for member_id_str, assigned_nick in doc.get("nicknames", {}).items():
                     member_id = int(member_id_str)
+                    
+                    # Ambil member dengan fallback fetch jika cache kosong
                     member = guild.get_member(member_id)
+                    if not member:
+                        try:
+                            member = await guild.fetch_member(member_id)
+                        except Exception:
+                            pass
+                            
                     if member:
                         try:
-                            # Hanya reset jika nickname-nya memang nama prank-nya
-                            if member.nick == assigned_nick:
-                                orig_nick = original_nicks.get(member_id_str)
+                            orig_nick = original_nicks.get(member_id_str)
+                            # Reset jika nama saat ini tidak sama dengan nama awal sebelum prank
+                            if member.nick != orig_nick:
                                 await member.edit(nick=orig_nick)
                                 success += 1
                                 await asyncio.sleep(1.2)
                         except Exception:
                             failed += 1
                 
-                channel = guild.system_channel
+                # Kirim pengumuman ke channel asal tempat prank diaktifkan
+                channel_id_str = doc.get("activation_channel_id")
+                channel = None
+                if channel_id_str:
+                    channel = guild.get_channel(int(channel_id_str))
+                
+                if not channel:
+                    channel = guild.system_channel
                 if not channel:
                     for ch in guild.text_channels:
                         if ch.permissions_for(guild.me).send_messages:
@@ -300,6 +315,7 @@ class Fun(commands.Cog):
             "_id": str(ctx.guild.id),
             "active": True,
             "expires_at": expires_at,
+            "activation_channel_id": str(ctx.channel.id),
             "nicknames": assigned_nicknames,
             "original_nicknames": original_nicknames
         }
