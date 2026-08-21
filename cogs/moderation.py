@@ -1742,7 +1742,21 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
-        if not message.guild or message.author.id == self.bot.user.id or message.author.bot: 
+        if not message.guild:
+            return
+            
+        if message.author.bot or message.author.id == self.bot.user.id:
+            rules = self.get_channel_rules(message.guild.id, message.channel.id)
+            if (delay := rules.get("auto_delete_seconds", 0)) > 0:
+                try:
+                    await message.delete(delay=delay)
+                except Exception:
+                    pass
+            if rules.get("disallow_bots"):
+                try:
+                    await message.delete()
+                except Exception:
+                    pass
             return
 
         guild_settings = self.get_guild_settings(message.guild.id)
