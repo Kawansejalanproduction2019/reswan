@@ -221,7 +221,7 @@ class Fun(commands.Cog):
             # Hapus dari db
             self.col.delete_one({"_id": doc["_id"]})
 
-    @commands.command(name="pranknama", aliases=["hewanlucu", "ubahsemua"])
+    @commands.hybrid_command(name="pranknama", aliases=["hewanlucu", "ubahsemua"], description="Prank ubah nama semua member server jadi nama hewan lucu sementara.")
     @commands.guild_only()
     @commands.has_permissions(administrator=True)
     async def pranknama(self, ctx, duration: str = None):
@@ -323,7 +323,7 @@ class Fun(commands.Cog):
         
         await ctx.send(f"✅ Selesai! Berhasil mengubah nickname **{success}** member (termasuk bot ini sendiri).\n❌ Gagal mengubah **{failed}** member.\n⏰ Prank aktif {dur_msg}.")
 
-    @commands.command(name="resetnama")
+    @commands.hybrid_command(name="resetnama", description="Hapus nickname semua member agar kembali normal setelah prank.")
     @commands.guild_only()
     @commands.has_permissions(administrator=True)
     async def resetnama(self, ctx):
@@ -707,6 +707,97 @@ class Fun(commands.Cog):
             timestamp=datetime.now()
         )
         embed.set_footer(text=f"Lifepath oleh {ctx.author.display_name}")
+        await ctx.send(embed=embed)
+
+    @commands.hybrid_command(name="roast", description="Minta Raka buat nge-roast (ngejek) seseorang atau diri sendiri.")
+    async def roast(self, ctx, user: discord.Member = None):
+        await ctx.defer()
+        target = user or ctx.author
+        
+        prompt = (
+            f"Lu adalah Raka, cowok gaul yang suka ngomong sarkas, nyelekit, tapi tetep lucu. "
+            f"Coba roast (ejek dengan gaya bercanda yang agak tajam) orang yang namanya {target.display_name}. "
+            "Gunakan bahasa gaul Indonesia (lu/gue, anjir, dll). Jangan terlalu toxic sampai SARA/NSFW, tapi pastikan roastingannya pedas dan ngena. Maksimal 3 kalimat aja."
+        )
+        
+        try:
+            response = await generate_smart_response(prompt)
+            result_text = response.text
+        except Exception as e:
+            result_text = f"Gagal mikir roastingan: {e}"
+            
+        embed = discord.Embed(
+            title=f"🔥 Roasting untuk {target.display_name}",
+            description=result_text,
+            color=discord.Color.red()
+        )
+        embed.set_thumbnail(url=target.display_avatar.url)
+        await ctx.send(embed=embed)
+
+    @commands.hybrid_command(name="ship", description="Cek persentase kecocokan jodoh antara dua orang!")
+    async def ship(self, ctx, user1: discord.Member, user2: discord.Member = None):
+        await ctx.defer()
+        
+        if user2 is None:
+            user2 = ctx.author
+            
+        if user1 == user2:
+            await ctx.send("Lu mau ship sama diri sendiri? Jomblo banget sih bang. 🗿")
+            return
+            
+        # Menggunakan seed berdasarkan ID kedua user supaya hasilnya konsisten
+        seed = int(user1.id) + int(user2.id)
+        random.seed(seed)
+        percent = random.randint(0, 100)
+        random.seed() # reset seed
+        
+        bar_length = 10
+        filled = int((percent / 100) * bar_length)
+        bar = "❤️" * filled + "🖤" * (bar_length - filled)
+        
+        prompt = (
+            f"Lu adalah Raka, teman yang suka julid dan ngeledek soal percintaan. "
+            f"Tingkat kecocokan antara {user1.display_name} dan {user2.display_name} adalah {percent}%. "
+            f"Berikan komentar lucu, sarkas, atau menyemangati (tergantung persentasenya) tentang hubungan mereka berdua. "
+            f"Gunakan bahasa gaul Indonesia."
+        )
+        
+        try:
+            response = await generate_smart_response(prompt)
+            result_text = response.text
+        except Exception as e:
+            result_text = f"Komentar Raka error: {e}"
+            
+        embed = discord.Embed(
+            title="💘 Matchmaker 💘",
+            description=f"**{user1.display_name}** x **{user2.display_name}**\n\nKecocokan: **{percent}%**\n{bar}\n\n**Komentar Raka:**\n{result_text}",
+            color=discord.Color.pink()
+        )
+        await ctx.send(embed=embed)
+
+    @commands.hybrid_command(name="8ball", description="Tanya apa saja ke Magic 8-Ball ala Raka yang sarkas.")
+    async def eight_ball(self, ctx, *, pertanyaan: str):
+        await ctx.defer()
+        
+        prompt = (
+            f"Lu adalah Raka yang sedang bertugas jadi Magic 8-Ball. "
+            f"Seseorang bertanya: '{pertanyaan}'. "
+            f"Berikan jawaban singkat (seperti magic 8-ball pada umumnya: ya, tidak, mungkin, tanya lagi nanti) "
+            f"TAPI tambahkan komentar nyinyir, lucu, atau ngeledek setelahnya pakai bahasa gaul."
+        )
+        
+        try:
+            response = await generate_smart_response(prompt)
+            result_text = response.text
+        except Exception as e:
+            result_text = f"Otak Raka error: {e}"
+            
+        embed = discord.Embed(
+            title="🎱 Magic 8-Ball Raka",
+            color=discord.Color.dark_theme()
+        )
+        embed.add_field(name="Pertanyaan", value=pertanyaan, inline=False)
+        embed.add_field(name="Jawaban Raka", value=result_text, inline=False)
         await ctx.send(embed=embed)
 
 async def setup(bot):
