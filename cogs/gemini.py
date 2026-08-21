@@ -258,112 +258,7 @@ class TrainView(discord.ui.View):
             return await interaction.response.send_message("Khusus Owner Bot.", ephemeral=True)
         await interaction.response.send_modal(ArticleModal(self.cog))
 
-class AuthView(discord.ui.View):
-    def __init__(self, bot, action_id, target_id, action_type, reason, duration_m, guild_id):
-        super().__init__(timeout=None)
-        self.bot = bot
-        self.action_id = action_id
-        self.target_id = target_id
-        self.action_type = action_type
-        self.reason = reason
-        self.duration_m = duration_m
-        self.guild_id = guild_id
 
-        btn_acc = discord.ui.Button(label="ACC", style=discord.ButtonStyle.green, custom_id=f"cyber_acc_{action_id}")
-        btn_acc.callback = self.approve
-        self.add_item(btn_acc)
-
-        btn_rej = discord.ui.Button(label="REJECT", style=discord.ButtonStyle.red, custom_id=f"cyber_reject_{action_id}")
-        btn_rej.callback = self.reject
-        self.add_item(btn_rej)
-
-    async def interaction_check(self, interaction: discord.Interaction) -> bool:
-        cyber_config = load_json_file(CYBER_CONFIG_FILE, {})
-        server_admins = cyber_config.get("server_admins", {}).get(str(self.guild_id), [])
-        
-        if interaction.user.id != 1000737066822410311 and interaction.user.id not in server_admins:
-            await interaction.response.send_message("Lu gak punya izin buat pencet tombol ini bos.", ephemeral=True)
-            return False
-        return True
-
-    async def approve(self, interaction: discord.Interaction):
-        actions = load_json_file(PENDING_ACTIONS_FILE, {})
-        if self.action_id not in actions:
-            return await interaction.response.send_message("Tombol ini udah dieksekusi orang lain atau kadaluarsa.", ephemeral=True)
-
-        action_data = actions[self.action_id]
-        guild = self.bot.get_guild(self.guild_id)
-        if not guild:
-            return await interaction.response.send_message("Server gak ketemu.", ephemeral=True)
-
-        target = guild.get_member(self.target_id)
-        if not target:
-            try:
-                target = await guild.fetch_member(self.target_id)
-            except discord.NotFound:
-                pass
-        
-        try:
-            if target:
-                if self.action_type == "kick":
-                    await guild.kick(target, reason=f"RTM Auth by {interaction.user}: {self.reason}")
-                elif self.action_type == "ban":
-                    await guild.ban(target, reason=f"RTM Auth by {interaction.user}: {self.reason}")
-                elif self.action_type == "timeout":
-                    await target.timeout(timedelta(minutes=self.duration_m), reason=f"RTM Auth by {interaction.user}: {self.reason}")
-        except discord.Forbidden:
-            return await interaction.response.send_message("Bot kurang izin role.", ephemeral=True)
-        except Exception as e:
-            return await interaction.response.send_message(f"Gagal eksekusi: {e}", ephemeral=True)
-
-        await interaction.response.defer()
-
-        for child in self.children:
-            child.disabled = True
-
-        for dm_info in action_data.get("dm_messages", []):
-            try:
-                admin_user = await self.bot.fetch_user(dm_info["user_id"])
-                dm_channel = admin_user.dm_channel or await admin_user.create_dm()
-                msg = await dm_channel.fetch_message(dm_info["message_id"])
-                
-                await msg.edit(view=self)
-                await dm_channel.send(f"✅ Tindakan **{self.action_type.upper()}** ke <@{self.target_id}> di server **{guild.name}** udah di-ACC oleh <@{interaction.user.id}>.")
-            except Exception:
-                pass
-        
-        del actions[self.action_id]
-        save_json_file(PENDING_ACTIONS_FILE, actions)
-        self.stop()
-
-    async def reject(self, interaction: discord.Interaction):
-        actions = load_json_file(PENDING_ACTIONS_FILE, {})
-        if self.action_id not in actions:
-            return await interaction.response.send_message("Tombol ini udah dieksekusi orang lain atau kadaluarsa.", ephemeral=True)
-
-        action_data = actions[self.action_id]
-        guild = self.bot.get_guild(self.guild_id)
-        guild_name = guild.name if guild else "Unknown Server"
-
-        await interaction.response.defer()
-
-        for child in self.children:
-            child.disabled = True
-
-        for dm_info in action_data.get("dm_messages", []):
-            try:
-                admin_user = await self.bot.fetch_user(dm_info["user_id"])
-                dm_channel = admin_user.dm_channel or await admin_user.create_dm()
-                msg = await dm_channel.fetch_message(dm_info["message_id"])
-                
-                await msg.edit(view=self)
-                await dm_channel.send(f"❌ Tindakan **{self.action_type.upper()}** ke <@{self.target_id}> di server **{guild_name}** udah di-REJECT (Ditolak) oleh <@{interaction.user.id}>.")
-            except Exception:
-                pass
-
-        del actions[self.action_id]
-        save_json_file(PENDING_ACTIONS_FILE, actions)
-        self.stop()
 
 class UnifiedAI(commands.Cog, name="RTM Moderation Center"):
     def __init__(self, bot):
@@ -944,12 +839,25 @@ class UnifiedAI(commands.Cog, name="RTM Moderation Center"):
         return False
 
     async def handle_violation(self, message, action, reason):
+        mod_cog = None
+        for cog in self.bot.cogs.values():
+            if hasattr(cog, "send_spam_log_v2"):
+                mod_cog = cog
+                break
+        
+        if mod_cog:
+            try:
+                await mod_cog.send_spam_log_v2(message.guild, message.author, message.channel.mention, "Terdeteksi mengirim pesan berisi spam atau phising (Sistem Anti-Spam)", reason, str(message.id))
+            except Exception as e:
+                import logging
+                logging.getLogger("discord").error(f"Error sending spam log V2: {e}")
+
         try: await message.delete()
         except: pass
-    
+        
         is_privileged = (
             message.author.id == message.guild.owner_id or
-            message.author.guild_permissions.administrator or
+            (hasattr(message.author, "guild_permissions") and message.author.guild_permissions.administrator) or
             str(message.author.id) == "1000737066822410311"
         )
         if is_privileged:
@@ -963,7 +871,15 @@ class UnifiedAI(commands.Cog, name="RTM Moderation Center"):
             return
 
         if action in ["kick", "ban"]:
-            await self.request_owner_permission(message, action, reason, 0)
+            try:
+                await message.author.timeout(timedelta(days=28), reason=reason)
+                try:
+                    dm_embed = discord.Embed(title=f"⚠️ Sanksi Timeout - {message.guild.name}", description=f"Anda telah di-timeout selama 28 Hari oleh sistem keamanan karena melanggar aturan.\n\n**Alasan:** {reason}\n\n*Anda dapat mengajukan banding atas aksi ini dengan mengirim DM ke admin/moderator server.*", color=0xFF0000)
+                    await message.author.send(embed=dm_embed)
+                except: pass
+                try: await message.channel.send(f"🛡️ {message.author.mention} otomatis di-timeout **28 Hari** karena melanggar aturan keamanan berat.", delete_after=15)
+                except: pass
+            except Exception: pass
             return
 
         uid_str = str(message.author.id)
@@ -979,7 +895,7 @@ class UnifiedAI(commands.Cog, name="RTM Moderation Center"):
         
         if count == 1:
             try:
-                dm_embed = discord.Embed(title=f"⚠️ Peringatan Sistem - {message.guild.name}", description=f"Pesan Anda telah dihapus oleh sistem keamanan karena melanggar aturan.\n\n**Alasan:** {reason}", color=0xFFCC00)
+                dm_embed = discord.Embed(title=f"⚠️ Peringatan Sistem - {message.guild.name}", description=f"Pesan Anda telah dihapus oleh sistem keamanan karena melanggar aturan.\n\n**Alasan:** {reason}\n\n*Anda dapat menghubungi admin/moderator server jika ini adalah kesalahan.*", color=0xFFCC00)
                 await message.author.send(embed=dm_embed)
             except discord.Forbidden:
                 try: await message.channel.send(f"⚠️ <@{uid_str}> **Peringatan Pertama!** Pesan lu dihapus oleh sistem. Alasan: {reason}", delete_after=15)
@@ -988,61 +904,26 @@ class UnifiedAI(commands.Cog, name="RTM Moderation Center"):
             durations = [1, 5, 10, 30, 60]
             idx = min(count - 2, len(durations) - 1)
             duration_m = durations[idx]
-            if duration_m <= 5:
-                try:
-                    await message.author.timeout(timedelta(minutes=duration_m), reason=f"RTM_AI Auto-Timeout: {reason}")
-                    try: await message.channel.send(f"🛡️ <@{uid_str}> otomatis di-timeout **{duration_m} Menit** karena mengulangi pelanggaran beruntun. Alasan: {reason}", delete_after=15)
-                    except: pass
-                except Exception: pass
-            else:
-                await self.request_owner_permission(message, "timeout", reason, duration_m)
-
-    async def request_owner_permission(self, message, action, reason, duration_m):
-        action_id = str(int(time.time()))
-        self.cyber_config = load_json_file(CYBER_CONFIG_FILE, {"server_admins": {}})
-        server_admins = self.cyber_config.get("server_admins", {}).get(str(message.guild.id), [])
-        
-        auth_targets = [1000737066822410311] + server_admins
-        auth_targets = list(set(auth_targets))
-
-        self.pending_actions[action_id] = {
-            "target_id": message.author.id, 
-            "action": action, 
-            "reason": reason, 
-            "duration": duration_m,
-            "timestamp": time.time(), 
-            "channel_id": message.channel.id, 
-            "guild_id": message.guild.id,
-            "dm_messages": []
-        }
-
-        view = AuthView(self.bot, action_id, message.author.id, action, reason, duration_m, message.guild.id)
-        embed = discord.Embed(title="🚨 Izin Eksekusi RTM AI", color=0xFF0000)
-        dur_text = f"{duration_m} Menit" if action == "timeout" else "N/A"
-        embed.description = f"**User:** <@{message.author.id}> ({message.author.id})\n**Server:** {message.guild.name}\n**Tindakan:** {action.upper()}\n**Durasi:** {dur_text}\n**Alasan:** {reason}"
-        embed.add_field(name="Lokasi", value=message.channel.mention if message.channel else "Unknown", inline=False)
-        pesan_target = message.content[:1000] if message.content else "(Hanya lampiran/Media)"
-        embed.add_field(name="Isi Pesan Pelanggaran", value=f"```{pesan_target}```", inline=False)
-        embed.set_footer(text="Izin ini berlaku 24 jam. Admin server / Owner Bot bisa ACC/REJECT.")
-
-        for user_id in auth_targets:
             try:
-                target_user = await self.bot.fetch_user(user_id)
-                if target_user:
-                    dm_msg = await target_user.send(embed=embed, view=view)
-                    self.pending_actions[action_id]["dm_messages"].append({
-                        "user_id": user_id,
-                        "message_id": dm_msg.id
-                    })
-            except Exception:
-                pass
-
-        save_json_file(PENDING_ACTIONS_FILE, self.pending_actions)
+                await message.author.timeout(timedelta(minutes=duration_m), reason=f"RTM_AI Auto-Timeout: {reason}")
+                try:
+                    dm_embed = discord.Embed(title=f"⚠️ Sanksi Timeout - {message.guild.name}", description=f"Anda telah di-timeout selama {duration_m} Menit oleh sistem keamanan karena melanggar aturan secara beruntun.\n\n**Alasan:** {reason}\n\n*Anda dapat mengajukan banding atas aksi ini dengan mengirim DM ke admin/moderator server.*", color=0xFF0000)
+                    await message.author.send(embed=dm_embed)
+                except: pass
+                try: await message.channel.send(f"🛡️ <@{uid_str}> otomatis di-timeout **{duration_m} Menit** karena mengulangi pelanggaran beruntun.", delete_after=15)
+                except: pass
+            except Exception: pass
 
     @commands.Cog.listener()
     async def on_message(self, message):
         if message.author.bot: return
 
+        if message.guild:
+            settings = load_json_file(SETTINGS_FILE, {})
+            trigger_channels = settings.get(str(message.guild.id), {}).get("trigger_channels", [])
+            if message.channel.id in trigger_channels:
+                return # Biarkan moderation.py yang menghandle Trigger Channel Trap
+            
         guild_id = message.guild.id if message.guild else None
         images = []
 
@@ -1119,7 +1000,7 @@ class UnifiedAI(commands.Cog, name="RTM Moderation Center"):
                         dist = hamming_distance(img_hash, b_hash)
                         if dist <= 15:
                             violation_found  = True
-                            violation_reason = "Local Filter: Gambar identik dengan Hash Blacklist."
+                            violation_reason = "Pengguna terdeteksi mengirim pesan gambar berisi spam atau phising. Sistem telah menjatuhkan sanksi secara otomatis."
                             action_to_take   = "ban"
                             log.warning(f"[IMG_VIOLATION] HASH MATCH dist={dist}")
                             break
@@ -1173,18 +1054,18 @@ class UnifiedAI(commands.Cog, name="RTM Moderation Center"):
                 media_flag = " [Ada Lampiran]" if message.attachments else ""
                 buffer.append(f"{message.author.display_name}: {message.content}{media_flag}")
                 if self.is_spamming(message.author.id):
-                    return await self.handle_violation(message, "warn_timeout", "Local Filter: Spam pesan beruntun")
+                    return await self.handle_violation(message, "warn_timeout", "Pengguna terdeteksi mengirim pesan berisi spam atau phising. Sistem telah menjatuhkan sanksi secara otomatis.")
                 if bool(INVITE_REGEX.search(message.content)):
-                    return await self.handle_violation(message, "kick", "Local Filter: Self-Promotion / Invite Server Lain")
+                    return await self.handle_violation(message, "kick", "Pengguna terdeteksi mengirim pesan berisi promosi server. Sistem telah menjatuhkan sanksi secara otomatis.")
                 for url in URL_REGEX.findall(message.content):
-                    if self.is_phishing_url(url): return await self.handle_violation(message, "ban", "Local Filter: Phishing/Scam/Malware")
+                    if self.is_phishing_url(url): return await self.handle_violation(message, "ban", "Pengguna terdeteksi mengirim pesan berisi spam atau phising. Sistem telah menjatuhkan sanksi secara otomatis.")
                 filters = load_json_file(FILTERS_FILE, {})
                 combined_blacklist = self.cyber_config.get("blacklist_words", []) + filters.get(str(message.guild.id), {}).get("bad_words", [])
                 if not is_ai_whitelisted_msg and any(word.lower() in message.content.lower() for word in combined_blacklist):
-                    return await self.handle_violation(message, "warn_timeout", "Local Filter: Kata terlarang")
+                    return await self.handle_violation(message, "warn_timeout", "Pengguna terdeteksi mengirim pesan yang melanggar kebijakan server. Sistem telah menjatuhkan sanksi secara otomatis.")
                 link_patterns = filters.get(str(message.guild.id), {}).get("link_patterns", [])
                 if not is_ai_whitelisted_msg and any(pattern.lower() in message.content.lower() for pattern in link_patterns):
-                    return await self.handle_violation(message, "warn_timeout", "Local Filter: Link Pattern terlarang")
+                    return await self.handle_violation(message, "warn_timeout", "Pengguna terdeteksi mengirim pesan berisi spam atau phising. Sistem telah menjatuhkan sanksi secara otomatis.")
                 
                 is_sara = SARA_REGEX.search(message.content) or any(w.lower() in message.content.lower() for w in self.cyber_config.get("sara_words", []))
                 history_text = "\n".join(list(buffer)[:-1])
@@ -1192,26 +1073,26 @@ class UnifiedAI(commands.Cog, name="RTM Moderation Center"):
                 if not is_ai_whitelisted_msg:
                     if is_sara:
                         decision = await self.get_ai_context_decision(message.content, history_text, message.author.display_name)
-                        if decision == "BLOCKED": return await self.handle_violation(message, "ban", "SARA Regex Triggered & API Blocked")
+                        if decision == "BLOCKED": return await self.handle_violation(message, "ban", "Pengguna terdeteksi mengirim pesan yang melanggar kebijakan server. Sistem telah menjatuhkan sanksi secara otomatis.")
                         elif "ACTION:" in decision.upper():
                             try:
                                 parts = decision.split("|")
                                 action = parts[0].split(":")[1].strip().lower()
                                 reason = parts[1].split(":")[1].strip()
-                                if action == "timeout": await self.handle_violation(message, "warn_timeout", f"AI Context SARA: {reason}")
-                                elif action in ["kick", "ban"]: await self.handle_violation(message, action, f"AI Context SARA: {reason}")
+                                if action == "timeout": await self.handle_violation(message, "warn_timeout", "Pengguna terdeteksi mengirim pesan yang melanggar kebijakan server. Sistem telah menjatuhkan sanksi secara otomatis.")
+                                elif action in ["kick", "ban"]: await self.handle_violation(message, action, "Pengguna terdeteksi mengirim pesan yang melanggar kebijakan server. Sistem telah menjatuhkan sanksi secara otomatis.")
                             except: pass
                         return
                     else:
                         decision = await self.get_ai_decision(message.content, history_text, message.author.display_name)
-                        if decision == "BLOCKED": return await self.handle_violation(message, "kick", "AI Safety Blocked")
+                        if decision == "BLOCKED": return await self.handle_violation(message, "kick", "Pengguna terdeteksi mengirim pesan yang melanggar kebijakan server. Sistem telah menjatuhkan sanksi secara otomatis.")
                         elif "ACTION:" in decision.upper():
                             try:
                                 parts = decision.split("|")
                                 action = parts[0].split(":")[1].strip().lower()
                                 reason = parts[1].split(":")[1].strip()
-                                if action == "timeout": await self.handle_violation(message, "warn_timeout", f"RTM: {reason}")
-                                elif action in ["kick", "ban"]: await self.handle_violation(message, action, f"RTM: {reason}")
+                                if action == "timeout": await self.handle_violation(message, "warn_timeout", "Pengguna terdeteksi mengirim pesan yang melanggar kebijakan server. Sistem telah menjatuhkan sanksi secara otomatis.")
+                                elif action in ["kick", "ban"]: await self.handle_violation(message, action, "Pengguna terdeteksi mengirim pesan yang melanggar kebijakan server. Sistem telah menjatuhkan sanksi secara otomatis.")
                             except: pass
                             if action != "pass": return
 
@@ -1321,20 +1202,20 @@ class UnifiedAI(commands.Cog, name="RTM Moderation Center"):
         #     except: pass
         #     return
 
-        # Fitur membalas pesan berawalan prefix (!) tapi bukan command dimatikan
-        # if message.content.startswith(prefix) and not message.content.startswith(prefix + " "):
-        #     content_body = message.content[len(prefix):].strip()
-        #     if content_body:
-        #         first_word = content_body.split()[0].lower()
-        #         valid_cmds = [cmd.name for cmd in self.bot.commands] + [alias for cmd in self.bot.commands for alias in cmd.aliases]
-        #         if first_word not in valid_cmds:
-        #             try:
-        #                 async with message.channel.typing():
-        #                     images = await self.get_images_from_message(message)
-        #                     ctx_data = self.get_brain_context(content_body, getattr(message, 'guild', None), message.channel.id)
-        #                     await self.process_and_send_response(message, message.author, ctx_data, content_body, images, guild_id=guild_id)
-        #             except: pass
-        #             return
+        # Fitur membalas pesan berawalan prefix (!) tapi bukan command
+        if message.content.startswith(prefix) and not message.content.startswith(prefix + " "):
+            content_body = message.content[len(prefix):].strip()
+            if content_body:
+                first_word = content_body.split()[0].lower()
+                valid_cmds = [cmd.name for cmd in self.bot.commands] + [alias for cmd in self.bot.commands for alias in cmd.aliases]
+                if first_word not in valid_cmds:
+                    try:
+                        async with message.channel.typing():
+                            images = await self.get_images_from_message(message)
+                            ctx_data = self.get_brain_context(content_body, getattr(message, 'guild', None), message.channel.id)
+                            await self.process_and_send_response(message, message.author, ctx_data, content_body, images, guild_id=guild_id)
+                    except: pass
+                    return
 
         if not message.guild and not message.content.startswith(prefix):
             try:
@@ -2034,6 +1915,3 @@ async def setup(bot):
         mongo_col = mongo_db["bot_data"]
 
     await bot.add_cog(UnifiedAI(bot))
-    actions = load_json_file(PENDING_ACTIONS_FILE, {})
-    for aid, data in actions.items():
-        bot.add_view(AuthView(bot, aid, data['target_id'], data['action'], data['reason'], data.get('duration', 0), data.get('guild_id', 0)))

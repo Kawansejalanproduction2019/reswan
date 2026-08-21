@@ -54,47 +54,99 @@ def _get_youtube_video_id(url):
     match = re.search(youtube_regex, url)
     return match.group(1) if match else None
 
-def _extract_youtube_info(url, cookiefile_path=None):
-    ydl_opts = {
-        'quiet': True,
-        'skip_download': True,
-        'force_generic_extractor': True,
-        'no_warnings': True,
-        'extractor_args': {'youtube': {'skip': ['dash']}},
-        'format': 'best'
-    }
-    
-    if cookiefile_path:
-        ydl_opts['cookiefile'] = cookiefile_path
-    
-    try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(url, download=False)
-            title = info.get('title')
-            description = info.get('description', '')
-            video_url = info.get('webpage_url', url)
-            thumbnail_url = None
-            
-            thumbnails = info.get('thumbnails', [])
-            priority_ids = ['maxres', 'standard', 'high']
-            for id_ in priority_ids:
-                for t in thumbnails:
-                    if t.get('id') == id_:
-                        thumbnail_url = t.get('url')
-                        break
-                if thumbnail_url: break
-            if not thumbnail_url and thumbnails: 
-                thumbnail_url = thumbnails[-1].get('url')
+import pytubefix
+import emoji
 
-            return title, description, thumbnail_url, video_url
+def _extract_youtube_info(url, cookiefile_path=None):
+    try:
+        yt = pytubefix.YouTube(url, client='WEB')
+        
+        raw_title = yt.title if yt.title else ""
+        title = emoji.replace_emoji(raw_title, replace='')
+        title = " ".join(title.split())
+        
+        description = yt.description if yt.description else ""
+        thumbnail_url = yt.thumbnail_url
+        video_url = url
+        channel_name = yt.author if yt.author else ""
+        
+        return title, description, thumbnail_url, video_url, channel_name
             
     except Exception:
-        video_id = _get_youtube_video_id(url)
-        if video_id:
-            fallback_thumbnail = f"https://img.youtube.com/vi/{video_id}/maxresdefault.jpg"
-            return None, None, fallback_thumbnail, url
-            
-        return None, None, None, url
+        try:
+            import yt_dlp
+            ydl_opts = {
+                'quiet': True,
+                'no_warnings': True,
+                'username': 'oauth2',
+                'password': '',
+                'cachedir': '.yt-dlp-cache',
+                'cookiefile': 'cookies.txt' if __import__('os').path.exists('cookies.txt') else None,
+            }
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(url, download=False)
+                
+                raw_title = info.get('title', '')
+                title = emoji.replace_emoji(raw_title, replace='')
+                title = " ".join(title.split())
+                
+                description = info.get('description', '')
+                thumbnail_url = info.get('thumbnail')
+                channel_name = info.get('uploader', '')
+                
+                if not thumbnail_url:
+                    video_id = _get_youtube_video_id(url)
+                    if video_id:
+                        thumbnail_url = f"https://img.youtube.com/vi/{video_id}/maxresdefault.jpg"
+                        
+                return title, description, thumbnail_url, url, channel_name
+                
+        except Exception as e:
+            print(f"[YTDLP FALLBACK ERROR] {e}")
+            try:
+                import requests
+                import re
+                import json
+                
+                # Use oEmbed to reliably get Title, Channel, and Thumbnail
+                r = requests.get(f"https://www.youtube.com/oembed?url={url}&format=json", timeout=5)
+                if r.status_code == 200:
+                    data = r.json()
+                    
+                    raw_title = data.get('title', '')
+                    title = emoji.replace_emoji(raw_title, replace='')
+                    title = " ".join(title.split())
+                    
+                    channel_name = data.get('author_name', '')
+                    thumbnail_url = data.get('thumbnail_url', '')
+                    
+                    if not thumbnail_url:
+                        video_id = _get_youtube_video_id(url)
+                        if video_id:
+                            thumbnail_url = f"https://img.youtube.com/vi/{video_id}/maxresdefault.jpg"
+                    
+                    # Scrape Description from HTML
+                    description = ""
+                    try:
+                        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
+                        r_html = requests.get(url, headers=headers, timeout=5)
+                        match = re.search(r'\"shortDescription\":\"(.*?)\",\"isCrawlable\"', r_html.text)
+                        if match:
+                            desc_raw = '{"d": "' + match.group(1) + '"}'
+                            description = json.loads(desc_raw)['d']
+                    except Exception as e_desc:
+                        print(f"[HTML DESC SCRAPE ERROR] {e_desc}")
+                            
+                    return title, description, thumbnail_url, url, channel_name
+            except Exception as e2:
+                print(f"[OEMBED FALLBACK ERROR] {e2}")
+
+            video_id = _get_youtube_video_id(url)
+            if video_id:
+                fallback_thumbnail = f"https://img.youtube.com/vi/{video_id}/maxresdefault.jpg"
+                return None, None, fallback_thumbnail, url, None
+                
+            return None, None, None, url, None
 
 
 def get_config_path(cog, path_id, type_key, field_key=None):
@@ -297,8 +349,8 @@ class MessageConfigView(discord.ui.View):
         )
         
         embed.add_field(name="Isi Pesan Biasa", value=f"`{config_msg.get('content') or 'Belum diatur'}`\n*(Gunakan: {{ai_hype}} buat teks Jarkasih kalcer)*", inline=False)
-        embed.add_field(name="Judul Embed", value=f"`{config_msg.get('title') or 'Belum diatur'}` (Gunakan: {{judul}})", inline=False)
-        embed.add_field(name="Deskripsi Embed", value=f"`{config_msg.get('description') or 'Belum diatur'}` (Gunakan: {{deskripsi}}, {{url}})", inline=False)
+        embed.add_field(name="Judul Utama", value=f"`{config_msg.get('title') or 'Belum diatur'}`\n*(Gunakan: {{judul}}, {{channel}}, {{url}})*", inline=False)
+        embed.add_field(name="Deskripsi Utama", value=f"`{config_msg.get('description') or 'Belum diatur'}`\n*(Gunakan: {{deskripsi}}, {{judul}}, {{channel}}, {{url}})*", inline=False)
         embed.add_field(name="Label Tombol", value=f"`{config_msg.get('button_label') or 'Belum diatur'}`", inline=False)
         
         button_style_value = config_msg.get('button_style', discord.ButtonStyle.primary.value)
@@ -331,15 +383,15 @@ class MessageConfigView(discord.ui.View):
         current_value = get_config_path(self.cog, self.path_id, self.type_key, "content")
         await interaction.response.send_modal(TextModal("Atur Pesan Teks Biasa", "Isi Pesan", current_value, self, self.type_key, "content", self.path_id))
 
-    @discord.ui.button(label="Atur Judul Embed", style=discord.ButtonStyle.secondary, row=0)
+    @discord.ui.button(label="Atur Judul Utama", style=discord.ButtonStyle.secondary, row=0)
     async def set_title_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         current_value = get_config_path(self.cog, self.path_id, self.type_key, "title")
-        await interaction.response.send_modal(TextModal("Atur Judul Embed", "Judul Embed", current_value, self, self.type_key, "title", self.path_id))
+        await interaction.response.send_modal(TextModal("Atur Judul Utama", "Judul Utama", current_value, self, self.type_key, "title", self.path_id))
 
-    @discord.ui.button(label="Atur Deskripsi Embed", style=discord.ButtonStyle.secondary, row=0)
+    @discord.ui.button(label="Atur Deskripsi Utama", style=discord.ButtonStyle.secondary, row=0)
     async def set_desc_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         current_value = get_config_path(self.cog, self.path_id, self.type_key, "description")
-        await interaction.response.send_modal(TextModal("Atur Deskripsi Embed", "Deskripsi Embed", current_value, self, self.type_key, "description", self.path_id))
+        await interaction.response.send_modal(TextModal("Atur Deskripsi Utama", "Deskripsi Utama", current_value, self, self.type_key, "description", self.path_id))
         
     @discord.ui.button(label="Atur Tombol & Warna", style=discord.ButtonStyle.secondary, row=1)
     async def set_button_button(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -599,7 +651,9 @@ class Notif(commands.Cog, name="🔔 Notification"):
 
         tk_live_match = re.search(r'tiktok\.com/@([\w.-]+)/live', url, re.IGNORECASE)
         if tk_live_match:
-            return f"tk_live_{tk_live_match.group(1)}"
+            # TikTok Live URLs usually stay the same and do not have a unique video ID,
+            # so do not cache them to avoid blocking repeated live notification updates.
+            return None
 
         tiktok_patterns = [
             r'(?:https?:\/\/)?(?:[\w-]+\.)?tiktok\.com/(?:@[\w.-]+\/)?video/(\d+)',
@@ -626,8 +680,8 @@ class Notif(commands.Cog, name="🔔 Notification"):
     def _get_default_messages(self):
         return {
             "live": {
-                "title": "[🔴 {judul}]({url})",
-                "description": "Yuk gabung di live stream ini!\n\n{url}",
+                "title": "[{judul}]({url})",
+                "description": "{deskripsi} {url}",
                 "content": "@everyone {ai_hype}",
                 "button_label": "Tonton Live",
                 "button_style": discord.ButtonStyle.danger.value,
@@ -637,8 +691,8 @@ class Notif(commands.Cog, name="🔔 Notification"):
                 "embed_thumbnail": True
             },
             "upload": {
-                "title": "[✨ {judul}]({url})",
-                "description": "Video baru diupload, jangan sampai ketinggalan!\n\n{url}",
+                "title": "[{judul}]({url})",
+                "description": "{deskripsi} {url}",
                 "content": "@everyone {ai_hype}",
                 "button_label": "Tonton Video",
                 "button_style": discord.ButtonStyle.primary.value,
@@ -648,8 +702,8 @@ class Notif(commands.Cog, name="🔔 Notification"):
                 "embed_thumbnail": True
             },
             "premier": {
-                "title": "[🎬 Premiere Segera: {judul}]({url})",
-                "description": "Video premiere akan segera tayang!\n\n{url}",
+                "title": "[{judul}]({url})",
+                "description": "{deskripsi} {url}",
                 "content": "@everyone {ai_hype}",
                 "button_label": "Tonton Premiere",
                 "button_style": discord.ButtonStyle.success.value,
@@ -882,7 +936,7 @@ class Notif(commands.Cog, name="🔔 Notification"):
         
         await ctx.send(embed=embed)
 
-    async def _generate_jarkasih_hype(self, link_type):
+    async def _generate_jarkasih_hype(self, link_type, channel_name=None):
         tipe_konten_map = {
             "live": "Live Stream YouTube",
             "upload": "Video YouTube",
@@ -897,6 +951,12 @@ class Notif(commands.Cog, name="🔔 Notification"):
         prompt = f"""
         Lu adalah Jarkasih, bot skena/kalcer ala anak Jaksel yang asik, edgy, dan ceplas-ceplos.
         Tugas lu: Kasih tau warga server kalau ada {tipe_konten} baru yang masuk.
+        """
+        
+        if channel_name:
+            prompt += f"\n        SANGAT PENTING: Lu WAJIB nyebutin nama channelnya yaitu '{channel_name}' di dalam kalimat lu!\n"
+            
+        prompt += """
 
         ATURAN GAYA BAHASA MUTLAK:
         1. WAJIB pakai gaya bahasa 'Kalcer' yang natural nyampur sama slang Western/Inggris.
@@ -965,42 +1025,13 @@ class Notif(commands.Cog, name="🔔 Notification"):
                 self.config["recent_video_ids"].pop(0)
             self.save_config()
 
-        ai_hype_text = await self._generate_jarkasih_hype(link_type)
-
-        needs_yt_dlp = link_type in ["live", "upload", "premier"]
-
-        youtube_title, youtube_description, youtube_thumbnail, video_url = None, None, None, link_for_send
+        youtube_title, youtube_description, youtube_thumbnail, video_url, youtube_channel = None, None, None, link_for_send, None
         
-        if needs_yt_dlp: 
-            loop = self.bot.loop
-            cookie_path = None
-            temp_file_name = None 
-            cookies_base64 = os.getenv("COOKIES_BASE64")
-            
-            if cookies_base64:
-                try:
-                    cookies_content = base64.b64decode(cookies_base64).decode('utf-8')
-                    with tempfile.NamedTemporaryFile(mode='w', delete=False, encoding='utf-8') as tf:
-                        tf.write(cookies_content)
-                        temp_file_name = tf.name
-                    cookie_path = temp_file_name
-                except Exception:
-                    pass
-            
-            try:
-                youtube_title, youtube_description, youtube_thumbnail, extracted_url = await loop.run_in_executor(
-                    None, 
-                    functools.partial(
-                        _extract_youtube_info, 
-                        link_for_send, 
-                        cookiefile_path=cookie_path
-                    )
-                )
-                if extracted_url and extracted_url != link_for_send:
-                    video_url = extracted_url
-            finally:
-                if temp_file_name and os.path.exists(temp_file_name):
-                    os.unlink(temp_file_name)
+        if link_type in ["live", "upload", "premier"]:
+            import asyncio
+            youtube_title, youtube_description, youtube_thumbnail, video_url, youtube_channel = await asyncio.to_thread(_extract_youtube_info, link_for_send)
+
+        ai_hype_text = await self._generate_jarkasih_hype(link_type, channel_name=youtube_channel)
 
         for path_data in paths_to_send:
             target_channel_id = path_data["target_id"]
@@ -1015,6 +1046,9 @@ class Notif(commands.Cog, name="🔔 Notification"):
                 final_embed_title = config_msg.get('title')
                 final_embed_description = config_msg.get('description')
                 use_embed = config_msg.get('use_embed', False)
+                
+                if link_type in ["live", "upload", "premier"]:
+                    use_embed = True
 
                 if final_content and "{ai_hype}" in final_content:
                     final_content = final_content.replace("{ai_hype}", ai_hype_text)
@@ -1035,27 +1069,26 @@ class Notif(commands.Cog, name="🔔 Notification"):
                         final_content = final_content.replace("{url}", video_url if self._is_valid_url(video_url) else "")
                     
                     if final_embed_title:
-                        final_embed_title = final_embed_title.replace("{judul}", clean_title)
-                        final_embed_title = final_embed_title.replace("{url}", video_url if self._is_valid_url(video_url) else "")
-                    elif use_embed:
-                        if self._is_valid_url(video_url):
-                            final_embed_title = f"[{clean_title}]({video_url})"
-                        else:
-                            final_embed_title = clean_title
+                        fallback_title = youtube_title if youtube_title else "Video YouTube"
+                        fallback_channel = youtube_channel if youtube_channel else "Channel YouTube"
+                        final_embed_title = final_embed_title.replace("{judul}", fallback_title).replace("$judul", fallback_title)
+                        final_embed_title = final_embed_title.replace("{channel}", fallback_channel).replace("$channel", fallback_channel)
+                        final_embed_title = final_embed_title.replace("{url}", video_url if self._is_valid_url(video_url) else "").replace("$url", video_url if self._is_valid_url(video_url) else "")
+                        final_embed_title = final_embed_title.replace("{ai_hype}", ai_hype_text).replace("$ai_hype", ai_hype_text)
 
                     if final_embed_description:
-                        if youtube_description:
-                            desc_sub = youtube_description[:1900] + ('...' if len(youtube_description) > 1900 else '')
-                            final_embed_description = final_embed_description.replace("{deskripsi}", desc_sub)
-                        else:
-                            final_embed_description = final_embed_description.replace("{deskripsi}", "")
+                        fallback_title = youtube_title if youtube_title else "Video YouTube"
+                        fallback_channel = youtube_channel if youtube_channel else "Channel YouTube"
+                        fallback_desc = youtube_description if youtube_description else ""
+                        
+                        desc_sub = fallback_desc[:1900] + ('...' if len(fallback_desc) > 1900 else '')
+                        final_embed_description = final_embed_description.replace("{deskripsi}", desc_sub).replace("$deskripsi", desc_sub)
                             
-                        final_embed_description = final_embed_description.replace("{url}", video_url if self._is_valid_url(video_url) else "")
-                    elif use_embed:
-                        if youtube_description:
-                            final_embed_description = youtube_description[:1900] + ('...' if len(youtube_description) > 1900 else '')
-                        else:
-                            final_embed_description = ""
+                        final_embed_description = final_embed_description.replace("{judul}", fallback_title).replace("$judul", fallback_title)
+                        final_embed_description = final_embed_description.replace("{channel}", fallback_channel).replace("$channel", fallback_channel)
+                            
+                        final_embed_description = final_embed_description.replace("{url}", video_url if self._is_valid_url(video_url) else "").replace("$url", video_url if self._is_valid_url(video_url) else "")
+                        final_embed_description = final_embed_description.replace("{ai_hype}", ai_hype_text).replace("$ai_hype", ai_hype_text)
 
                 
                 elif link_type in ["tiktok", "tiktok_live", "instagram", "instagram_live"]:
@@ -1088,49 +1121,94 @@ class Notif(commands.Cog, name="🔔 Notification"):
                         final_embed_description = link_for_send
 
                 message_content = final_content
-                if not use_embed:
+                if not use_embed and link_type not in ["live", "upload", "premier"]:
                     if final_content:
                         message_content = f"{final_content}\n{link_for_send}"
                     else:
                         message_content = f"{ai_hype_text}\n{link_for_send}"
+                elif not final_content and link_type in ["live", "upload", "premier"]:
+                    message_content = ai_hype_text
 
-                embed = None
-                if use_embed:
-                    embed_color_hex = config_msg.get('embed_color', '#3498db')
-                    try: 
-                        embed_color = discord.Color(int(embed_color_hex.strip("#"), 16))
-                    except: 
-                        embed_color = discord.Color.blue()
-                    
-                    if final_embed_title or final_embed_description:
-                         embed = discord.Embed(title=final_embed_title, description=final_embed_description, color=embed_color)
-                         
-                         if link_type in ["live", "upload", "premier"] and config_msg.get('embed_thumbnail', True) and youtube_thumbnail:
-                              embed.set_image(url=youtube_thumbnail)
-                         
-                         if message_content is None: 
-                             message_content = None
-                    else:
-                         message_content = final_content if final_content else link_for_send
-                         if not final_content:
-                              message_content = link_for_send
-                         embed = None
-                
                 button_label = config_msg.get('button_label', 'Tonton Konten')
                 button_style_value = config_msg.get('button_style', discord.ButtonStyle.primary.value)
                 try: 
                     button_style = discord.ButtonStyle(button_style_value)
                 except ValueError: 
                     button_style = discord.ButtonStyle.primary
-                
-                view = discord.ui.View()
-                button = discord.ui.Button(label=button_label, style=button_style, url=link_for_send)
-                view.add_item(button)
 
-                await target_channel.send(content=message_content, embed=embed, view=view)
+                if link_type in ["live", "upload", "premier"] and use_embed:
+                    from cogs.v2_layout import build_v2_card, send_v2_message
+                    
+                    desc_text = ""
+                    if final_embed_description:
+                        desc_text += f"{final_embed_description}"
+                        
+                    desc_text = desc_text.strip()
+                    if not desc_text:
+                        desc_text = link_for_send
+                    
+                    buttons = [{
+                        "style": 5, 
+                        "label": button_label,
+                        "url": link_for_send
+                    }]
+                    
+                    vid_id = _get_youtube_video_id(link_for_send)
+                    youtube_thumbnail = None
+                    # Only fetch and attach thumbnail if the user hasn't turned it off
+                    if vid_id and config_msg.get('embed_thumbnail', True):
+                        youtube_thumbnail = f"https://img.youtube.com/vi/{vid_id}/maxresdefault.jpg"
+                    
+                    card = build_v2_card(
+                        title=final_embed_title,
+                        description=desc_text,
+                        fields=None,
+                        color=None,
+                        buttons=buttons,
+                        media_url=youtube_thumbnail
+                    )
+                    try:
+                        # Send the raw message first so @everyone ping works
+                        if message_content and message_content.strip():
+                            await target_channel.send(message_content)
+                        # Then send the V2 Card
+                        resp = await send_v2_message(self.bot, target_channel.id, [card])
+                    except Exception as err:
+                        with open("notif_v2_error.txt", "a") as f:
+                            f.write(f"V2 Error: {err}\n")
+                else:
+                    embed = None
+                    if use_embed:
+                        embed_color_hex = config_msg.get('embed_color', '#3498db')
+                        try: 
+                            embed_color = discord.Color(int(embed_color_hex.strip("#"), 16))
+                        except: 
+                            embed_color = discord.Color.blue()
+                        
+                        if final_embed_title or final_embed_description:
+                             embed = discord.Embed(title=final_embed_title, description=final_embed_description, color=embed_color)
+                             
+                             if link_type in ["live", "upload", "premier"] and config_msg.get('embed_thumbnail', True) and youtube_thumbnail:
+                                  embed.set_image(url=youtube_thumbnail)
+                             
+                             if message_content is None: 
+                                 message_content = None
+                        else:
+                             message_content = final_content if final_content else link_for_send
+                             if not final_content:
+                                  message_content = link_for_send
+                             embed = None
+                    
+                    view = discord.ui.View()
+                    button = discord.ui.Button(label=button_label, style=button_style, url=link_for_send)
+                    view.add_item(button)
+    
+                    await target_channel.send(content=message_content, embed=embed, view=view)
                 
-            except Exception:
-                pass
+            except Exception as e:
+                import traceback
+                print(f"[NOTIF ERROR] {e}")
+                traceback.print_exc()
 
     def _is_valid_url(self, url):
         try:

@@ -51,6 +51,123 @@ def parse_duration(duration_str: str) -> Optional[timedelta]:
     if unit == 'd': return timedelta(days=value)
     return None
 
+async def process_and_send_announcement(cog, interaction, original_ctx, target_channel_obj, github_raw_url, title, username, profile_url, image_url, ping_everyone, poll_obj=None):
+    full_description = ""
+    try:
+        import aiohttp
+        async with aiohttp.ClientSession() as session:
+            async with session.get(github_raw_url) as resp:
+                if resp.status == 200:
+                    full_description = await resp.text()
+                else:
+                    await interaction.followup.send(embed=cog._create_embed(description=f"❌ Gagal mengambil deskripsi dari URL GitHub Raw ({github_raw_url}): Status HTTP {resp.status}. Pastikan URL valid dan publik.", color=cog.color_error), ephemeral=True); return
+    except aiohttp.ClientError as e:
+        await interaction.followup.send(embed=cog._create_embed(description=f"❌ Terjadi kesalahan jaringan saat mengambil deskripsi dari GitHub: {e}. Pastikan URL GitHub Raw benar.", color=cog.color_error), ephemeral=True); return
+    except Exception as e:
+        await interaction.followup.send(embed=cog._create_embed(description=f"❌ Terjadi kesalahan tidak terduga saat mengambil deskripsi: {e}", color=cog.color_error), ephemeral=True); return
+
+    if not full_description.strip():
+        await interaction.followup.send(embed=cog._create_embed(description="❌ Deskripsi pengumuman dari URL GitHub Raw kosong atau hanya berisi spasi. Pastikan file teks memiliki konten.", color=cog.color_error), ephemeral=True); return
+    
+    description_chunks = [full_description[i:i+4096] for i in range(0, len(full_description), 4096)]
+
+    sent_any_embed = False
+    try:
+        from cogs.v2_layout import build_v2_card, send_v2_message
+        for i, chunk in enumerate(description_chunks):
+            if not chunk.strip(): continue
+            
+            footer_text = f"Pengumuman dari: {username}" if i == 0 else f"Lanjutan Pengumuman ({i+1}/{len(description_chunks)})"
+            
+            card = build_v2_card(
+                title=title if i == 0 else None,
+                description=chunk,
+                color=None,
+                footer=footer_text,
+                media_url=image_url if i == 0 and image_url else None
+            )
+            
+            if i == 0 and ping_everyone:
+                try:
+                    await target_channel_obj.send("@everyone")
+                except:
+                    pass
+            
+            result = await send_v2_message(
+                bot=cog.bot, 
+                channel_id=target_channel_obj.id, 
+                components=[card]
+            )
+            if not result or (isinstance(result, dict) and "error_msg" in result):
+                error_detail = result.get("error_msg", "Unknown") if isinstance(result, dict) else "None"
+                raise Exception(f"Gagal mengirim pesan V2: {error_detail}")
+            sent_any_embed = True
+            
+        if sent_any_embed and poll_obj:
+            try:
+                await target_channel_obj.send(poll=poll_obj)
+            except Exception as e:
+                await interaction.followup.send(embed=cog._create_embed(description=f"⚠️ Pengumuman terkirim, namun Polling gagal dikirim: {e}", color=cog.color_error), ephemeral=True)
+
+    except Exception as e:
+        if not sent_any_embed:
+            await interaction.followup.send(embed=cog._create_embed(description=f"❌ Terjadi kesalahan saat mengirim pengumuman: {e}", color=cog.color_error), ephemeral=True)
+        return
+
+    if sent_any_embed:
+        await interaction.followup.send(embed=cog._create_embed(description=f"✅ Pengumuman berhasil dikirim ke <#{target_channel_obj.id}>!", color=cog.color_success), ephemeral=True)
+        await cog.log_action(original_ctx.guild, "📢 Pengumuman Baru Dibuat", {"Pengirim (Eksekutor)": original_ctx.author.mention, "Pengirim (Tampilan)": f"{username} ({profile_url if profile_url else 'Default'})", "Channel Target": f"<#{target_channel_obj.id}>", "Judul": title, "Deskripsi Sumber": github_raw_url, "Panjang Deskripsi": f"{len(full_description)} karakter", "Fitur Tambahan": f"Ping Everyone: {'Ya' if ping_everyone else 'Tidak'} | Polling: {'Ya' if poll_obj else 'Tidak'}"}, cog.color_announce)
+
+class PollModal(discord.ui.Modal, title="Atur Polling (Jajak Pendapat)"):
+    poll_question = discord.ui.TextInput(
+        label="Pertanyaan Polling",
+        placeholder="Contoh: Bagaimana pendapat kalian?",
+        max_length=256,
+        required=True,
+        row=0
+    )
+    poll_opt1 = discord.ui.TextInput(label="Opsi 1", max_length=50, required=True, row=1)
+    poll_opt2 = discord.ui.TextInput(label="Opsi 2", max_length=50, required=True, row=2)
+    poll_opt3 = discord.ui.TextInput(label="Opsi 3 (Kosongkan jika tak perlu)", max_length=50, required=False, row=3)
+    poll_opt4 = discord.ui.TextInput(label="Opsi 4 (Kosongkan jika tak perlu)", max_length=50, required=False, row=4)
+
+    def __init__(self, cog, original_ctx, target_channel_obj, github_raw_url, ping_everyone, title, username, profile_url, image_url):
+        super().__init__()
+        self.cog = cog
+        self.original_ctx = original_ctx
+        self.target_channel_obj = target_channel_obj
+        self.github_raw_url = github_raw_url
+        self.ping_everyone = ping_everyone
+        self.announcement_title = title
+        self.username = username
+        self.profile_url = profile_url
+        self.image_url = image_url
+
+    async def on_submit(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
+        question = self.poll_question.value.strip()
+        answers = [self.poll_opt1.value.strip(), self.poll_opt2.value.strip()]
+        if self.poll_opt3.value.strip(): answers.append(self.poll_opt3.value.strip())
+        if self.poll_opt4.value.strip(): answers.append(self.poll_opt4.value.strip())
+        
+        from datetime import timedelta
+        import discord
+        poll_obj = discord.Poll(question=question, duration=timedelta(days=1))
+        for answer in answers:
+            poll_obj.add_answer(text=answer)
+            
+        await process_and_send_announcement(
+            self.cog, interaction, self.original_ctx, self.target_channel_obj, self.github_raw_url,
+            self.announcement_title, self.username, self.profile_url, self.image_url,
+            self.ping_everyone, poll_obj
+        )
+
+    async def on_error(self, interaction: discord.Interaction, error: Exception) -> None:
+        if not interaction.response.is_done():
+            await interaction.response.send_message(embed=self.cog._create_embed(description=f"❌ Terjadi kesalahan saat memproses polling: {error}", color=self.cog.color_error), ephemeral=True)
+        else:
+            await interaction.followup.send(embed=self.cog._create_embed(description=f"❌ Terjadi kesalahan saat memproses polling: {error}", color=self.cog.color_error), ephemeral=True)
+
 class AnnouncementModalGlobal(discord.ui.Modal, title="Buat Pengumuman"):
     announcement_title = discord.ui.TextInput(
         label="Judul Pengumuman",
@@ -81,90 +198,72 @@ class AnnouncementModalGlobal(discord.ui.Modal, title="Buat Pengumuman"):
         row=3
     )
 
-    def __init__(self, cog_instance, original_ctx, target_channel_obj, github_raw_url):
+    def __init__(self, cog_instance, original_ctx, target_channel_obj, github_raw_url, ping_everyone, include_poll):
         super().__init__()
         self.cog = cog_instance
         self.original_ctx = original_ctx
         self.target_channel_obj = target_channel_obj
         self.github_raw_url = github_raw_url
-        self.title = f"Buat Pengumuman untuk #{target_channel_obj.name}"
+        self.ping_everyone = ping_everyone
+        self.include_poll = include_poll
+        self.title = f"Pengumuman #{target_channel_obj.name}"[:45]
 
     async def on_submit(self, interaction: discord.Interaction):
-        await interaction.response.defer(ephemeral=True)
-
         title = self.announcement_title.value.strip()
         username = self.custom_username.value.strip()
         profile_url = self.custom_profile_url.value.strip()
         image_url = self.announcement_image_url.value.strip()
 
         if not username:
-            await interaction.followup.send(embed=self.cog._create_embed(description="❌ Username Pengirim Kustom tidak boleh kosong.", color=self.cog.color_error), ephemeral=True); return
+            await interaction.response.send_message(embed=self.cog._create_embed(description="❌ Username Pengirim Kustom tidak boleh kosong.", color=self.cog.color_error), ephemeral=True); return
         if profile_url and not (profile_url.startswith("http://") or profile_url.startswith("https://")):
-            await interaction.followup.send(embed=self.cog._create_embed(description="❌ URL Avatar Pengirim tidak valid. Harus dimulai dengan `http://` atau `https://`.", color=self.cog.color_error), ephemeral=True); return
+            await interaction.response.send_message(embed=self.cog._create_embed(description="❌ URL Avatar Pengirim tidak valid. Harus dimulai dengan `http://` atau `https://`.", color=self.cog.color_error), ephemeral=True); return
         if image_url and not (image_url.startswith("http://") or image_url.startswith("https://")):
-            await interaction.followup.send(embed=self.cog._create_embed(description="❌ URL Gambar Pengumuman tidak valid. Harus dimulai dengan `http://` atau `https://`.", color=self.cog.color_error), ephemeral=True); return
+            await interaction.response.send_message(embed=self.cog._create_embed(description="❌ URL Gambar Pengumuman tidak valid. Harus dimulai dengan `http://` atau `https://`.", color=self.cog.color_error), ephemeral=True); return
         
-        full_description = ""
-        try:
-            async with aiohttp.ClientSession() as session:
-                async with session.get(self.github_raw_url) as resp:
-                    if resp.status == 200:
-                        full_description = await resp.text()
-                    else:
-                        await interaction.followup.send(embed=self.cog._create_embed(description=f"❌ Gagal mengambil deskripsi dari URL GitHub Raw ({self.github_raw_url}): Status HTTP {resp.status}. Pastikan URL valid dan publik.", color=self.cog.color_error), ephemeral=True); return
-        except aiohttp.ClientError as e:
-            await interaction.followup.send(embed=self.cog._create_embed(description=f"❌ Terjadi kesalahan jaringan saat mengambil deskripsi dari GitHub: {e}. Pastikan URL GitHub Raw benar.", color=self.cog.color_error), ephemeral=True); return
-        except Exception as e:
-            await interaction.followup.send(embed=self.cog._create_embed(description=f"❌ Terjadi kesalahan tidak terduga saat mengambil deskripsi: {e}", color=self.cog.color_error), ephemeral=True); return
+        if self.include_poll:
+            class ContinuePollView(discord.ui.View):
+                def __init__(self, cog, original_ctx, target_channel_obj, github_raw_url, ping_everyone, title, username, profile_url, image_url):
+                    super().__init__(timeout=300)
+                    self.cog = cog
+                    self.original_ctx = original_ctx
+                    self.target_channel_obj = target_channel_obj
+                    self.github_raw_url = github_raw_url
+                    self.ping_everyone = ping_everyone
+                    self.announcement_title = title
+                    self.username = username
+                    self.profile_url = profile_url
+                    self.image_url = image_url
 
-        if not full_description.strip():
-            await interaction.followup.send(embed=self.cog._create_embed(description="❌ Deskripsi pengumuman dari URL GitHub Raw kosong atau hanya berisi spasi. Pastikan file teks memiliki konten.", color=self.cog.color_error), ephemeral=True); return
-        
-        description_chunks = [full_description[i:i+4096] for i in range(0, len(full_description), 4096)]
+                @discord.ui.button(label="Lanjut: Isi Polling", style=discord.ButtonStyle.primary, emoji="📋")
+                async def open_poll_modal(self, btn_interaction: discord.Interaction, button: discord.ui.Button):
+                    poll_modal = PollModal(
+                        self.cog, self.original_ctx, self.target_channel_obj, self.github_raw_url,
+                        self.ping_everyone, self.announcement_title, self.username, self.profile_url, self.image_url
+                    )
+                    await btn_interaction.response.send_modal(poll_modal)
+                    button.disabled = True
+                    try:
+                        await btn_interaction.message.edit(view=self)
+                    except:
+                        pass
 
-        try:
-            webhook = await self.cog.get_or_create_announcement_webhook(self.target_channel_obj, username)
-        except discord.Forbidden:
-            await interaction.followup.send(embed=self.cog._create_embed(description="❌ Bot tidak memiliki izin `Manage Webhooks` untuk mengirim pengumuman via webhook.", color=self.cog.color_error), ephemeral=True)
+            view = ContinuePollView(
+                self.cog, self.original_ctx, self.target_channel_obj, self.github_raw_url,
+                self.ping_everyone, title, username, profile_url, image_url
+            )
+            await interaction.response.send_message(
+                embed=self.cog._create_embed(description="✅ Data pengumuman disimpan! Klik tombol di bawah untuk mengisi opsi Polling.", color=self.cog.color_info),
+                view=view,
+                ephemeral=True
+            )
             return
-
-        server_icon_url = self.original_ctx.guild.icon.url if self.original_ctx.guild.icon else None
-        
-        sent_any_embed = False
-        try:
-            for i, chunk in enumerate(description_chunks):
-                if not chunk.strip(): continue
-
-                embed = discord.Embed(
-                    description=chunk,
-                    color=self.cog.color_announce,
-                    timestamp=discord.utils.utcnow() if i == 0 else discord.Embed.Empty
-                )
-                
-                if i == 0:
-                    embed.title = title
-                    final_avatar_url = profile_url if profile_url else server_icon_url
-                    embed.set_author(name=username, icon_url=final_avatar_url)
-                    
-                    if image_url: embed.set_image(url=image_url)
-                    embed.set_footer(text=f"Pengumuman dari {self.original_ctx.guild.name}", icon_url=self.original_ctx.guild.icon.url if self.original_ctx.guild.icon else None)
-                else:
-                    embed.set_footer(text=f"Lanjutan Pengumuman ({i+1}/{len(description_chunks)})")
-
-                content_message = "@everyone" if i == 0 else ""
-                await webhook.send(content=content_message, embed=embed, username=username, avatar_url=final_avatar_url, wait=True)
-
-                sent_any_embed = True
-        except Exception as e:
-            if not sent_any_embed:
-                await interaction.followup.send(embed=self.cog._create_embed(description=f"❌ Terjadi kesalahan saat mengirim pengumuman: {e}", color=self.cog.color_error), ephemeral=True)
-            return
-
-        if sent_any_embed:
-            await interaction.followup.send(embed=self.cog._create_embed(description=f"✅ Pengumuman berhasil dikirim ke <#{self.target_channel_obj.id}>!", color=self.cog.color_success), ephemeral=True)
-            await self.cog.log_action(self.original_ctx.guild, "📢 Pengumuman Baru Dibuat", {"Pengirim (Eksekutor)": self.original_ctx.author.mention, "Pengirim (Tampilan)": f"{username} ({profile_url if profile_url else 'Default'})", "Channel Target": f"<#{self.target_channel_obj.id}>", "Judul": title, "Deskripsi Sumber": self.github_raw_url, "Panjang Deskripsi": f"{len(full_description)} karakter"}, self.cog.color_announce)
-        else:
-            pass
+            
+        await interaction.response.defer(ephemeral=True)
+        await process_and_send_announcement(
+            self.cog, interaction, self.original_ctx, self.target_channel_obj, self.github_raw_url,
+            title, username, profile_url, image_url, self.ping_everyone, None
+        )
 
     async def on_error(self, interaction: discord.Interaction, error: Exception) -> None:
         if not interaction.response.is_done():
@@ -249,85 +348,6 @@ class WelcomeMessageModal(discord.ui.Modal, title="Atur Pesan Selamat Datang"):
         else:
             await interaction.followup.send(embed=self.cog._create_embed(description=f"❌ Terjadi kesalahan tak terduga saat memproses formulir: {error}", color=self.cog.color_error), ephemeral=True)
 
-class ServerBoostModal(discord.ui.Modal, title="Atur Pesan Server Booster"):
-    boost_title = discord.ui.TextInput(
-        label="Judul Pesan Booster",
-        placeholder="Contoh: Terima Kasih Server Booster!",
-        max_length=256,
-        required=True,
-        row=0
-    )
-    custom_sender_name = discord.ui.TextInput(
-        label="Pengirim (Contoh: Tim Server)",
-        placeholder="Contoh: Tim Server / Bot Resmi",
-        max_length=256,
-        required=True,
-        row=1
-    )
-    boost_content = discord.ui.TextInput(
-        label="Isi Pesan (Gunakan {user}, {guild_name})",
-        placeholder="Contoh: Terima kasih, {user}, telah boost {guild_name}!",
-        max_length=4000,
-        required=True,
-        style=discord.TextStyle.paragraph,
-        row=2
-    )
-    boost_image_url = discord.ui.TextInput(
-        label="URL Gambar (Opsional, untuk banner)",
-        placeholder="Contoh: https://example.com/booster_banner.png",
-        max_length=2000,
-        required=False,
-        row=3
-    )
-
-    def __init__(self, cog_instance, guild_id, current_settings):
-        super().__init__()
-        self.cog = cog_instance
-        self.guild_id = guild_id
-        
-        self.boost_title.default = current_settings.get("boost_embed_title", "")
-        self.custom_sender_name.default = current_settings.get("boost_sender_name", "")
-        self.boost_content.default = current_settings.get("boost_message", "Terima kasih banyak, {user}, telah menjadi **Server Booster** kami di {guild_name}! Kami sangat menghargai dukunganmu! ❤️")
-        self.boost_image_url.default = current_settings.get("boost_image_url", "")
-
-    async def on_submit(self, interaction: discord.Interaction):
-        await interaction.response.defer(ephemeral=True)
-
-        image_url = self.boost_image_url.value.strip()
-        if image_url and not (image_url.startswith("http://") or image_url.startswith("https://")):
-            await interaction.followup.send(embed=self.cog._create_embed(description="❌ URL Gambar tidak valid. Harus dimulai dengan `http://` atau `https://`.", color=self.cog.color_error), ephemeral=True); return
-
-        guild_settings = self.cog.get_guild_settings(self.guild_id)
-        
-        guild_settings["boost_embed_title"] = self.boost_title.value.strip()
-        guild_settings["boost_sender_name"] = self.custom_sender_name.value.strip()
-        guild_settings["boost_message"] = self.boost_content.value.strip()
-        guild_settings["boost_image_url"] = image_url
-        
-        self.cog.save_settings()
-        
-        await interaction.followup.send(embed=self.cog._create_embed(description="✅ Pengaturan pesan Server Booster berhasil diperbarui!", color=self.cog.color_success), ephemeral=True)
-        
-        await self.cog.log_action(
-            interaction.guild,
-            "✨ Pengaturan Server Booster Diperbarui",
-            {
-                "Moderator": interaction.user.mention,
-                "Judul Embed": guild_settings["boost_embed_title"],
-                "Nama Pengirim": guild_settings["boost_sender_name"],
-                "Isi Pesan": f"```{guild_settings['boost_message']}```",
-                "URL Gambar": guild_settings["boost_image_url"] if guild_settings["boost_image_url"] else "Tidak diatur"
-            },
-            self.cog.color_announce
-        )
-
-    async def on_error(self, interaction: discord.Interaction, error: Exception) -> None:
-        if not interaction.response.is_done():
-            await interaction.response.send_message(embed=self.cog._create_embed(description=f"❌ Terjadi kesalahan tak terduga saat memproses formulir: {error}", color=self.cog.color_error), ephemeral=True)
-        else:
-            await interaction.followup.send(embed=self.cog._create_embed(description=f"❌ Terjadi kesalahan tak terduga saat memproses formulir: {error}", color=self.cog.color_error), ephemeral=True)
-
-
 class AnnounceButtonView(discord.ui.View):
     def __init__(self, bot_instance, cog_instance, original_ctx, target_channel_obj, github_raw_url):
         super().__init__(timeout=60)
@@ -337,8 +357,32 @@ class AnnounceButtonView(discord.ui.View):
         self.target_channel_obj = target_channel_obj
         self.github_raw_url = github_raw_url 
         self.message = None
+        self.ping_everyone = False
+        self.include_poll = False
+        self._update_buttons()
 
-    @discord.ui.button(label="Buka Formulir Pengumuman", style=discord.ButtonStyle.primary, emoji="📣")
+    def _update_buttons(self):
+        self.toggle_ping_btn.label = "Ping @everyone: ON" if self.ping_everyone else "Ping @everyone: OFF"
+        self.toggle_ping_btn.style = discord.ButtonStyle.green if self.ping_everyone else discord.ButtonStyle.secondary
+        
+        self.toggle_poll_btn.label = "Polling: ON" if self.include_poll else "Polling: OFF"
+        self.toggle_poll_btn.style = discord.ButtonStyle.green if self.include_poll else discord.ButtonStyle.secondary
+
+    @discord.ui.button(label="Ping @everyone: OFF", style=discord.ButtonStyle.secondary, emoji="🔔", row=0)
+    async def toggle_ping_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user.id != self.original_ctx.author.id: return await interaction.response.send_message("Bukan pesananmu.", ephemeral=True)
+        self.ping_everyone = not self.ping_everyone
+        self._update_buttons()
+        await interaction.response.edit_message(view=self)
+
+    @discord.ui.button(label="Polling: OFF", style=discord.ButtonStyle.secondary, emoji="📊", row=0)
+    async def toggle_poll_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user.id != self.original_ctx.author.id: return await interaction.response.send_message("Bukan pesananmu.", ephemeral=True)
+        self.include_poll = not self.include_poll
+        self._update_buttons()
+        await interaction.response.edit_message(view=self)
+
+    @discord.ui.button(label="Lanjut: Buka Formulir", style=discord.ButtonStyle.primary, emoji="📣", row=1)
     async def open_announcement_modal(self, interaction: discord.Interaction, button: discord.ui.Button):
         if interaction.user.id != self.original_ctx.author.id:
             return await interaction.response.send_message("Hanya orang yang memulai perintah yang dapat membuat pengumuman ini.", ephemeral=True)
@@ -346,11 +390,11 @@ class AnnounceButtonView(discord.ui.View):
         if not self.original_ctx.author.guild_permissions.manage_guild:
             return await interaction.response.send_message("Anda tidak memiliki izin `Manage Server` untuk membuat pengumuman.", ephemeral=True)
         
-        modal = AnnouncementModalGlobal(self.cog, self.original_ctx, self.target_channel_obj, self.github_raw_url)
+        modal = AnnouncementModalGlobal(self.cog, self.original_ctx, self.target_channel_obj, self.github_raw_url, self.ping_everyone, self.include_poll)
         try:
             await interaction.response.send_modal(modal)
         except discord.Forbidden:
-            await interaction.followup.send(embed=self.cog._create_embed(description=f"❌ Bot tidak memiliki izin untuk mengirim modal (pop-up form). Ini mungkin karena bot tidak bisa mengirim DM ke Anda atau ada masalah izin di server.", color=self.cog.color_error), ephemeral=True)
+            await interaction.followup.send(embed=self.cog._create_embed(description=f"❌ Bot tidak memiliki izin untuk mengirim modal.", color=self.cog.color_error), ephemeral=True)
         except Exception as e:
             await interaction.followup.send(embed=self.cog._create_embed(description=f"❌ Terjadi kesalahan saat menampilkan formulir: {e}", color=self.cog.color_error), ephemeral=True)
 
@@ -360,11 +404,7 @@ class AnnounceButtonView(discord.ui.View):
         try:
             if self.message:
                 await self.message.edit(view=self)
-            else:
-                pass
-        except discord.NotFound:
-            pass
-        except Exception as e:
+        except:
             pass
 
 class ModeratorActionView(discord.ui.View):
@@ -654,6 +694,18 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
         self.mod_panel_message_id = None
         self.mod_panel_channel_id = None
         
+        self.modpanel_buttons = [
+            {"label": "Warn", "style": 2, "emoji": "⚠️", "custom_id": "modpanel_warn"},
+            {"label": "Timeout", "style": 1, "emoji": "⏳", "custom_id": "modpanel_timeout"},
+            {"label": "Kick", "style": 4, "emoji": "👢", "custom_id": "modpanel_kick"},
+            {"label": "Ban", "style": 4, "emoji": "🔨", "custom_id": "modpanel_ban"},
+            {"label": "Unwarn", "style": 3, "emoji": "🛡️", "custom_id": "modpanel_unwarn"},
+            {"label": "Untimeout", "style": 3, "emoji": "⏱️", "custom_id": "modpanel_untimeout"},
+            {"label": "Unban", "style": 3, "emoji": "🤝", "custom_id": "modpanel_unban"},
+            {"label": "Clear Chat", "style": 4, "emoji": "🧹", "custom_id": "modpanel_clear"},
+            {"label": "Lock", "style": 4, "emoji": "🔒", "custom_id": "modpanel_lock"},
+            {"label": "Unlock", "style": 3, "emoji": "🔓", "custom_id": "modpanel_unlock"}
+        ]
         self.spam_messages = {}
         self.spam_history = {}
         self.cross_channel_spam_history = {}
@@ -700,9 +752,10 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
         self.warnings = self.load_data_from_mongo(self.warnings_col, self.warnings_file)
         self.status = self.load_data_from_mongo(self.status_col, self.status_file)
         
-        for guild_id_str in self.settings.keys():
-            if "announcement_webhooks" not in self.settings[guild_id_str]:
-                self.settings[guild_id_str]["announcement_webhooks"] = {}
+        for guild_id_str, g_settings in self.settings.items():
+            if isinstance(g_settings, dict):
+                if "announcement_webhooks" not in g_settings:
+                    g_settings["announcement_webhooks"] = {}
         self.save_settings()
 
         if "status" not in self.status:
@@ -710,11 +763,12 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
             self.save_status()
         
         for guild_id_str, settings in self.settings.items():
-            if 'verification_button_label' in settings:
-                try:
-                    self.bot.add_view(UniversalMembershipView(self, settings['verification_button_label']))
-                except Exception:
-                    pass
+            if isinstance(settings, dict):
+                if 'verification_button_label' in settings:
+                    try:
+                        self.bot.add_view(UniversalMembershipView(self, settings['verification_button_label']))
+                    except Exception:
+                        pass
 
         self.update_panel_task.start()
         self.cleanup_spam_history.start()
@@ -1040,6 +1094,36 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
             except discord.Forbidden:
                 pass
         else:
+            pass
+    async def send_spam_log_v2(self, guild: discord.Guild, member: discord.Member, trigger_channels: str, reason: str, detailed_reason: str, message_id: str):
+        spam_log_channel_id = self.get_guild_settings(guild.id).get("spam_log_channel_id")
+        if not spam_log_channel_id: return
+        log_channel = guild.get_channel(spam_log_channel_id)
+        if not log_channel or not log_channel.permissions_for(guild.me).send_messages: return
+
+        from cogs.v2_layout import build_v2_card, send_v2_message
+        import time
+
+        v2_fields = [
+            {"name": "👤 Pelaku", "value": f"{member.mention} (`{member.id}`)"},
+            {"name": "📝 Reason", "value": reason},
+            {"name": "🔍 Detailed Reason", "value": detailed_reason},
+            {"name": "📍 Channel", "value": trigger_channels},
+            {"name": "🆔 Message ID", "value": f"`{message_id}`"},
+            {"name": "⏰ Waktu Kejadian", "value": f"<t:{int(time.time())}:F>"}
+        ]
+        
+        card = build_v2_card(
+            title="⚠️ ANTI-SPAM & PHISHING SYSTEM ⚠️",
+            description="Tindakan otomatis telah diambil berdasarkan kebijakan keamanan server.",
+            fields=v2_fields,
+            color=None,
+            footer=f"Sistem Keamanan Otomatis • {guild.name}"
+        )
+        
+        try:
+            await send_v2_message(self.bot, log_channel.id, [card])
+        except:
             pass
 
     async def get_or_create_announcement_webhook(self, channel: discord.TextChannel, custom_name: str):
@@ -1500,63 +1584,7 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
         view = UniversalMembershipView(self, final_label)
         await ctx.send(embed=embed, view=view)
 
-    @commands.Cog.listener()
-    async def on_guild_update(self, before: discord.Guild, after: discord.Guild):
-        if after.premium_subscription_count > before.premium_subscription_count:
-            
-            guild_settings = self.get_guild_settings(after.id)
-            boost_channel_id = guild_settings.get("boost_channel_id")
-            
-            if not boost_channel_id: return
 
-            boost_channel = after.get_channel(boost_channel_id)
-            if not boost_channel or not boost_channel.permissions_for(after.me).send_messages: return
-
-            boost_count_diff = after.premium_subscription_count - before.premium_subscription_count
-            
-            boost_embed_title = guild_settings.get("boost_embed_title", "TERIMA KASIH SERVER BOOSTER!")
-            boost_sender_name = guild_settings.get("boost_sender_name", "Tim Server")
-            boost_image_url = guild_settings.get("boost_image_url")
-            
-            level_change_message = ""
-            if after.premium_tier > before.premium_tier:
-                level_change_message = f"\n\n**Server Level UP!** Kami mencapai Level {after.premium_tier}!"
-            
-            boost_message_content = (
-                f"🎉 Server **{after.name}** baru saja di-boost **{boost_count_diff} kali**! "
-                f"Jumlah total boost sekarang adalah **{after.premium_subscription_count}**."
-                f"{level_change_message}"
-            )
-                
-            embed = discord.Embed(
-                description=boost_message_content,
-                color=self.color_booster,
-                timestamp=discord.utils.utcnow()
-            )
-            
-            embed.set_author(name=boost_sender_name, icon_url=after.icon.url if after.icon else None)
-            embed.title = boost_embed_title
-            
-            if boost_image_url:
-                embed.set_image(url=boost_image_url)
-            
-            footer_text = f"Jumlah total boost server: {after.premium_subscription_count} ✨"
-            embed.set_footer(text=footer_text)
-
-            try:
-                await boost_channel.send(embed=embed)
-                await self.log_action(
-                    after,
-                    "✨ Jumlah Boost Server Meningkat (on_guild_update)!",
-                    {"Jumlah Boost Baru": boost_count_diff, "Level Baru": after.premium_tier, "Channel Target": boost_channel.mention},
-                    self.color_booster
-                )
-            except discord.Forbidden:
-                pass
-            except Exception as e:
-                pass
-
-    @commands.Cog.listener()
     async def on_member_remove(self, member: discord.Member):
         if not member.guild:
             return
@@ -1713,67 +1741,6 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
         await self.update_panel(member.guild)
 
     @commands.Cog.listener()
-    async def on_member_update(self, before: discord.Member, after: discord.Member):
-        if before.guild.id not in self.settings:
-            return
-
-        guild_settings = self.get_guild_settings(before.guild.id)
-        boost_channel_id = guild_settings.get("boost_channel_id")
-        
-        if not boost_channel_id:
-            return
-
-        boost_channel = before.guild.get_channel(boost_channel_id)
-        if not boost_channel or not boost_channel.permissions_for(before.guild.me).send_messages:
-            return
-
-        if not before.premium_since and after.premium_since:
-            
-            boost_message_content = guild_settings.get("boost_message", "Terima kasih banyak, {user}, telah menjadi **Server Booster** kami di {guild_name}! Kami sangat menghargai dukunganmu! ❤️")
-            boost_embed_title = guild_settings.get("boost_embed_title", "TERIMA KASIH SERVER BOOSTER!")
-            boost_sender_name = guild_settings.get("boost_sender_name", "Tim Server")
-            boost_image_url = guild_settings.get("boost_image_url")
-
-            embed = discord.Embed(
-                description=boost_message_content.format(user=after.mention, guild_name=after.guild.name),
-                color=self.color_booster,
-                timestamp=discord.utils.utcnow()
-            )
-            
-            embed.set_author(name=boost_sender_name, icon_url=after.guild.icon.url if after.guild.icon else None)
-            embed.title = boost_embed_title
-            
-            if boost_image_url:
-                embed.set_image(url=boost_image_url) 
-            else:
-                embed.set_image(url=after.display_avatar.url)
-            
-            footer_text = f"Jumlah boost server: {after.guild.premium_subscription_count} ✨"
-            embed.set_footer(text=footer_text)
-
-            try:
-                await boost_channel.send(embed=embed)
-                await self.log_action(
-                    after.guild,
-                    "✨ Anggota Baru Jadi Booster!",
-                    {"Anggota": after.mention, "Channel Target": boost_channel.mention},
-                    self.color_booster
-                )
-            except discord.Forbidden:
-                pass
-            except Exception as e:
-                pass
-
-        elif before.premium_since and not after.premium_since:
-            await self.log_action(
-                after.guild,
-                "💔 Anggota Berhenti Jadi Booster",
-                {"Anggota": after.mention, "Channel Target": boost_channel.mention},
-                self.color_warning
-            )
-        
-    
-    @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
         if not message.guild or message.author.id == self.bot.user.id or message.author.bot: 
             return
@@ -1782,26 +1749,115 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
         whitelist_roles = guild_settings.get("spam_whitelist_roles", [])
         is_whitelisted = any(r.id in whitelist_roles for r in message.author.roles)
         user_id_str = str(message.author.id)
-        current_time = time.time()
-        
-        message_content_lower = message.content.lower()
-
         is_command = message.content.startswith(tuple(await self.bot.get_prefix(message)))
         
-        if not message.author.guild_permissions.kick_members and not is_whitelisted and not is_command:
-            if len(message.attachments) >= 3:
+        # Trigger Channel Trap (Honey-Pot)
+        trigger_channels = guild_settings.get("trigger_channels", [])
+        if message.channel.id in trigger_channels and not is_command:
+            try:
+                await message.delete()
+            except discord.Forbidden:
+                pass
+                
+            is_immune = is_whitelisted or message.author.guild_permissions.administrator or message.author.guild_permissions.kick_members or str(message.author.id) == "1000737066822410311"
+            if is_immune:
+                return
+
+            try:
+                # Global Timeout (Lintas Server)
+                timeout_duration = timedelta(days=27, hours=23, minutes=59)
+                timeout_reason = "Terdeteksi mengirim pesan berisi spam atau phising (Sistem Anti-Spam)"
+                
+                for guild_obj in self.bot.guilds:
+                    member_in_guild = guild_obj.get_member(message.author.id)
+                    if member_in_guild and not member_in_guild.is_timed_out():
+                        try:
+                            await member_in_guild.timeout(timeout_duration, reason=timeout_reason)
+                        except Exception:
+                            pass
+            except Exception as e:
+                print(f"Global timeout failed: {e}")
+                
+            if user_id_str in self.cross_channel_spam_history:
+                messages_to_delete = self.cross_channel_spam_history.pop(user_id_str, [])
+                delete_tasks = []
+                for entry in messages_to_delete:
+                    try:
+                        channel_to_purge = message.guild.get_channel(entry['channel_id'])
+                        if channel_to_purge and channel_to_purge.permissions_for(message.guild.me).manage_messages:
+                            delete_tasks.append(channel_to_purge.delete_messages([discord.Object(id=entry['message_id'])], reason="Trigger Channel Trap Activated"))
+                    except Exception:
+                        continue
+                if delete_tasks:
+                    try:
+                        await asyncio.gather(*delete_tasks, return_exceptions=True)
+                    except Exception:
+                        pass
+                        
+            await self.send_spam_log_v2(message.guild, message.author, message.channel.mention, "Terdeteksi mengirim pesan berisi spam atau phising (Sistem Anti-Spam)", "Pengguna terdeteksi mengirim pesan berisi spam atau mengirim pesan di channel terlarang. Sistem telah menjatuhkan sanksi Timeout 28 Hari secara otomatis.", str(message.id))
+            
+            # Auto-update Trap Message Globally
+            global_count = self.settings.get("global_trap_count", 30) + 1
+            self.settings["global_trap_count"] = global_count
+            self.save_settings()
+            
+            from cogs.v2_layout import build_v2_card, edit_v2_message, send_v2_message
+            buttons = [
+                {
+                    "type": 2,
+                    "style": 4, # Red
+                    "label": f"Timeouts count: {global_count}",
+                    "custom_id": "disabled_trap_counter",
+                    "disabled": True,
+                    "emoji": {"name": "🔨"}
+                }
+            ]
+            card = build_v2_card(
+                title="🚨 PERINGATAN KERAS / WARNING 🚨",
+                description="**JANGAN MENGIRIM PESAN DI CHANNEL INI**\n**DO NOT SEND MESSAGES IN THIS CHANNEL**\n\nChannel ini khusus untuk mendeteksi spam & phishing. Setiap pesan yang Anda kirim di sini akan mengakibatkan sanksi **Timeout Otomatis 28 Hari**.\n\n*This channel is strictly for spam & phishing detection, any messages sent here will result in an immediate 28-day timeout.*\n\nMohon patuhi peraturan server yang ada untuk menghindari sanksi dari sistem otomatis kami.",
+                color=None,
+                buttons=buttons
+            )
+            
+            # Recreate for current channel if needed
+            current_trap_msg_id = guild_settings.get(f"trap_msg_{message.channel.id}")
+            current_edited = False
+            if current_trap_msg_id:
                 try:
-                    await message.delete()
-                    await message.channel.send(
-                        embed=self._create_embed(
-                            description=f"🚫 {message.author.mention}, maksimal 2 media per pesan!",
-                            color=self.color_error
-                        ),
-                        delete_after=10
-                    )
-                    return
-                except discord.Forbidden:
-                    pass        
+                    current_edited = await edit_v2_message(self.bot, message.channel.id, current_trap_msg_id, [card])
+                except Exception:
+                    pass
+                
+            if not current_edited:
+                try:
+                    await message.channel.purge(limit=10, check=lambda m: m.author == self.bot.user)
+                    msg_data = await send_v2_message(self.bot, message.channel.id, [card])
+                    if msg_data and "id" in msg_data:
+                        guild_settings[f"trap_msg_{message.channel.id}"] = int(msg_data["id"])
+                        self.save_settings()
+                except Exception:
+                    pass
+
+            # Update other guilds globally
+            for g_id, g_settings in self.settings.items():
+                if not isinstance(g_settings, dict): continue
+                trigger_channels_g = g_settings.get("trigger_channels", [])
+                for ch_id in trigger_channels_g:
+                    if str(ch_id) == str(message.channel.id):
+                        continue # Already handled current channel
+                    trap_msg_id = g_settings.get(f"trap_msg_{ch_id}")
+                    if trap_msg_id:
+                        try:
+                            await edit_v2_message(self.bot, int(ch_id), trap_msg_id, [card])
+                        except Exception:
+                            pass
+                            
+            return
+
+        current_time = time.time()
+        message_content_lower = message.content.lower()
+        
+
 
         if not message.author.guild_permissions.kick_members and not is_whitelisted and not is_command:
             
@@ -1873,12 +1929,7 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
                         )
                         
                     except discord.Forbidden:
-                        await self.log_action(
-                            message.guild,
-                            "🚫 Global Spam Detected - Gagal Timeout",
-                            {"Member": message.author.mention, "Error": "Izin tidak cukup"},
-                            self.color_error
-                        )
+                        await self.send_spam_log_v2(message.guild, message.author, message.channel.mention, "Spam Massal (Gagal Timeout)", "Izin bot tidak cukup.", str(message.id))
                 
                 return
             
@@ -1908,17 +1959,17 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
                     try:
                         await asyncio.gather(*tasks, return_exceptions=True)
                     except discord.Forbidden:
-                       await self.log_action(message.guild, "❌ PENGHAPUSAN SPAM GAGAL", 
-                           {"Member": message.author.mention, "Channel Pemicu": message.channel.mention, "Error": "Gagal menghapus beberapa pesan (Forbidden/Izin)."}, self.color_error)
+                       await self.send_spam_log_v2(message.guild, message.author, message.channel.mention, "Gagal Menghapus Pesan Spam", "Bot kekurangan izin Manage Messages.", str(message.id))
 
 
                 if not message.author.is_timed_out():
                     duration = timedelta(minutes=10) 
                     reason = "Global Fast Spam: >5 messages in 10 seconds (Auto-Timeout 10m)."
-                    
                     try:
                         await message.author.timeout(duration, reason=reason)
-                        
+                        try:
+                            await message.author.send(embed=self._create_embed(description=f"⚠️ Anda telah di-timeout selama 10 Menit oleh sistem keamanan karena Spam Massal.\n\n*Anda dapat mengajukan banding atas aksi ini dengan mengirim DM ke admin/moderator server.*", color=self.color_error))
+                        except: pass
                         await message.channel.send(
                             embed=self._create_embed(
                                 description=f"🚫 {message.author.mention} telah di-**TIMEOUT** selama 10 menit karena **Spam Massal**.",
@@ -1926,14 +1977,10 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
                             ),
                             delete_after=10
                         )
-                        await self.log_action(message.guild, "🚫 Global Spam Detected (Fast Spam)", 
-                            {"Member": message.author.mention, "Channel Pemicu": message.channel.mention, "Aksi": "Timeout (10m)"}, 
-                            self.color_error)
+                        await self.send_spam_log_v2(message.guild, message.author, message.channel.mention, "Terdeteksi mengirim pesan berisi spam atau phising (Sistem Anti-Spam)", "Pengguna terdeteksi mengirim pesan teks berisi spam secara beruntun (Fast Spam). Sistem telah menjatuhkan sanksi Timeout 10 Menit secara otomatis.", str(message.id))
                     except discord.Forbidden:
-                        await self.log_action(message.guild, "🚫 Global Spam Detected (Fast Spam)", 
-                            {"Member": message.author.mention, "Channel Pemicu": message.channel.mention, "Aksi": "Gagal Timeout (Izin Kurang)"}, 
-                            self.color_error)
-                    
+                        await self.send_spam_log_v2(message.guild, message.author, message.channel.mention, "Terdeteksi mengirim pesan berisi spam atau phising (Sistem Anti-Spam)", "Pengguna terdeteksi mengirim pesan teks berisi spam secara beruntun (Fast Spam). Sistem gagal menjatuhkan sanksi karena kekurangan izin.", str(message.id))
+                        
                 return
             
             cooldown_duration = self.fast_spam_cooldown._cooldown.per 
@@ -1965,6 +2012,9 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
                                 timedelta(hours=1), 
                                 reason="Automatic timeout for suspicious/phishing links"
                             )
+                            try:
+                                await message.author.send(embed=self._create_embed(description=f"⚠️ Anda telah di-timeout selama 1 Jam oleh sistem keamanan karena mengirim link mencurigakan/phising.\n\n*Anda dapat mengajukan banding atas aksi ini dengan mengirim DM ke admin/moderator server.*", color=self.color_error))
+                            except: pass
                         except discord.Forbidden:
                             pass
                     
@@ -2015,10 +2065,12 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
                 try:
                     await message.delete()
                     if not message.author.is_timed_out():
-                        await message.author.timeout(
-                            timedelta(minutes=15),
-                            reason="Rapid media spam (5+ media in 10 seconds or single message)"
-                        )
+                        await message.author.timeout(timeout_duration, reason="Rapid media spam (5+ media in 10 seconds or single message)")
+                        try:
+                            await message.author.send(embed=self._create_embed(description=f"⚠️ Anda telah di-timeout selama 15 Menit oleh sistem keamanan karena mengirim terlalu banyak media secara beruntun.\n\n*Anda dapat mengajukan banding atas aksi ini dengan mengirim DM ke admin/moderator server.*", color=self.color_error))
+                        except: pass
+                        await self.send_spam_log_v2(message.guild, message.author, message.channel.mention, "Terdeteksi mengirim pesan berisi spam atau phising (Sistem Anti-Spam)", "Pengguna terdeteksi mengirim pesan gambar berisi spam secara beruntun. Sistem telah menjatuhkan sanksi Timeout 15 Menit secara otomatis.", str(message.id))
+                        
                         await message.channel.send(
                             embed=self._create_embed(
                                 description=f"🚫 {message.author.mention} di-**TIMEOUT 15 MENIT** karena spam media terlalu cepat.",
@@ -2046,15 +2098,13 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
                         ),
                         delete_after=10
                     )
-                    await self.log_action(
+                    await self.send_spam_log_v2(
                         message.guild,
-                        "🖼️ Media Spam Detected",
-                        {
-                            "Member": message.author.mention,
-                            "Media Count": media_count,
-                            "Action": "Message Deleted + Warning (Basic Cooldown)"
-                        },
-                        self.color_warning
+                        message.author,
+                        message.channel.mention,
+                        "Terdeteksi mengirim pesan berisi spam atau phising (Sistem Anti-Spam)",
+                        "Pengguna terdeteksi mengirim terlalu banyak pesan gambar/file. Sistem telah menjatuhkan sanksi Timeout secara otomatis.",
+                        str(message.id)
                     )
                     return
                 except discord.Forbidden:
@@ -2067,10 +2117,12 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
                 try:
                     await message.delete()
                     if not message.author.is_timed_out():
-                        await message.author.timeout(
-                            timedelta(minutes=30),
-                            reason="Heavy media spam (8+ media in 60 seconds)"
-                        )
+                        await message.author.timeout(timeout_duration, reason="Heavy media spam (8+ media in 60 seconds)")
+                        try:
+                            await message.author.send(embed=self._create_embed(description=f"⚠️ Anda telah di-timeout selama 30 Menit oleh sistem keamanan karena spam media berat.\n\n*Anda dapat mengajukan banding atas aksi ini dengan mengirim DM ke admin/moderator server.*", color=self.color_error))
+                        except: pass
+                        await self.send_spam_log_v2(message.guild, message.author, message.channel.mention, "Terdeteksi mengirim pesan berisi spam atau phising (Sistem Anti-Spam)", "Pengguna terdeteksi mengirim pesan gambar berisi spam secara massal (Heavy Spam). Sistem telah menjatuhkan sanksi Timeout 30 Menit secara otomatis.", str(message.id))
+                        
                         await message.channel.send(
                             embed=self._create_embed(
                                 description=f"🚫 {message.author.mention} di-**TIMEOUT 30 MENIT** karena spam media berat.",
@@ -2217,53 +2269,7 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
         else:
             pass
 
-    @commands.command(name="testboost")
-    @commands.is_owner()
-    async def test_boost_message(self, ctx, member: Optional[discord.Member] = None):
-        
-        member_to_use = member or ctx.author
-        
-        guild_settings = self.get_guild_settings(ctx.guild.id)
-        boost_channel_id = guild_settings.get("boost_channel_id")
 
-        if not boost_channel_id:
-            return await ctx.send(embed=self._create_embed(description="❌ Boost Channel belum diatur.", color=self.color_error))
-
-        boost_channel = ctx.guild.get_channel(boost_channel_id)
-        if not boost_channel or not boost_channel.permissions_for(ctx.guild.me).send_messages:
-            return await ctx.send(embed=self._create_embed(description="❌ Bot tidak bisa mengirim pesan di Boost Channel. Cek izin.", color=self.color_error))
-
-        boost_message_content = guild_settings.get("boost_message", "Selamat! {user} baru saja boost {guild_name}!")
-        boost_embed_title = guild_settings.get("boost_embed_title", "TERIMA KASIH SERVER BOOSTER!")
-        boost_sender_name = guild_settings.get("boost_sender_name", "Tim Server")
-        boost_image_url = guild_settings.get("boost_image_url")
-
-        formatted_content = boost_message_content.format(user=member_to_use.mention, guild_name=ctx.guild.name)
-
-        embed = discord.Embed(
-            description=formatted_content,
-            color=self.color_booster,
-            timestamp=discord.utils.utcnow()
-        )
-        
-        embed.set_author(name=f"SIMULASI: {boost_sender_name}", icon_url=ctx.guild.icon.url if ctx.guild.icon else None)
-        embed.title = boost_embed_title
-        
-        if boost_image_url:
-            embed.set_image(url=boost_image_url) 
-        else:
-            embed.set_image(url=member_to_use.display_avatar.url)
-        
-        footer_text = f"[SIMULASI] Diuji oleh {ctx.author.display_name}"
-        embed.set_footer(text=footer_text)
-
-        try:
-            await boost_channel.send(embed=embed)
-            await ctx.send(embed=self._create_embed(description=f"✅ Pesan simulasi booster berhasil dikirim ke {boost_channel.mention}. Cek tampilannya.", color=self.color_success))
-        except discord.Forbidden:
-            await ctx.send(embed=self._create_embed(description="❌ Gagal mengirim pesan simulasi. Cek izin bot.", color=self.color_error))
-        except Exception as e:
-            await ctx.send(embed=self._create_embed(description=f"❌ Terjadi kesalahan saat mengirim simulasi: {e}", color=self.color_error))
 
     @commands.hybrid_command(name="kick", description="Keluarkan member dari server")
     @app_commands.default_permissions(kick_members=True)
@@ -2539,6 +2545,36 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
             await ctx.send(embed=self._create_embed(description="❌ Bot does not have sufficient permissions to remove timeout for this member. Ensure the bot's role is higher.", color=self.color_error))
         except Exception as e:
             await ctx.send(embed=self._create_embed(description=f"❌ An error occurred while removing timeout: {e}", color=self.color_error))
+
+    @commands.hybrid_command(name="disconnect", aliases=["voicedisconnect", "vkick"], description="Keluarkan member dari Voice Channel")
+    @app_commands.describe(member="Member yang ingin dikeluarkan dari Voice Channel", reason="Alasan disconnect")
+    async def voice_disconnect(self, ctx: commands.Context, member: discord.Member, *, reason: str = "Tidak ada alasan."):
+        if member.id == ctx.guild.owner.id: await ctx.send(embed=self._create_embed(description="❌ Anda tidak bisa mengeluarkan pemilik server.", color=self.color_error)); return
+        if member.id == self.bot.user.id: await ctx.send(embed=self._create_embed(description="❌ Anda tidak bisa mengeluarkan bot ini.", color=self.color_error)); return
+        if member.guild_permissions.administrator: await ctx.send(embed=self._create_embed(description="❌ Anda tidak bisa mengeluarkan Administrator.", color=self.color_error)); return
+        if member.top_role >= ctx.guild.me.top_role:
+            await ctx.send(embed=self._create_embed(description="❌ Bot tidak dapat mengeluarkan anggota ini karena peran mereka lebih tinggi dari peran bot.", color=self.color_error)); return
+
+        if not member.voice or not member.voice.channel:
+            await ctx.send(embed=self._create_embed(description=f"❌ {member.display_name} sedang tidak berada di dalam Voice Channel mana pun.", color=self.color_error))
+            return
+
+        vc_name = member.voice.channel.name
+        try:
+            await member.move_to(None, reason=f"Disconnected by {ctx.author}: {reason}")
+            
+            if not ctx.author.guild_permissions.administrator:
+                try:
+                    dm_embed = discord.Embed(title=f"⚠️ Disconnected dari Voice Channel - {ctx.guild.name}", description=f"Anda telah dikeluarkan dari Voice Channel **{vc_name}** atas permintaan dari **{ctx.author.display_name}**.\n\n**Alasan:** {reason}\n\n*Anda dapat mengajukan banding atas aksi ini dengan mengirim DM ke admin/moderator server.*", color=0xFF0000)
+                    await member.send(embed=dm_embed)
+                except: pass
+
+            await ctx.send(embed=self._create_embed(description=f"✅ **{member.display_name}** telah dikeluarkan dari Voice Channel **{vc_name}** oleh **{ctx.author.display_name}**.\n**Alasan:** {reason}", color=self.color_success))
+            await self.log_action(ctx.guild, "📞 Voice Disconnect", {"Member": f"{member} ({member.id})", "Channel": vc_name, "Requester": ctx.author.mention, "Reason": reason}, self.color_warning)
+        except discord.Forbidden:
+            await ctx.send(embed=self._create_embed(description="❌ Bot tidak memiliki izin (Move Members) untuk mengeluarkan member ini dari Voice Channel.", color=self.color_error))
+        except Exception as e:
+            await ctx.send(embed=self._create_embed(description=f"❌ Terjadi kesalahan: {e}", color=self.color_error))
         
     @commands.hybrid_command(name="clear", aliases=["purge"], description="Hapus pesan massal")
     @app_commands.default_permissions(manage_messages=True)
@@ -2548,11 +2584,16 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
         if amount <= 0: await ctx.send(embed=self._create_embed(description="❌ Amount must be greater than 0.", color=self.color_error)); return
         if amount > 100: await ctx.send(embed=self._create_embed(description="❌ You can only delete a maximum of 100 messages at once.", color=self.color_error)); return
 
+        await ctx.defer(ephemeral=True)
         try:
-            deleted = await ctx.channel.purge(limit=amount + 1)
-            embed = self._create_embed(description=f"🗑️ Successfully deleted **{len(deleted) - 1}** messages.", color=self.color_success)
-            await ctx.send(embed=embed, delete_after=5)
-            await self.log_action(ctx.guild, "🗑️ Messages Deleted", {"Channel": ctx.channel.mention, "Amount": f"{len(deleted) - 1} messages", "Moderator": ctx.author.mention}, self.color_info)
+            limit = amount if ctx.interaction else amount + 1
+            deleted = await ctx.channel.purge(limit=limit)
+            embed = self._create_embed(description=f"🗑️ Successfully deleted **{len(deleted) if ctx.interaction else len(deleted) - 1}** messages.", color=self.color_success)
+            await ctx.send(embed=embed, delete_after=5 if not ctx.interaction else None)
+            
+            actual_deleted = len(deleted) if ctx.interaction else len(deleted) - 1
+            if actual_deleted > 0:
+                await self.log_action(ctx.guild, "🗑️ Messages Deleted", {"Channel": ctx.channel.mention, "Amount": f"{actual_deleted} messages", "Moderator": ctx.author.mention}, self.color_info)
         except discord.Forbidden:
             await ctx.send(embed=self._create_embed(description="❌ Bot does not have `Manage Messages` permission to delete messages.", color=self.color_error))
         except Exception as e:
@@ -2809,7 +2850,8 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
         view_instance = ChannelRuleView(self, ctx.author, target_channel)
         view_instance.message = await ctx.send(embed=embed, view=view_instance)
 
-    @commands.command(name="setwelcomechannel")
+    @commands.hybrid_command(name="setwelcomechannel", description="Atur channel untuk ucapan selamat datang")
+    @app_commands.describe(channel="Channel text untuk welcome message")
     @commands.has_permissions(manage_guild=True)
     async def set_welcome_channel(self, ctx, channel: discord.TextChannel):
         guild_settings = self.get_guild_settings(ctx.guild.id)
@@ -2821,14 +2863,15 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
         )
         await ctx.send(embed=embed)
 
-    @commands.command(name="setboostchannel")
+    @commands.hybrid_command(name="setspamlog", description="Atur channel log khusus untuk sistem anti-spam & jebakan")
+    @app_commands.describe(channel="Channel text untuk log anti-spam")
     @commands.has_permissions(manage_guild=True)
-    async def set_boost_channel(self, ctx, channel: discord.TextChannel):
+    async def set_spamlog_channel(self, ctx, channel: discord.TextChannel):
         guild_settings = self.get_guild_settings(ctx.guild.id)
-        guild_settings["boost_channel_id"] = channel.id
+        guild_settings["spam_log_channel_id"] = channel.id
         self.save_settings()
         embed = self._create_embed(
-            description=f"✅ Server Booster channel berhasil diatur ke {channel.mention}.",
+            description=f"✅ Channel Log Anti-Spam berhasil diatur ke {channel.mention}.",
             color=self.color_success
         )
         await ctx.send(embed=embed)
@@ -2942,12 +2985,6 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
                         await inter.followup.send(embed=self.cog._create_embed(description="❌ Channel tidak ditemukan atau bukan channel teks.", color=self.cog.color_error), ephemeral=True)
                 await self.handle_response(interaction, "Sebutkan (mention) atau masukkan ID channel untuk log aktivitas bot:", callback)
             
-            @discord.ui.button(label="Server Booster", style=discord.ButtonStyle.primary, emoji="✨", row=1)
-            async def set_server_booster_message(self, interaction: discord.Interaction, button: discord.ui.Button):
-                current_settings = self.cog.get_guild_settings(self.guild_id)
-                modal = ServerBoostModal(self.cog, self.guild_id, current_settings)
-                await interaction.response.send_modal(modal)
-
             @discord.ui.button(label="Kelola Filter", style=discord.ButtonStyle.secondary, emoji="🛡️", row=1)
             async def manage_filters(self, interaction: discord.Interaction, button: discord.ui.Button):
                 await interaction.response.send_message(view=FilterManageView(self.cog, self.author), ephemeral=True)
@@ -2986,17 +3023,7 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
                     ), 
                     inline=False
                 )
-                embed.add_field(
-                    name="Pesan Server Booster",
-                    value=(
-                        f"**Channel Booster**: {boost_ch.mention if isinstance(boost_ch, discord.TextChannel) else boost_ch}\n"
-                        f"**Judul Embed**: `{settings.get('boost_embed_title', 'Tidak diatur')}`\n"
-                        f"**Pengirim Kustom**: `{settings.get('boost_sender_name', 'Tidak diatur')}`\n"
-                        f"**URL Gambar (Banner)**: {boost_image}\n"
-                        f"**Isi Pesan**: ```{settings.get('boost_message')}```"
-                    ),
-                    inline=False
-                )
+
                 membership_roles = settings.get('membership_roles', {})
                 main_role = self.ctx.guild.get_role(settings.get('main_membership_role_id')) if settings.get('main_membership_role_id') else "Tidak diatur"
                 membership_roles_display = "\n".join([
@@ -3072,10 +3099,12 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
         view_instance = SetupView(self, ctx.author, ctx)
         await ctx.send(embed=embed, view=view_instance)
 
-    @commands.command(name="announce", aliases=["pengumuman", "broadcast"])
+    @commands.hybrid_command(name="announce", aliases=["pengumuman", "broadcast"], description="Kirim pengumuman V2 via modal")
+    @app_commands.describe(channel_identifier="Tag channel, ID, atau nama channel")
     @commands.has_permissions(manage_guild=True)
     async def announce(self, ctx, channel_identifier: str):
         GITHUB_RAW_DESCRIPTION_URL = "https://raw.githubusercontent.com/Abogoboga04/OpenAI/main/announcement.txt"
+
 
         target_channel = None
 
@@ -3107,11 +3136,19 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
         view_instance = AnnounceButtonView(self.bot, self, ctx, target_channel, GITHUB_RAW_DESCRIPTION_URL)
         initial_msg = await ctx.send(embed=self._create_embed(
             title="🔔 Siap Membuat Pengumuman?",
-            description=f"Anda akan membuat pengumuman di channel {target_channel.mention}. **Pengumuman akan dikirim menggunakan webhook**. Tekan tombol di bawah untuk mengisi detail lainnya. Deskripsi pengumuman akan diambil otomatis dari file teks di GitHub (`{GITHUB_RAW_DESCRIPTION_URL}`). Anda memiliki **60 detik** untuk mengisi formulir.",
+            description=f"Anda akan membuat pengumuman di channel {target_channel.mention}. **Pengumuman akan dikirim menggunakan format V2 Layout (Native)**. Tekan tombol di bawah untuk mengisi detail lainnya. Deskripsi pengumuman akan diambil otomatis dari file teks di GitHub (`{GITHUB_RAW_DESCRIPTION_URL}`). Anda memiliki **60 detik** untuk mengisi formulir.",
             color=self.color_info),
             view=view_instance
         )
         view_instance.message = initial_msg
+        
+    @commands.Cog.listener()
+    async def on_interaction(self, interaction: discord.Interaction):
+        if interaction.type == discord.InteractionType.component:
+            custom_id = interaction.data.get("custom_id", "")
+            if custom_id == "disabled_trap_counter":
+                await interaction.response.send_message("🔨 Fitur ini berjalan otomatis. Anda tidak perlu mengklik tombol ini.", ephemeral=True)
+                return
     
     @tasks.loop(minutes=1)
     async def update_panel_task(self):
@@ -3166,9 +3203,6 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
             "Kadang yang dicari di Discord bukan game-nya, tapi obrolan random jam 3 paginya. ☕"
         ]
         
-        embed = discord.Embed(title="🛡️ Moderator Control Panel", description="Statistik real-time mengenai status server dan anggota.", color=self.color_info)
-        embed.set_author(name=f"{guild.name} - Keamanan", icon_url=guild.icon.url if guild.icon else None)
-        
         if current_status == "online":
             status_emoji = '🟢'
             status_text = 'Online & Berjalan'
@@ -3177,40 +3211,54 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
             status_text = 'Offline / DnD'
 
         tip = random.choice(TIPS)
-
-        embed.add_field(
-            name="📊 Statistik Server", 
-            value=f"👥 **Member:** `{total_members}` (🧍 `{human_members}` | 🤖 `{bot_members}`)\n📁 **Channel:** `{total_channels}`", 
-            inline=True
-        )
-        embed.add_field(
-            name="🌐 Status Sistem", 
-            value=f"{status_emoji} **{status_text}**\n\n*💡 {tip}*", 
-            inline=True
-        )
-
+        
+        from cogs.v2_layout import build_v2_card, edit_v2_message
+        
+        v2_fields = [
+            {
+                "name": "📊 Statistik Server", 
+                "value": f"👥 **Member:** `{total_members}` (🧍 `{human_members}` | 🤖 `{bot_members}`)\n📁 **Channel:** `{total_channels}`"
+            },
+            {
+                "name": "🌐 Status Sistem", 
+                "value": f"{status_emoji} **{status_text}**"
+            }
+        ]
+        
         panel_roles = []
         for role_id in guild_settings.get("panel_role_stats", []):
             if role := guild.get_role(role_id):
                 panel_roles.append(role)
 
         if panel_roles:
-            embed.add_field(name="\u200B", value="\u200B", inline=False)
-            embed.add_field(name="✨ STATISTIK MEMBERSHIP", value="\u200B", inline=False)
+            v2_fields.append({"name": "✨ STATISTIK MEMBERSHIP", "value": "\u200B"})
             for role in panel_roles:
                 member_count = len(role.members)
-                embed.add_field(name=f"{role.name}", value=f"```\n{member_count} Member\n```", inline=True)
-        
-        embed.set_footer(text=f"Terakhir diperbarui: {datetime.now(WIB).strftime('%d/%m/%Y %H:%M:%S')} WIB")
-        
-        view = self.RealtimeModPanelView(self)
+                v2_fields.append({"name": f"{role.name}", "value": f"```\n{member_count} Member\n```"})
+                
+        card = build_v2_card(
+            title=f"🛡️ Moderator Control Panel - {guild.name}",
+            description="Statistik real-time mengenai status server dan anggota.",
+            fields=v2_fields,
+            color=None,
+            buttons=self.modpanel_buttons,
+            footer=f"Terakhir diperbarui: {datetime.now(WIB).strftime('%d/%m/%Y %H:%M:%S')} WIB\n💡 Tips: {tip}"
+        )
         
         try:
-            await panel_message.edit(embed=embed, view=view)
+            from cogs.v2_layout import edit_v2_message
+            resp = await edit_v2_message(self.bot, channel.id, panel_message.id, [card])
+            if resp is None:
+                # If editing fails (e.g. 400 Bad Request due to legacy embeds), we should delete the old one and clear the ID
+                try: await panel_message.delete()
+                except: pass
+                guild_settings['mod_panel_message_id'] = None
+                self.save_settings()
+                await self.create_mod_panel_if_needed(guild)
         except discord.Forbidden:
             pass
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"Error updating mod panel V2: {e}")
 
     async def create_mod_panel_if_needed(self, guild: discord.Guild):
         guild_settings = self.get_guild_settings(guild.id)
@@ -3242,9 +3290,6 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
                     "Kadang yang dicari di Discord bukan game-nya, tapi obrolan random jam 3 paginya. ☕"
                 ]
                 
-                embed = discord.Embed(title="🛡️ Moderator Control Panel", description="Statistik real-time mengenai status server dan anggota.", color=self.color_info)
-                embed.set_author(name=f"{guild.name} - Keamanan", icon_url=guild.icon.url if guild.icon else None)
-                
                 if current_status == "online":
                     status_emoji = '🟢'
                     status_text = 'Online & Berjalan'
@@ -3253,36 +3298,44 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
                     status_text = 'Offline / DnD'
 
                 tip = random.choice(TIPS)
-
-                embed.add_field(
-                    name="📊 Statistik Server", 
-                    value=f"👥 **Member:** `{total_members}` (🧍 `{human_members}` | 🤖 `{bot_members}`)\n📁 **Channel:** `{total_channels}`", 
-                    inline=True
-                )
-                embed.add_field(
-                    name="🌐 Status Sistem", 
-                    value=f"{status_emoji} **{status_text}**\n\n*💡 {tip}*", 
-                    inline=True
-                )
-
+                
+                from cogs.v2_layout import build_v2_card, send_v2_message
+                
+                v2_fields = [
+                    {
+                        "name": "📊 Statistik Server", 
+                        "value": f"👥 **Member:** `{total_members}` (🧍 `{human_members}` | 🤖 `{bot_members}`)\n📁 **Channel:** `{total_channels}`"
+                    },
+                    {
+                        "name": "🌐 Status Sistem", 
+                        "value": f"{status_emoji} **{status_text}**"
+                    }
+                ]
+                
                 panel_roles = []
                 for role_id in guild_settings.get("panel_role_stats", []):
                     if role := guild.get_role(role_id):
                         panel_roles.append(role)
 
                 if panel_roles:
-                    embed.add_field(name="\u200B", value="\u200B", inline=False)
-                    embed.add_field(name="✨ STATISTIK MEMBERSHIP", value="\u200B", inline=False)
+                    v2_fields.append({"name": "✨ STATISTIK MEMBERSHIP", "value": "\u200B"})
                     for role in panel_roles:
                         member_count = len(role.members)
-                        embed.add_field(name=f"{role.name}", value=f"```\n{member_count} Member\n```", inline=True)
+                        v2_fields.append({"name": f"{role.name}", "value": f"```\n{member_count} Member\n```"})
                 
-                embed.set_footer(text=f"Terakhir diperbarui: {datetime.now(WIB).strftime('%d/%m/%Y %H:%M:%S')} WIB")
+                card = build_v2_card(
+                    title=f"🛡️ Moderator Control Panel - {guild.name}",
+                    description="Statistik real-time mengenai status server dan anggota.",
+                    fields=v2_fields,
+                    color=None,
+                    buttons=self.modpanel_buttons,
+                    footer=f"Terakhir diperbarui: {datetime.now(WIB).strftime('%d/%m/%Y %H:%M:%S')} WIB\n💡 Tips: {tip}"
+                )
                 
-                view = self.RealtimeModPanelView(self)
-                message = await channel.send(embed=embed, view=view)
-
-                guild_settings['mod_panel_message_id'] = message.id
+                response = await send_v2_message(self.bot, channel.id, [card])
+                if not response: return
+                
+                guild_settings['mod_panel_message_id'] = int(response['id'])
                 guild_settings['mod_panel_channel_id'] = channel.id
                 self.save_settings()
 
@@ -3331,9 +3384,6 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
                 "Kadang yang dicari di Discord bukan game-nya, tapi obrolan random jam 3 paginya. ☕"
             ]
             
-            embed = discord.Embed(title="🛡️ Moderator Control Panel", description="Statistik real-time mengenai status server dan anggota.", color=self.color_info)
-            embed.set_author(name=f"{ctx.guild.name} - Keamanan", icon_url=ctx.guild.icon.url if ctx.guild.icon else None)
-            
             if current_status == "online":
                 status_emoji = '🟢'
                 status_text = 'Online & Berjalan'
@@ -3342,38 +3392,49 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
                 status_text = 'Offline / DnD'
 
             tip = random.choice(TIPS)
-
-            embed.add_field(
-                name="📊 Statistik Server", 
-                value=f"👥 **Member:** `{total_members}` (🧍 `{human_members}` | 🤖 `{bot_members}`)\n📁 **Channel:** `{total_channels}`", 
-                inline=True
-            )
-            embed.add_field(
-                name="🌐 Status Sistem", 
-                value=f"{status_emoji} **{status_text}**\n\n*💡 {tip}*", 
-                inline=True
-            )
-
+            
+            from cogs.v2_layout import build_v2_card, send_v2_message
+            
+            v2_fields = [
+                {
+                    "name": "📊 Statistik Server", 
+                    "value": f"👥 **Member:** `{total_members}` (🧍 `{human_members}` | 🤖 `{bot_members}`)\n📁 **Channel:** `{total_channels}`"
+                },
+                {
+                    "name": "🌐 Status Sistem", 
+                    "value": f"{status_emoji} **{status_text}**"
+                }
+            ]
+            
             panel_roles = []
             for role_id in guild_settings.get("panel_role_stats", []):
                 if role := ctx.guild.get_role(role_id):
                     panel_roles.append(role)
 
             if panel_roles:
-                embed.add_field(name="\u200B", value="\u200B", inline=False)
-                embed.add_field(name="✨ STATISTIK MEMBERSHIP", value="\u200B", inline=False)
+                v2_fields.append({"name": "✨ STATISTIK MEMBERSHIP", "value": "\u200B"})
                 for role in panel_roles:
                     member_count = len(role.members)
-                    embed.add_field(name=f"{role.name}", value=f"```\n{member_count} Member\n```", inline=True)
+                    v2_fields.append({"name": f"{role.name}", "value": f"```\n{member_count} Member\n```"})
+                    
+            card = build_v2_card(
+                title=f"🛡️ Moderator Control Panel - {ctx.guild.name}",
+                description="Statistik real-time mengenai status server dan anggota.",
+                fields=v2_fields,
+                color=self.color_info,
+                buttons=self.modpanel_buttons,
+                footer=f"Terakhir diperbarui: {datetime.now(WIB).strftime('%d/%m/%Y %H:%M:%S')} WIB"
+            )
             
-            embed.set_footer(text=f"Terakhir diperbarui: {datetime.now(WIB).strftime('%d/%m/%Y %H:%M:%S')} WIB")
+            # Send message and get response dict
+            response = await send_v2_message(self.bot, ctx.channel.id, [card])
+            if response:
+                guild_settings['mod_panel_message_id'] = int(response['id'])
+                guild_settings['mod_panel_channel_id'] = ctx.channel.id
+                self.save_settings()
             
-            view = self.RealtimeModPanelView(self)
-            message = await ctx.send(embed=embed, view=view)
-            
-            guild_settings['mod_panel_message_id'] = message.id
-            guild_settings['mod_panel_channel_id'] = ctx.channel.id
-            self.save_settings()
+            # We don't attach View directly to the API response, but since we registered the Persistent View globally in setup(),
+            # discord.py will route the custom_ids to the callbacks!
 
         except discord.Forbidden:
             await ctx.author.send(embed=self._create_embed(description="❌ Bot tidak memiliki izin `Send Messages` dan `Embed Links` di channel tersebut. Silakan minta admin server untuk memberikan izin yang sesuai.", color=self.color_error))
@@ -3803,57 +3864,47 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
 
         def add_buttons(self):
             # Baris 0: Tindakan Hukuman (Punishments)
-            warn_button = discord.ui.Button(label="Warn", style=discord.ButtonStyle.secondary, emoji="⚠️", row=0)
+            warn_button = discord.ui.Button(label="Warn", style=discord.ButtonStyle.secondary, emoji="⚠️", row=0, custom_id="modpanel_warn")
             warn_button.callback = self.warn_user_callback
             self.add_item(warn_button)
 
-            timeout_button = discord.ui.Button(label="Timeout", style=discord.ButtonStyle.primary, emoji="⏳", row=0)
+            timeout_button = discord.ui.Button(label="Timeout", style=discord.ButtonStyle.primary, emoji="⏳", row=0, custom_id="modpanel_timeout")
             timeout_button.callback = self.timeout_user_callback
             self.add_item(timeout_button)
 
-            kick_button = discord.ui.Button(label="Kick", style=discord.ButtonStyle.danger, emoji="👢", row=0)
+            kick_button = discord.ui.Button(label="Kick", style=discord.ButtonStyle.danger, emoji="👢", row=0, custom_id="modpanel_kick")
             kick_button.callback = self.kick_user_callback
             self.add_item(kick_button)
 
-            ban_button = discord.ui.Button(label="Ban", style=discord.ButtonStyle.danger, emoji="🔨", row=0)
+            ban_button = discord.ui.Button(label="Ban", style=discord.ButtonStyle.danger, emoji="🔨", row=0, custom_id="modpanel_ban")
             ban_button.callback = self.ban_user_callback
             self.add_item(ban_button)
             
             # Baris 1: Cabut Hukuman (Reversals)
-            unwarn_button = discord.ui.Button(label="Unwarn", style=discord.ButtonStyle.success, emoji="🛡️", row=1)
+            unwarn_button = discord.ui.Button(label="Unwarn", style=discord.ButtonStyle.success, emoji="🛡️", row=1, custom_id="modpanel_unwarn")
             unwarn_button.callback = self.unwarn_user_callback
             self.add_item(unwarn_button)
 
-            remove_timeout_button = discord.ui.Button(label="Untimeout", style=discord.ButtonStyle.success, emoji="⏱️", row=1)
+            remove_timeout_button = discord.ui.Button(label="Untimeout", style=discord.ButtonStyle.success, emoji="⏱️", row=1, custom_id="modpanel_untimeout")
             remove_timeout_button.callback = self.remove_timeout_callback
             self.add_item(remove_timeout_button)
 
-            unban_button = discord.ui.Button(label="Unban", style=discord.ButtonStyle.success, emoji="🤝", row=1)
+            unban_button = discord.ui.Button(label="Unban", style=discord.ButtonStyle.success, emoji="🤝", row=1, custom_id="modpanel_unban")
             unban_button.callback = self.unban_user_callback
             self.add_item(unban_button)
 
             # Baris 2: Manajemen Channel (Channel Tools)
-            clear_button = discord.ui.Button(label="Clear Chat", style=discord.ButtonStyle.danger, emoji="🧹", row=2)
+            clear_button = discord.ui.Button(label="Clear Chat", style=discord.ButtonStyle.danger, emoji="🧹", row=2, custom_id="modpanel_clear")
             clear_button.callback = self.clear_messages_callback
             self.add_item(clear_button)
 
-            self.lock_button = discord.ui.Button(label="Lock", style=discord.ButtonStyle.danger, emoji="🔒", row=2)
+            self.lock_button = discord.ui.Button(label="Lock", style=discord.ButtonStyle.danger, emoji="🔒", row=2, custom_id="modpanel_lock")
             self.lock_button.callback = self.lock_channel_callback
             self.add_item(self.lock_button)
 
-            self.unlock_button = discord.ui.Button(label="Unlock", style=discord.ButtonStyle.success, emoji="🔓", row=2)
+            self.unlock_button = discord.ui.Button(label="Unlock", style=discord.ButtonStyle.success, emoji="🔓", row=2, custom_id="modpanel_unlock")
             self.unlock_button.callback = self.unlock_channel_callback
             self.add_item(self.unlock_button)
-
-        async def interaction_check(self, interaction: discord.Interaction) -> bool:
-            if not interaction.user.guild_permissions.kick_members and \
-               not interaction.user.guild_permissions.ban_members and \
-               not interaction.user.guild_permissions.moderate_members and \
-               not interaction.user.guild_permissions.manage_messages:
-                
-                await interaction.response.send_message("❌ Anda tidak memiliki izin untuk menggunakan tombol ini.", ephemeral=True)
-                return False
-            return True
 
         async def on_error(self, interaction: discord.Interaction, error: Exception) -> None:
             await interaction.response.send_message(f"❌ Terjadi kesalahan: {error}", ephemeral=True)
@@ -4034,5 +4085,67 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
         await interaction.followup.send(embed=embed, ephemeral=True)
         await self.log_action(interaction.guild, "🗑️ Messages Deleted", {"Channel": target_channel.mention, "Amount": f"{deleted_count} messages", "Moderator": interaction.user.mention}, self.color_info)
     
+    @commands.hybrid_command(name="trap", aliases=["setjebakan", "triggerchannel"], description="Set atau hapus channel sebagai jebakan anti-spam (Honey-pot).")
+    @app_commands.describe(action="Pilih 'add' untuk tambah, 'remove' untuk hapus jebakan", channel="Channel target")
+    @commands.has_permissions(manage_guild=True)
+    async def trap(self, ctx: commands.Context, action: str, channel: discord.TextChannel = None):
+        action = action.lower()
+        if action not in ["add", "remove"]:
+            return await ctx.send("❌ Opsi tidak valid. Gunakan `add` atau `remove`.", ephemeral=True)
+            
+        target_channel = channel or ctx.channel
+        guild_settings = self.get_guild_settings(ctx.guild.id)
+        trigger_channels = guild_settings.get("trigger_channels", [])
+        
+        if action == "add":
+            if target_channel.id in trigger_channels:
+                return await ctx.send(f"⚠️ Channel {target_channel.mention} sudah menjadi Trigger Channel.", ephemeral=True)
+            trigger_channels.append(target_channel.id)
+            guild_settings["trigger_channels"] = trigger_channels
+            self.save_settings()
+            await ctx.send(embed=self._create_embed(description=f"✅ Channel {target_channel.mention} telah berhasil diatur sebagai jebakan anti-spam (Trap Channel).", color=self.color_success))
+            
+            from cogs.v2_layout import build_v2_card, send_v2_message
+            
+            global_count = self.settings.get("global_trap_count", 30)
+            buttons = [
+                {
+                    "type": 2,
+                    "style": 4, # Red / Danger
+                    "label": f"Timeouts count: {global_count}",
+                    "custom_id": "disabled_trap_counter",
+                    "disabled": True,
+                    "emoji": {"name": "🔨"}
+                }
+            ]
+            
+            card = build_v2_card(
+                title="🚨 PERINGATAN KERAS / WARNING 🚨",
+                description="**JANGAN MENGIRIM PESAN DI CHANNEL INI**\n**DO NOT SEND MESSAGES IN THIS CHANNEL**\n\nChannel ini khusus untuk mendeteksi spam & phishing. Setiap pesan yang Anda kirim di sini akan mengakibatkan sanksi **Timeout Otomatis 28 Hari**.\n\n*This channel is strictly for spam & phishing detection, any messages sent here will result in an immediate 28-day timeout.*\n\nMohon patuhi peraturan server yang ada untuk menghindari sanksi dari sistem otomatis kami.",
+                color=None,
+                buttons=buttons
+            )
+            
+            try:
+                msg_data = await send_v2_message(self.bot, target_channel.id, [card])
+                if msg_data and "id" in msg_data:
+                    guild_settings[f"trap_msg_{target_channel.id}"] = int(msg_data["id"])
+                    
+                    if "global_trap_count" not in self.settings:
+                        self.settings["global_trap_count"] = 30
+                    self.save_settings()
+            except Exception as e:
+                print(f"Failed to send trap message: {e}")
+            
+        elif action == "remove":
+            if target_channel.id not in trigger_channels:
+                return await ctx.send(f"⚠️ Channel {target_channel.mention} bukan Trigger Channel.", ephemeral=True)
+            trigger_channels.remove(target_channel.id)
+            guild_settings["trigger_channels"] = trigger_channels
+            self.save_settings()
+            await ctx.send(embed=self._create_embed(description=f"✅ Channel {target_channel.mention} telah dihapus dari daftar jebakan anti-spam.", color=self.color_success))
+
 async def setup(bot):
-    await bot.add_cog(ServerAdminCog(bot))
+    cog = ServerAdminCog(bot)
+    await bot.add_cog(cog)
+    bot.add_view(cog.RealtimeModPanelView(cog))
