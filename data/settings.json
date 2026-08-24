@@ -327,7 +327,7 @@
                 "disallow_media": false,
                 "disallow_prefix": false,
                 "disallow_url": false,
-                "auto_delete_seconds": 0
+                "auto_delete_seconds": 300
             },
             "1394076149000175656": {
                 "disallow_bots": false,
@@ -662,8 +662,8 @@
         "announcement_webhooks": {
             "851069782803742720": "https://discord.com/api/webhooks/1412652444776792174/pyW8DIvAxKQvHs3FBf3sSgcIhfg64ykwmTAAs_ui93CZs1sdNXyZGEm4FCHQA1PKL_Ak"
         },
-        "welcome_banner_url": "https://raw.githubusercontent.com/Kawansejalanproduction2019/my-projek/main/GIF_20250901_195905_205.gif",
-        "mod_panel_message_id": 1535491343307112569,
+        "welcome_banner_url": "https://raw.githubusercontent.com/Kawansejalanproduction2019/my-projek/main/welcome1.gif",
+        "mod_panel_message_id": 1541507455010472087,
         "mod_panel_channel_id": 1413604641421398069,
         "spam_whitelist_roles": [
             765141076691386428,
@@ -933,7 +933,7 @@
         "boost_embed_title": "TERIMA KASIH SERVER BOOSTER!",
         "boost_sender_name": "Tim Server",
         "boost_image_url": null,
-        "mod_panel_message_id": 1534693439101341776,
+        "mod_panel_message_id": 1537938166940434483,
         "mod_panel_channel_id": 1418887093299580968,
         "announcement_webhooks": {},
         "main_membership_role_id": null,
