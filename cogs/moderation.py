@@ -1742,7 +1742,21 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
-        if not message.guild or message.author.id == self.bot.user.id or message.author.bot: 
+        if not message.guild:
+            return
+            
+        if message.author.bot or message.author.id == self.bot.user.id:
+            rules = self.get_channel_rules(message.guild.id, message.channel.id)
+            if (delay := rules.get("auto_delete_seconds", 0)) > 0:
+                try:
+                    await message.delete(delay=delay)
+                except Exception:
+                    pass
+            if rules.get("disallow_bots"):
+                try:
+                    await message.delete()
+                except Exception:
+                    pass
             return
 
         guild_settings = self.get_guild_settings(message.guild.id)
@@ -2216,50 +2230,6 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
                     pass
                 await message.channel.send(
                     embed=self._create_embed(description=f"🤬 Pesan dari {message.author.mention} dihapus karena mengandung kata kasar.", color=self.color_warning),
-                    delete_after=10
-                )
-                return
-        
-        # Check for link patterns (regex or string)
-        for pattern in guild_filters.get("link_patterns", []):
-            try:
-                if re.search(pattern, message_content_lower, re.IGNORECASE):
-                    try:
-                        await message.delete()
-                    except discord.Forbidden:
-                        pass
-                    await message.channel.send(
-                        embed=self._create_embed(description=f"🔗 Pesan dari {message.author.mention} dihapus karena mengandung pola kata/link terlarang.", color=self.color_warning),
-                        delete_after=10
-                    )
-                    return
-            except re.error:
-                if pattern.lower() in message_content_lower:
-                    try:
-                        await message.delete()
-                    except discord.Forbidden:
-                        pass
-                    await message.channel.send(
-                        embed=self._create_embed(description=f"🔗 Pesan dari {message.author.mention} dihapus karena mengandung pola kata/link terlarang.", color=self.color_warning),
-                        delete_after=10
-                    )
-                    return
-
-        # Hardcoded spam/phishing filters requested by user
-        global_blocked_phrases = [
-            "$50", "discord.gg", "discordapp.net", "e.vg", "freeimage.host", 
-            "gift-card", "i.ibb.", "image", "imgbb.com", "imgur.com", 
-            "jpeg", "jpg", "png", "postimages", "steamcommunity.com", "u.to"
-        ]
-        
-        for blocked_phrase in global_blocked_phrases:
-            if blocked_phrase.lower() in message_content_lower:
-                try:
-                    await message.delete()
-                except discord.Forbidden:
-                    pass
-                await message.channel.send(
-                    embed=self._create_embed(description=f"🚫 Pesan dari {message.author.mention} dihapus karena mengandung link spam atau phising terlarang.", color=self.color_error),
                     delete_after=10
                 )
                 return
