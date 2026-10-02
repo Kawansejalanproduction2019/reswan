@@ -2,32 +2,35 @@ import discord
 from discord.ext import commands
 from discord import ui, app_commands
 from PIL import Image, ImageDraw, ImageFont
-import requests
+import aiohttp
+import asyncio
+import uuid
+import time
 import io
 import os
 import json
 from datetime import datetime
 
-# URL Aset dan Pengaturan Global
 FONT_URL = "https://github.com/MFarelS/RajinNulis-BOT/raw/master/font/Zahraaa.ttf"
 IMAGE_URL = "https://github.com/MFarelS/RajinNulis-BOT/raw/master/MFarelSZ/Farelll/magernulis1.jpg"
 UKURAN_FONT_NAMA = 22
 UKURAN_FONT_TEKS = 18
 
-# ID Channel
-FAQ_CHANNEL_ID = 765140300145360896
-ROLE_CHANNEL_ID = 1255221263811743836
+FAQ_CHANNEL_ID = int(os.getenv("FAQ_CHANNEL_ID", 765140300145360896))
+ROLE_CHANNEL_ID = int(os.getenv("ROLE_CHANNEL_ID", 1255221263811743836))
 
-# Fungsi Bantuan Global
-def download_asset(url, is_font=False):
+async def download_asset(url, session, is_font=False):
     try:
-        response = requests.get(url)
-        response.raise_for_status()
-        if is_font:
-            return response.content
-        else:
-            return io.BytesIO(response.content)
-    except requests.exceptions.RequestException as e:
+        async with session.get(url, timeout=aiohttp.ClientTimeout(total=15)) as response:
+            if response.status == 200:
+                content = await response.read()
+                if is_font:
+                    return content
+                else:
+                    return io.BytesIO(content)
+            print(f"Gagal mengunduh aset dari {url}: status {response.status}")
+            return None
+    except Exception as e:
         print(f"Error saat mengunduh aset: {e}")
         return None
 
@@ -50,7 +53,6 @@ def wrap_text(draw, text, font, max_width):
     lines.append(current_line)
     return lines
 
-# Kelas untuk UI (Views, Buttons, Modals)
 class FAQView(ui.View):
     def __init__(self):
         super().__init__(timeout=180)
@@ -129,7 +131,8 @@ Ada beberapa alasan mengapa role membership mungkin tidak langsung muncul:
     
     @ui.button(label="Ambil Role", style=discord.ButtonStyle.success, emoji="✅")
     async def get_role_button(self, interaction: discord.Interaction, button: ui.Button):
-        await interaction.response.send_message(f"Silakan kunjungi channel <#{ROLE_CHANNEL_ID}> untuk mengambil role Anda!", ephemeral=True)
+        channel_mention = f"<#{ROLE_CHANNEL_ID}>" if (ROLE_CHANNEL_ID and interaction.guild and interaction.guild.get_channel(ROLE_CHANNEL_ID)) else "channel role server"
+        await interaction.response.send_message(f"Silakan kunjungi {channel_mention} untuk mengambil role Anda!", ephemeral=True)
 
 class SetGenderModal(discord.ui.Modal, title='Pengaturan Role Gender'):
     def __init__(self, cog, bot):
@@ -157,6 +160,9 @@ class SetGenderModal(discord.ui.Modal, title='Pengaturan Role Gender'):
     )
     
     async def on_submit(self, interaction: discord.Interaction):
+        if not interaction.user.guild_permissions.manage_guild and not interaction.user.guild_permissions.administrator:
+            await interaction.response.send_message("🚫 Kamu tidak memiliki izin `Manage Server`.", ephemeral=True)
+            return
         try:
             male_id = int(self.male_role_id.value)
             female_id = int(self.female_role_id.value)
@@ -204,66 +210,273 @@ class SetGenderButton(discord.ui.Button):
         self.bot = bot
         
     async def callback(self, interaction: discord.Interaction):
+        if not interaction.user.guild_permissions.manage_guild and not interaction.user.guild_permissions.administrator:
+            await interaction.response.send_message("🚫 Kamu tidak memiliki izin `Manage Server` untuk mengatur role gender.", ephemeral=True)
+            return
         await interaction.response.send_modal(SetGenderModal(self.cog, self.bot))
 
-# --- Main Cog ---
-class Addon(commands.Cog):
+HELP_CATEGORIES = {
+    "overview": {
+        "title": "🚀 RTM-Bot • PANDUAN PUSAT BANTUAN",
+        "desc": "Selamat datang di pusat panduan **RTM-Bot**! Bot ini dilengkapi 13 modul sistem untuk mengelola administrasi, hiburan, dan komunitas Anda.\n\n"
+                "📌 **Format Penggunaan:**\n"
+                "• Mendukung **Slash Command** (`/`) dengan autokomplet di Mobile & PC.\n"
+                "• Mendukung **Prefix Command** (`!`) untuk perintah klasik.\n\n"
+                "👉 **Pilih kategori di menu Dropdown di bawah** untuk melihat daftar perintah terperinci.",
+        "color": 0x3498DB,
+        "fields": [
+            {"name": "🛡️ Moderasi & Sentinel", "value": "Proteksi bot raid, timeout otomatis, honeypot, dan anti-phising AI."},
+            {"name": "💼 Asisten Keuangan Pribadi", "value": "Manajer arus kas (Cash In/Out), target anggaran belanja, dan evaluasi finansial."},
+            {"name": "📡 Radar & Notifikasi Media", "value": "Deteksi dan notifikasi otomatis konten YouTube, TikTok, dan Instagram secara real-time."},
+            {"name": "🎮 Party Games & Minigames", "value": "Balapan kuda taruhan, game Werewolf, tebak emoji, dan kuis asah otak."},
+            {"name": "⭐ Leveling & Ekonomi RSWN", "value": "Perolehan EXP chat/voice, kartu profil rank Pillow, dan toko server."},
+            {"name": "🤖 Asisten AI & Hiburan", "value": "Chatbot persona Raka tongkrongan, kartu tarot, zodiak, dan curhat anonim."},
+            {"name": "🎙️ Voice Dinamis & Utilitas", "value": "Join-to-Create Temporary Voice Channel dan utilitas profil member."}
+        ]
+    },
+    "moderation": {
+        "title": "🛡️ MODERASI & SENTINEL DEFENSE",
+        "desc": "Sistem penegakan disiplin dan pertahanan otomatis server:",
+        "color": 0xE74C3C,
+        "fields": [
+            {"name": "🔨 /ban <member> [alasan]", "value": "Blokir member permanen dengan proteksi hierarki role."},
+            {"name": "👢 /kick <member> [alasan]", "value": "Keluarkan member dari server secara aman."},
+            {"name": "🧹 /softban <member> [alasan]", "value": "Ban dan unban instan untuk membersihkan pesan 7 hari terakhir."},
+            {"name": "⏳ /timeout <member> <durasi> [alasan]", "value": "Bungkam member sementara (cth: 10m, 1h, 1d)."},
+            {"name": "⚠️ /warn & /unwarn <member>", "value": "Catat atau cabut surat peringatan resmi member."},
+            {"name": "🗑️ /clear <jumlah>", "value": "Hapus pesan massal di channel (hingga 100 pesan)."},
+            {"name": "🔒 /lock & /unlock", "value": "Kunci atau buka izin berbicara channel dari member biasa."},
+            {"name": "⏱️ /slowmode <detik>", "value": "Atur batas waktu cooldown kirim pesan di channel."},
+            {"name": "🤖 /cyber_toggle", "value": "Aktifkan atau matikan proteksi anti-phising dan filter AI."}
+        ]
+    },
+    "finance": {
+        "title": "💼 ASISTEN KEUANGAN & MANAJER CASHFLOW",
+        "desc": "Manajer keuangan profesional untuk mengelola arus kas pribadi, target anggaran, dan konsultasi finansial:",
+        "color": 0x2ECC71,
+        "fields": [
+            {"name": "➕ /cash_in <nominal> [kategori] [catatan]", "value": "Catat pemasukan kas (Gaji, Bisnis, Freelance, Dividen, dll.) (alias `!in`, `!masuk`)."},
+            {"name": "➖ /cash_out <nominal> [kategori] [catatan]", "value": "Catat pengeluaran kas harian dengan proteksi batas anggaran (alias `!out`, `!keluar`)."},
+            {"name": "📊 /keuangan", "value": "Buka dasbor finansial lengkap, saldo kas bersih, rasio tabungan, dan tombol interaktif (alias `!saldo`, `!wallet`)."},
+            {"name": "📈 /cashflow", "value": "Laporan arus kas bulanan, komposisi persentase belanja, dan 10 mutasi terakhir (alias `!mutasi`)."},
+            {"name": "🎯 /anggaran <nominal>", "value": "Tetapkan pagu batas belanja bulanan dengan peringatan overbudget (alias `!budget`)."},
+            {"name": "💡 /konsultasi_keuangan", "value": "Evaluasi kesehatan finansial menggunakan kaidah perencana keuangan profesional 50/30/20 (alias `!evaluasi_keuangan`)."},
+            {"name": "📥 /export_keuangan", "value": "Unduh seluruh riwayat transaksi keuangan pribadi ke format file CSV spreadsheet (alias `!exportfin`)."},
+            {"name": "🗑️ /reset_keuangan", "value": "Hapus dan bersihkan seluruh catatan keuangan pribadi Anda dengan konfirmasi aman (alias `!resetfin`)."}
+        ]
+    },
+    "notif": {
+        "title": "📡 RADAR & NOTIFIKASI MEDIA SOSIAL",
+        "desc": "Sistem deteksi dan notifikasi konten otomatis lintas platform (YouTube, TikTok, Instagram):",
+        "color": 0xE67E22,
+        "fields": [
+            {"name": "🚀 Deteksi Otomatis", "value": "Mendeteksi link YouTube (Live, Video, Shorts), TikTok (Video, Live), dan Instagram (Reel/Post) di channel sumber dan memformatnya jadi kartu notifikasi."},
+            {"name": "➕ !addpath <source_channel_id> <target_channel_id>", "value": "Hubungkan channel sumber link dengan channel tujuan notifikasi *(Admin/Owner)*."},
+            {"name": "➖ !removepath <path_id>", "value": "Hapus konfigurasi jalur notifikasi berdasarkan ID *(Admin/Owner)*."},
+            {"name": "⚙️ !config", "value": "Buka panel kustomisasi interaktif: atur format pesan, custom role ping, tombol tonton, dan embed *(Admin/Owner)*."},
+            {"name": "📦 !checkcache", "value": "Periksa daftar video atau konten terbaru yang tersimpan dalam antrean cache notifikasi."},
+            {"name": "🧹 !resetcache", "value": "Bersihkan memori cache video untuk keperluan pengujian kirim ulang *(Admin/Owner)*."}
+        ]
+    },
+    "games": {
+        "title": "🎮 TAVERN PARTY & MINIGAMES",
+        "desc": "Game interaktif multipemain dan kuis asah otak komunitas:",
+        "color": 0xF1C40F,
+        "fields": [
+            {"name": "🏇 !balapan (alias !race)", "value": "Mulai arena taruhan balap kuda multiplayer berhadiah koin RSWN."},
+            {"name": "🪙 !taruhan <jumlah> <nomor_kuda>", "value": "Pasang taruhan pada kuda jagoanmu sebelum balapan dimulai."},
+            {"name": "🐺 /ww (alias !ww)", "value": "Mulai sesi game Werewolf klasik bersama warga server."},
+            {"name": "🧩 !resmoji", "value": "Tebak judul film atau lagu berdasarkan petunjuk deretan emoji."},
+            {"name": "🔤 !resacak", "value": "Susun kembali kata yang diacak hurufnya (Anagram)."},
+            {"name": "🔬 !resipa", "value": "Kuis tebak fakta sains dan pengetahuan umum berhadiah EXP."},
+            {"name": "🔗 !ressambung", "value": "Tantangan sambung suku kata berantai antar-pemain."},
+            {"name": "✍️ !jawab <jawaban>", "value": "Kirimkan jawaban kuis yang sedang berlangsung."}
+        ]
+    },
+    "leveling": {
+        "title": "⭐ LEVELING, RANK & PROGRESSION",
+        "desc": "Sistem pengalaman (EXP), tingkatan sosial, dan pasar komunitas:",
+        "color": 0x9B59B6,
+        "fields": [
+            {"name": "🎖️ /rank [member]", "value": "Lihat kartu profil grafis HD lengkap dengan progress bar & level."},
+            {"name": "🏆 /leaderboard (alias /top)", "value": "Tampilkan 10 member dengan perolehan level tertinggi di server."},
+            {"name": "📅 /weekly", "value": "Papan peringkat perolehan EXP mingguan server."},
+            {"name": "🛒 /shop", "value": "Buka katalog toko interaktif untuk membeli item dan badge profil."},
+            {"name": "📜 /daily_quest", "value": "Periksa quest harian dan klaim hadiah EXP serta koin RSWN."},
+            {"name": "💸 /transfercoins <member> <jumlah>", "value": "Kirimkan saldo koin RSWN milikmu ke pengguna lain."}
+        ]
+    },
+    "ai": {
+        "title": "🤖 ASISTEN AI RAKA & HIBURAN",
+        "desc": "Kecerdasan buatan Gemini persona Raka dan fitur interaksi kasual:",
+        "color": 0x1ABC9C,
+        "fields": [
+            {"name": "💬 @Mention / Reply Bot", "value": "Ajak Raka ngobrol santai dengan persona khas anak tongkrongan."},
+            {"name": "🔮 /tarot", "value": "Tarik 3 kartu Tarot (Masa Lalu, Sekarang, Depan) dengan tafsiran filosofis."},
+            {"name": "♈ /zodiak <nama/tanggal>", "value": "Ramalan peruntungan zodiak hari ini ala Raka."},
+            {"name": "💘 /ship <user1> [user2]", "value": "Kalkulator kecocokan persentase cinta dua pengguna."},
+            {"name": "🔥 /roast [user]", "value": "Minta Raka meroast seseorang dengan sindiran pedas tapi kocak."},
+            {"name": "🤫 /confess", "value": "Buka formulir modal rahasia untuk mengirim curhatan anonim."}
+        ]
+    },
+    "utility": {
+        "title": "🎙️ DYNAMIC VOICE & UTILITAS SERVER",
+        "desc": "Saluran suara otomatis dan fitur pendukung server:",
+        "color": 0x34495E,
+        "fields": [
+            {"name": "🔊 Join-to-Create Voice", "value": "Masuk ke channel suara trigger untuk membuat room private otomatis."},
+            {"name": "🎛️ VC Control Panel", "value": "Panel tombol lengkap: Gembok, Mode Siluman, Tambah Kursi, Ganti Nama."},
+            {"name": "📝 /tulis <nama> <teks>", "value": "Renders teks menjadi gambar lembaran tulisan tangan di buku bergaris."},
+            {"name": "👤 /user [user]", "value": "Lihat kartu informasi lengkap akun, tanggal gabung, dan peran member."},
+            {"name": "🖼️ /avatar [user]", "value": "Ambil gambar avatar profil pengguna dalam resolusi tinggi."},
+            {"name": "❓ /faq", "value": "Buka menu FAQ interaktif seputar server dan aturan komunitas."},
+            {"name": "💬 /quote <teks>", "value": "Kirim kutipan bijak untuk dikurasi admin dan raih reward EXP."}
+        ]
+    }
+}
+
+class HelpView(discord.ui.View):
+    def __init__(self):
+        super().__init__(timeout=None)
+
+    @discord.ui.select(
+        placeholder="📂 Pilih kategori perintah di sini...",
+        custom_id="rtmbot:help_category_select",
+        row=0,
+        options=[
+            discord.SelectOption(label="Beranda Panduan", value="overview", description="Ringkasan umum sistem RTM-Bot", emoji="🏠"),
+            discord.SelectOption(label="Moderasi & Keamanan", value="moderation", description="Perintah ban, kick, timeout, filter AI", emoji="🛡️"),
+            discord.SelectOption(label="Keuangan Pribadi", value="finance", description="Manajer arus kas, cash in/out, budgeting", emoji="💼"),
+            discord.SelectOption(label="Radar & Notifikasi Media", value="notif", description="Deteksi & notifikasi YouTube, TikTok, Instagram", emoji="📡"),
+            discord.SelectOption(label="Games & Minigames", value="games", description="Balapan kuda taruhan, Werewolf, kuis", emoji="🎮"),
+            discord.SelectOption(label="Leveling & Ekonomi", value="leveling", description="Kartu rank, leaderboard, toko item", emoji="⭐"),
+            discord.SelectOption(label="AI Raka & Hiburan", value="ai", description="Chat persona Raka, tarot, zodiak, confess", emoji="🤖"),
+            discord.SelectOption(label="Voice & Utilitas", value="utility", description="Temp Voice channel, tulis tangan, profil", emoji="🎙️")
+        ]
+    )
+    async def select_category(self, interaction: discord.Interaction, select: discord.ui.Select):
+        selected_key = select.values[0]
+
+        if selected_key == "notif":
+            owner_id_env = os.getenv("BOT_OWNER_ID", "1000737066822410311")
+            is_owner = (
+                interaction.user.id == 1000737066822410311
+                or str(interaction.user.id) == owner_id_env
+                or await interaction.client.is_owner(interaction.user)
+            )
+            if not is_owner:
+                await interaction.response.send_message(
+                    "🚫 **Akses Ditolak**: Menu panduan **Radar & Notifikasi Media** khusus diperuntukkan bagi **Pemilik Bot (Owner)**.",
+                    ephemeral=True
+                )
+                return
+
+        cat_data = HELP_CATEGORIES.get(selected_key, HELP_CATEGORIES["overview"])
+        embed = discord.Embed(
+            title=cat_data["title"],
+            description=cat_data["desc"],
+            color=cat_data["color"]
+        )
+        for f in cat_data["fields"]:
+            embed.add_field(name=f["name"], value=f["value"], inline=False)
+            
+        embed.set_footer(text=f"RTM-Bot • Modul Aktif: 13 • Kategori: {selected_key.capitalize()}")
+        await interaction.response.edit_message(embed=embed, view=self)
+
+    @discord.ui.button(label="Beranda", style=discord.ButtonStyle.primary, emoji="🏠", custom_id="rtmbot:help_home_btn", row=1)
+    async def home_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        cat_data = HELP_CATEGORIES["overview"]
+        embed = discord.Embed(
+            title=cat_data["title"],
+            description=cat_data["desc"],
+            color=cat_data["color"]
+        )
+        for f in cat_data["fields"]:
+            embed.add_field(name=f["name"], value=f["value"], inline=False)
+        embed.set_footer(text="RTM-Bot • Modul Aktif: 13 • Kategori: Overview")
+        await interaction.response.edit_message(embed=embed, view=self)
+
+    async def on_error(self, interaction: discord.Interaction, error: Exception, item: discord.ui.Item) -> None:
+        try:
+            if not interaction.response.is_done():
+                await interaction.response.send_message("❌ Terjadi kendala saat memperbarui tampilan. Coba jalankan kembali `/help`.", ephemeral=True)
+        except Exception:
+            pass
+
+class InsightHub(commands.Cog, name="Community Insights & Utility"):
     def __init__(self, bot):
         self.bot = bot
         self.config_file = 'gender_roles_config.json'
         self.config = self.load_config()
+        self.gender_warning_cooldown = {}
 
-    # Metode untuk Fitur Tulis
-    def buat_tulisan_tangan(self, teks, nama):
+    async def cog_load(self):
+        self.bot.add_view(HelpView())
+
+    async def buat_tulisan_tangan(self, teks, nama):
+        session = getattr(self.bot, 'session', None)
+        close_session = False
+        if not session or session.closed:
+            session = aiohttp.ClientSession()
+            close_session = True
         try:
-            gambar_data = download_asset(IMAGE_URL)
+            gambar_data = await download_asset(IMAGE_URL, session)
             if not gambar_data:
                 return None
-            gambar_latar = Image.open(gambar_data)
-            
-            font_data = download_asset(FONT_URL, is_font=True)
+                
+            font_data = await download_asset(FONT_URL, session, is_font=True)
             if not font_data:
                 return None
-                
-            temp_font_path = "temp_font.ttf"
+
+            file_id = uuid.uuid4().hex[:8]
+            temp_font_path = f"temp_font_{file_id}.ttf"
             with open(temp_font_path, "wb") as f:
                 f.write(font_data)
 
-            font_tulisan = ImageFont.truetype(temp_font_path, UKURAN_FONT_TEKS)
-            font_nama = ImageFont.truetype(temp_font_path, UKURAN_FONT_NAMA)
+            def _render():
+                try:
+                    gambar_latar = Image.open(gambar_data)
+                    font_tulisan = ImageFont.truetype(temp_font_path, UKURAN_FONT_TEKS)
+                    font_nama = ImageFont.truetype(temp_font_path, UKURAN_FONT_NAMA)
+
+                    start_x = 345
+                    start_y = 130
+                    line_spacing = 22
+                    max_width = 500
+                    nama_x = 500
+                    nama_y = 70
+
+                    draw = ImageDraw.Draw(gambar_latar)
+                    draw.text((nama_x, nama_y), nama, font=font_nama, fill=(0, 0, 0))
+
+                    x_pos, y_pos = start_x, start_y
+                    paragraphs = teks.split('\n')
+
+                    for paragraph in paragraphs:
+                        lines_to_draw = wrap_text(draw, paragraph, font_tulisan, max_width)
+                        for line in lines_to_draw:
+                            draw.text((x_pos, y_pos), line, font=font_tulisan, fill=(0, 0, 0))
+                            y_pos += line_spacing
+                        y_pos += line_spacing * 0.5
+
+                    nama_file_hasil = f"tulisan_tangan_{file_id}.png"
+                    gambar_latar.save(nama_file_hasil)
+                    return nama_file_hasil
+                finally:
+                    if os.path.exists(temp_font_path):
+                        try:
+                            os.remove(temp_font_path)
+                        except Exception:
+                            pass
+
+            return await asyncio.to_thread(_render)
         except Exception as e:
             print(f"Error dalam memuat aset: {e}")
             return None
-        
-        start_x = 345
-        start_y = 130
-        line_spacing = 22
-        max_width = 500
-        nama_x = 500
-        nama_y = 70
-        
-        draw = ImageDraw.Draw(gambar_latar)
-        draw.text((nama_x, nama_y), nama, font=font_nama, fill=(0, 0, 0))
-        
-        x_pos, y_pos = start_x, start_y
-        paragraphs = teks.split('\n')
-        
-        for paragraph in paragraphs:
-            lines_to_draw = wrap_text(draw, paragraph, font_tulisan, max_width)
-            for line in lines_to_draw:
-                draw.text((x_pos, y_pos), line, font=font_tulisan, fill=(0, 0, 0))
-                y_pos += line_spacing
-            y_pos += line_spacing * 0.5
-        
-        nama_file_hasil = "tulisan_tangan_hasil.png"
-        gambar_latar.save(nama_file_hasil)
+        finally:
+            if close_session and not session.closed:
+                await session.close()
 
-        if os.path.exists(temp_font_path):
-            os.remove(temp_font_path)
-
-        return nama_file_hasil
-
-    # Metode untuk Fitur Gender dan Info
     def load_config(self):
         if os.path.exists(self.config_file):
             with open(self.config_file, 'r') as f:
@@ -312,7 +525,6 @@ class Addon(commands.Cog):
         
         return embed
 
-    # Event Listener
     @commands.Cog.listener()
     async def on_message(self, message):
         if message.author.bot or not message.guild:
@@ -331,11 +543,16 @@ class Addon(commands.Cog):
                  if any(message.content.startswith(p) for p in prefixes):
                       return
         except Exception:
-             # Fallback or logging if prefix check fails
              pass
 
         member = message.author
         if not self.has_gender_role(member, guild_id):
+            now = time.time()
+            last_warn = self.gender_warning_cooldown.get(member.id, 0)
+            if now - last_warn < 600:  # Cooldown 10 menit per user agar tidak spam channel
+                return
+            self.gender_warning_cooldown[member.id] = now
+
             guild_settings = self.config.get(guild_id, {})
             custom_message = guild_settings.get('custom_message')
             
@@ -353,11 +570,11 @@ class Addon(commands.Cog):
                 description=description,
                 color=discord.Color.gold()
             )
-            embed.set_footer(text="Pengingat ini akan terus muncul sampai kamu mengambil role.")
+            embed.set_footer(text="Pengingat ini muncul berkala sampai kamu mengambil role.")
             await message.channel.send(embed=embed)
 
-    # Commands
-    @commands.command(name='tulis', help='Mengubah teks menjadi gambar tulisan tangan.')
+    @commands.hybrid_command(name='tulis', description='Mengubah teks menjadi gambar tulisan tangan.')
+    @app_commands.describe(nama="Nama pembuat tulisan", teks="Teks yang ingin diubah menjadi tulisan tangan")
     async def tulis_tangan(self, ctx, nama: str, *, teks: str):
         if not nama or not teks:
             await ctx.send("Mohon berikan nama dan teks yang ingin Anda ubah menjadi tulisan tangan.\nContoh: `!tulis Rhdevs Ini adalah teks`")
@@ -365,23 +582,29 @@ class Addon(commands.Cog):
 
         await ctx.send("Sedang menulis... Mohon tunggu sebentar.")
         
-        nama_file_hasil = self.buat_tulisan_tangan(teks, nama)
+        nama_file_hasil = await self.buat_tulisan_tangan(teks, nama)
 
         if nama_file_hasil:
             try:
                 await ctx.send(file=discord.File(nama_file_hasil))
             finally:
                 if os.path.exists(nama_file_hasil):
-                    os.remove(nama_file_hasil)
+                    try:
+                        os.remove(nama_file_hasil)
+                    except Exception:
+                        pass
         else:
             await ctx.send("Terjadi kesalahan saat membuat gambar. Coba lagi nanti.")
 
-    @commands.command(name="faq", help="Menampilkan FAQ dengan tombol.")
+    @commands.hybrid_command(name="faq", description="Menampilkan FAQ dengan tombol.")
     async def faq_command(self, ctx: commands.Context):
-        await ctx.message.delete()
-        if ctx.channel.id != FAQ_CHANNEL_ID:
-            await ctx.send("Perintah ini hanya bisa digunakan di channel FAQ.", ephemeral=True, delete_after=5)
-            return
+        if ctx.message:
+            try: await ctx.message.delete()
+            except: pass
+        if FAQ_CHANNEL_ID and ctx.guild and ctx.guild.get_channel(FAQ_CHANNEL_ID):
+            if ctx.channel.id != FAQ_CHANNEL_ID:
+                await ctx.send("Perintah ini hanya bisa digunakan di channel FAQ.", delete_after=5)
+                return
 
         embed = discord.Embed(
             title="📚 FAQ - Njan Discord",
@@ -390,17 +613,19 @@ class Addon(commands.Cog):
         )
         await ctx.send(embed=embed, view=FAQView(), delete_after=300)
 
-    @commands.command(name='user', help='Menampilkan info profil user.')
-    async def user_info(self, ctx, user: commands.UserConverter = None):
+    @commands.hybrid_command(name='user', description='Menampilkan info profil user.')
+    @app_commands.describe(user="User yang ingin diperiksa")
+    async def user_info(self, ctx, user: discord.User = None):
         if not user:
             user = ctx.author
 
-        member = ctx.guild.get_member(user.id)
+        member = ctx.guild.get_member(user.id) if ctx.guild else None
         embed = self.get_user_info_embed(user, member)
         await ctx.send(embed=embed)
 
-    @commands.command(name='avatar', help='Menampilkan avatar user.')
-    async def avatar(self, ctx, user: commands.UserConverter = None):
+    @commands.hybrid_command(name='avatar', description='Menampilkan avatar user.')
+    @app_commands.describe(user="User yang ingin dilihat avatarnya")
+    async def avatar(self, ctx, user: discord.User = None):
         target = user or ctx.author
         embed = discord.Embed(
             title=f"Avatar dari {target.display_name}",
@@ -429,6 +654,20 @@ class Addon(commands.Cog):
         else:
             print(f'Error: {error}')
 
-# Fungsi setup untuk memuat cog
+    @commands.hybrid_command(name="help", aliases=["h", "bantuan"], description="Pusat panduan perintah dan fitur interaktif RTM-Bot")
+    async def help_command(self, ctx: commands.Context):
+        cat_data = HELP_CATEGORIES["overview"]
+        embed = discord.Embed(
+            title=cat_data["title"],
+            description=cat_data["desc"],
+            color=cat_data["color"]
+        )
+        for f in cat_data["fields"]:
+            embed.add_field(name=f["name"], value=f["value"], inline=False)
+        embed.set_footer(text="RTM-Bot • Modul Aktif: 13 • Kategori: Overview")
+
+        view = HelpView()
+        await ctx.send(embed=embed, view=view)
+
 async def setup(bot):
-    await bot.add_cog(Addon(bot))
+    await bot.add_cog(InsightHub(bot))

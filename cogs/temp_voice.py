@@ -90,15 +90,17 @@ class VCControlView(discord.ui.View):
     
     def load_donation_buttons(self):
         try:
-            with open('reswan/data/donation_buttons.json', 'r', encoding='utf-8') as f:
-                donation_data = json.load(f)
-                for button_data in donation_data:
-                    self.add_item(discord.ui.Button(
-                        label=button_data['label'],
-                        style=discord.ButtonStyle.url,
-                        url=button_data['url'],
-                        row=4
-                    ))
+            donation_file_path = 'data/donation_buttons.json'
+            if os.path.exists(donation_file_path):
+                with open(donation_file_path, 'r', encoding='utf-8') as f:
+                    donation_data = json.load(f)
+                    for button_data in donation_data:
+                        self.add_item(discord.ui.Button(
+                            label=button_data['label'],
+                            style=discord.ButtonStyle.url,
+                            url=button_data['url'],
+                            row=4
+                        ))
         except Exception:
             pass
 
@@ -257,7 +259,7 @@ class VCControlView(discord.ui.View):
         await interaction.response.send_message("👑 Berhasil! Kamu sekarang adalah Ketua RT (Pemilik) ruangan ini.", ephemeral=True)
 
 
-class TempVoice(commands.Cog):
+class DynamicVoice(commands.Cog, name="Dynamic Voice Hub"):
     def __init__(self, bot):
         self.bot = bot
         self.guild_config = load_guild_config()
@@ -268,7 +270,7 @@ class TempVoice(commands.Cog):
     def cog_unload(self):
         self.cleanup_task.cancel()
 
-    @tasks.loop(seconds=10)
+    @tasks.loop(seconds=60)
     async def cleanup_task(self):
         channels_to_remove = []
         for channel_id_str, channel_info in list(self.active_temp_channels.items()):
@@ -315,6 +317,19 @@ class TempVoice(commands.Cog):
     async def on_voice_state_update(self, member, before, after):
         if member.bot:
             return
+
+        # Pembersihan instan saat user meninggalkan channel sementara
+        if before.channel and str(before.channel.id) in self.active_temp_channels:
+            human_members = [m for m in before.channel.members if not m.bot]
+            if not human_members:
+                try:
+                    await before.channel.delete(reason="Channel suara kosong (semua anggota keluar).")
+                except (discord.NotFound, discord.Forbidden):
+                    pass
+                except Exception:
+                    pass
+                self.active_temp_channels.pop(str(before.channel.id), None)
+                save_temp_channels(self.active_temp_channels)
         
         guild_id_str = str(member.guild.id)
         config = self.guild_config.get(guild_id_str, {})
@@ -701,8 +716,8 @@ class TempVoice(commands.Cog):
             pass
 
 async def setup(bot):
-    os.makedirs('reswan/data', exist_ok=True)
-    donation_file_path = 'reswan/data/donation_buttons.json'
+    os.makedirs('data', exist_ok=True)
+    donation_file_path = 'data/donation_buttons.json'
     if not os.path.exists(donation_file_path) or os.stat(donation_file_path).st_size == 0:
         default_data = [
             {
@@ -720,4 +735,4 @@ async def setup(bot):
         ]
         with open(donation_file_path, 'w', encoding='utf-8') as f:
             json.dump(default_data, f, indent=4)
-    await bot.add_cog(TempVoice(bot))
+    await bot.add_cog(DynamicVoice(bot))

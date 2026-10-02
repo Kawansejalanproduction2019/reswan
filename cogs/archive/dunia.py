@@ -573,12 +573,13 @@ class DuniaHidup(commands.Cog):
                     f"kehilangan {log['exp_lost']} EXP dan {log['rswn_lost']} RSWN. Mereka tidak akan melupakan rasa sakit ini."
                 )
             
+            attack_details_str = "```diff\n" + "\n".join(attack_details_list) + "\n```"
             attack_summary_embed = discord.Embed(
                 title=f"☠️ LAPORAN PENDERITAAN DARI {self.current_monster['name'].upper()} ☠️",
                 description=(
                     f"Meskipun monster telah dikalahkan, jejak kehancurannya masih terasa. "
                     f"Beberapa penduduk mengalami kerugian yang tak terbayangkan selama serangannya:\n\n"
-                    f"{'```diff\n' + '\\n'.join(attack_details_list) + '\\n```'}"
+                    f"{attack_details_str}"
                 ),
                 color=discord.Color.dark_grey()
             )

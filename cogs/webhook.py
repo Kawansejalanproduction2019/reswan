@@ -379,7 +379,7 @@ class WebhookConfigView(discord.ui.View):
     @discord.ui.button(label="Preview (Sini Aja)", style=discord.ButtonStyle.secondary, row=2)
     async def preview_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.defer(ephemeral=True)
-        cog_instance = self.bot.get_cog('RTMBroadcast')
+        cog_instance = self.bot.get_cog('BroadcastNexus')
         payload, view = cog_instance.build_payload(self.config, self.bot)
         
         preview_kwargs = {}
@@ -403,12 +403,12 @@ class WebhookConfigView(discord.ui.View):
 
     @discord.ui.button(label="Simpan Konfig", style=discord.ButtonStyle.grey, row=2)
     async def save_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.send_modal(SaveConfigModal(self.config, self.bot.get_cog('RTMBroadcast'), self.channels[0]))
+        await interaction.response.send_modal(SaveConfigModal(self.config, self.bot.get_cog('BroadcastNexus'), self.channels[0]))
 
     @discord.ui.button(label="Kirim Webhook", style=discord.ButtonStyle.green, row=2)
     async def send_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.defer(ephemeral=True)
-        cog = self.bot.get_cog('RTMBroadcast')
+        cog = self.bot.get_cog('BroadcastNexus')
 
         success_count = 0
         errors_log = []
@@ -435,9 +435,9 @@ class WebhookConfigView(discord.ui.View):
                         errors_log.append(f"Gagal edit di {ch.name}: {str(e)}")
                         continue
 
-                webhook = discord.utils.get(await ch.webhooks(), name="RTMBroadcast")
+                webhook = discord.utils.get(await ch.webhooks(), name="BroadcastNexus") or discord.utils.get(await ch.webhooks(), name="RTMBroadcast")
                 if not webhook:
-                    webhook = await ch.create_webhook(name="RTMBroadcast")
+                    webhook = await ch.create_webhook(name="BroadcastNexus")
 
                 sent_msg = await webhook.send(wait=True, **payload)
                 if sent_msg:
@@ -635,10 +635,10 @@ class ScheduleConfigView(discord.ui.View):
         if not self.config.get('scheduled_time') or not self.config.get('channels'):
             return await interaction.followup.send("Tentukan jadwal dan kanal tujuan terlebih dahulu.", ephemeral=True)
 
-        scheduled_announcements = self.bot.get_cog('RTMBroadcast').load_scheduled_announcements()
+        scheduled_announcements = self.bot.get_cog('BroadcastNexus').load_scheduled_announcements()
         job_id = str(uuid.uuid4())
         scheduled_announcements[job_id] = self.config
-        self.bot.get_cog('RTMBroadcast').save_scheduled_announcements(scheduled_announcements)
+        self.bot.get_cog('BroadcastNexus').save_scheduled_announcements(scheduled_announcements)
         
         dt_wib = datetime.fromisoformat(self.config['scheduled_time']).astimezone(pytz.timezone('Asia/Jakarta'))
         await interaction.followup.send(f"Pengumuman dijadwalkan ke {len(self.config['channels'])} kanal pada **{dt_wib.strftime('%d %B %Y pukul %H:%M WIB')}**.", ephemeral=True)
@@ -740,7 +740,7 @@ class AnnouncementConfigView(discord.ui.View):
 
         try:
             msg = await self.channel.send(content=self.config.get('content'), embeds=[embed] if embed else [])
-            self.bot.get_cog('RTMBroadcast').save_config_to_file(self.channel.guild.id, self.channel.id, str(msg.id), self.config)
+            self.bot.get_cog('BroadcastNexus').save_config_to_file(self.channel.guild.id, self.channel.id, str(msg.id), self.config)
             await interaction.followup.send(f"Pengumuman terkirim ke {self.channel.mention}!", ephemeral=True)
             try: await interaction.message.delete()
             except: pass
@@ -753,7 +753,7 @@ class AnnouncementConfigView(discord.ui.View):
         except: pass
         self.stop()
 
-class RTMBroadcast(commands.Cog):
+class BroadcastNexus(commands.Cog, name="Broadcast & Webhooks"):
     def __init__(self, bot):
         self.bot = bot
         self.button_actions = {}
@@ -863,7 +863,7 @@ class RTMBroadcast(commands.Cog):
                         try:
                             ch = self.bot.get_channel(int(cid)) or await self.bot.fetch_channel(int(cid))
                             if not ch: continue
-                            webhook = discord.utils.get(await ch.webhooks(), name="RTMBroadcast") or await ch.create_webhook(name="RTMBroadcast")
+                            webhook = discord.utils.get(await ch.webhooks(), name="BroadcastNexus") or discord.utils.get(await ch.webhooks(), name="RTMBroadcast") or await ch.create_webhook(name="BroadcastNexus")
                             sent = await webhook.send(wait=True, **payload)
                             if sent and job_data.get('destruct'): self.register_destruct(ch.guild.id, ch.id, sent.id, job_data['destruct'])
                         except: pass
@@ -1202,7 +1202,10 @@ class RTMBroadcast(commands.Cog):
 
             await interaction.response.defer(ephemeral=True)
             category = interaction.guild.get_channel(cat_id) if cat_id else None
-            specific_role = interaction.guild.get_role(1264935423184998422)
+            support_role_id = int(os.getenv("TICKET_SUPPORT_ROLE_ID", 1264935423184998422))
+            specific_role = interaction.guild.get_role(support_role_id)
+            if not specific_role:
+                specific_role = next((r for r in interaction.guild.roles if r.permissions.manage_channels or r.permissions.administrator), None)
 
             ow = {
                 interaction.guild.default_role: discord.PermissionOverwrite(view_channel=False),
@@ -1222,8 +1225,12 @@ class RTMBroadcast(commands.Cog):
             self.bot.loop.create_task(self.delete_ticket_after_delay(tc, interaction.user.id))
 
         elif action == 'close_ticket':
-            await interaction.response.defer()
             uid = int(value)
+            is_staff = interaction.user.guild_permissions.manage_channels or interaction.user.guild_permissions.administrator
+            is_creator = interaction.user.id == uid
+            if not is_creator and not is_staff:
+                return await interaction.response.send_message("🚫 Anda tidak memiliki izin untuk menutup tiket ini.", ephemeral=True)
+            await interaction.response.defer()
             if uid in self.active_tickets: del self.active_tickets[uid]
             try: await interaction.channel.delete()
             except: pass
@@ -1260,4 +1267,4 @@ class RTMBroadcast(commands.Cog):
                 if user_id in self.active_tickets: del self.active_tickets[user_id]
 
 async def setup(bot):
-    await bot.add_cog(RTMBroadcast(bot))
+    await bot.add_cog(BroadcastNexus(bot))

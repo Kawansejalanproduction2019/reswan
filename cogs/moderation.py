@@ -684,7 +684,7 @@ class DynamicRoleView(discord.ui.View):
                 self.add_item(DynamicRoleButton(role_id_str, data))
 
 
-class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
+class SentinelGuard(commands.Cog, name="Sentinel Moderation"):
     def __init__(self, bot):
         self.bot = bot
         self.settings_file = "data/settings.json"
@@ -710,9 +710,9 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
         self.spam_history = {}
         self.cross_channel_spam_history = {}
         
-        self.reminder_channel_id = 1379762287149187162
-        self.male_role_id = 1385246612288311326
-        self.female_role_id = 1379461360873898017
+        self.reminder_channel_id = int(os.getenv("REMINDER_CHANNEL_ID", 1379762287149187162)) if os.getenv("REMINDER_CHANNEL_ID") else 1379762287149187162
+        self.male_role_id = int(os.getenv("MALE_ROLE_ID", 1385246612288311326)) if os.getenv("MALE_ROLE_ID") else 1385246612288311326
+        self.female_role_id = int(os.getenv("FEMALE_ROLE_ID", 1379461360873898017)) if os.getenv("FEMALE_ROLE_ID") else 1379461360873898017
         
         self.common_prefixes = ('!', '.', '?', '-', '$', '%', '&', '#', '+', '=')
         self.url_regex = re.compile(r'https?://[^\s/$.?#].[^\s]*')
@@ -1095,7 +1095,7 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
                 pass
         else:
             pass
-    async def send_spam_log_v2(self, guild: discord.Guild, member: discord.Member, trigger_channels: str, reason: str, detailed_reason: str, message_id: str):
+    async def send_spam_log_v2(self, guild: discord.Guild, member, trigger_channels: str, reason: str, detailed_reason: str, message_id: str, message_content: str = None, media_url: str = None, is_webhook: bool = False):
         spam_log_channel_id = self.get_guild_settings(guild.id).get("spam_log_channel_id")
         if not spam_log_channel_id: return
         log_channel = guild.get_channel(spam_log_channel_id)
@@ -1104,27 +1104,55 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
         from cogs.v2_layout import build_v2_card, send_v2_message
         import time
 
+        actor_str = f"🚨 Compromised Webhook: `{getattr(member, 'name', 'Webhook')}` (ID: `{getattr(member, 'id', 'Unknown')}`)" if is_webhook else f"{getattr(member, 'mention', str(member))} (`{getattr(member, 'id', 'Unknown')}`)"
+
         v2_fields = [
-            {"name": "👤 Pelaku", "value": f"{member.mention} (`{member.id}`)"},
+            {"name": "👤 Pelaku / Sumber", "value": actor_str},
             {"name": "📝 Reason", "value": reason},
             {"name": "🔍 Detailed Reason", "value": detailed_reason},
             {"name": "📍 Channel", "value": trigger_channels},
             {"name": "🆔 Message ID", "value": f"`{message_id}`"},
             {"name": "⏰ Waktu Kejadian", "value": f"<t:{int(time.time())}:F>"}
         ]
-        
+
+        if message_content and message_content.strip():
+            v2_fields.append({"name": "💬 Isi Pesan Dihapus", "value": f"```{message_content[:900]}```"})
+
+        if media_url:
+            v2_fields.append({"name": "🖼️ Bukti Media / Foto", "value": f"[Klik untuk Buka Gambar]({media_url})"})
+
         card = build_v2_card(
             title="⚠️ ANTI-SPAM & PHISHING SYSTEM ⚠️",
-            description="Tindakan otomatis telah diambil berdasarkan kebijakan keamanan server.",
+            description="Tindakan keamanan otomatis telah diambil oleh sistem pertahanan server.",
             fields=v2_fields,
-            color=None,
-            footer=f"Sistem Keamanan Otomatis • {guild.name}"
+            color=0xFF0000,
+            footer=f"Sistem Keamanan Otomatis • {guild.name}",
+            media_url=media_url
         )
         
+        sent = False
         try:
             await send_v2_message(self.bot, log_channel.id, [card])
-        except:
+            sent = True
+        except Exception:
             pass
+
+        if not sent:
+            embed = discord.Embed(
+                title="⚠️ ANTI-SPAM & PHISHING SYSTEM ⚠️",
+                description="Tindakan keamanan otomatis telah diambil oleh sistem pertahanan server.",
+                color=0xFF0000,
+                timestamp=datetime.now(timezone.utc)
+            )
+            for f in v2_fields:
+                embed.add_field(name=f["name"], value=f["value"], inline=False)
+            if media_url:
+                embed.set_image(url=media_url)
+            embed.set_footer(text=f"Sistem Keamanan Otomatis • {guild.name}")
+            try:
+                await log_channel.send(embed=embed)
+            except Exception:
+                pass
 
     async def get_or_create_announcement_webhook(self, channel: discord.TextChannel, custom_name: str):
         guild_settings = self.get_guild_settings(channel.guild.id)
@@ -1190,13 +1218,22 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
             r'discord-nitro', r'claim-reward', r'free-gift'
         ]
         
-        content_lower = content.lower()
+        # Bersihkan karakter tak terlihat (Zero-Width Characters & Soft Hyphen)
+        clean_text = re.sub(r'[\u200B-\u200D\uFEFF\u00AD]', '', content)
+        
+        # Normalisasi homoglyph Unicode (Cyrillic / Fullwidth ke Latin ASCII standar)
+        try:
+            normalized_text = unicodedata.normalize('NFKD', clean_text).encode('ascii', 'ignore').decode('utf-8')
+        except Exception:
+            normalized_text = clean_text
+
+        content_lower = normalized_text.lower()
         
         for pattern in suspicious_patterns:
             if re.search(pattern, content_lower):
                 return True
         
-        urls = self.url_regex.findall(content)
+        urls = self.url_regex.findall(normalized_text)
         for url in urls:
             if any(suspicious in url.lower() for suspicious in ['discordgift', 'nitro-free', 'steamgift']):
                 return True
@@ -1745,7 +1782,11 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
         if not message.guild:
             return
             
-        if message.author.bot or message.author.id == self.bot.user.id:
+        if message.author.id == self.bot.user.id:
+            return
+
+        is_webhook = message.webhook_id is not None
+        if message.author.bot and not is_webhook:
             rules = self.get_channel_rules(message.guild.id, message.channel.id)
             if (delay := rules.get("auto_delete_seconds", 0)) > 0:
                 try:
@@ -1757,6 +1798,49 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
                     await message.delete()
                 except Exception:
                     pass
+            return
+
+        guild_settings = self.get_guild_settings(message.guild.id)
+
+        # Proteksi Khusus Webhook Bocor / Compromised Webhook
+        if is_webhook:
+            trigger_channels = guild_settings.get("trigger_channels", [])
+            first_media = message.attachments[0].url if message.attachments else None
+            
+            # Cek 1: Webhook mengirim di Honeypot Channel
+            if message.channel.id in trigger_channels:
+                try: await message.delete()
+                except: pass
+                try:
+                    wh = await self.bot.fetch_webhook(message.webhook_id)
+                    await wh.delete(reason="Rogue Webhook: Mengirim pesan di Honeypot Channel")
+                except Exception: pass
+                await self.send_spam_log_v2(
+                    message.guild, message.author, message.channel.mention,
+                    "🚨 Rogue Webhook di Honeypot Channel",
+                    "Webhook terdeteksi mengirim pesan di channel jebakan honeypot. Pesan dan Webhook telah dicabut otomatis.",
+                    str(message.id), message_content=message.content, media_url=first_media, is_webhook=True
+                )
+                return
+
+            # Cek 2: Webhook mengirim tautan Phishing / Scam
+            wh_content_lower = message.content.lower()
+            scam_keywords = ['nitro', 'gift', 'airdrop', 'free steam', 'disocrd', 'dlscord', 'discrod', 't.me/']
+            urls = re.findall(r'(https?://[^\s]+)', wh_content_lower)
+            if urls and any(any(kw in u for kw in scam_keywords) for u in urls):
+                try: await message.delete()
+                except: pass
+                try:
+                    wh = await self.bot.fetch_webhook(message.webhook_id)
+                    await wh.delete(reason="Rogue Webhook: Terdeteksi mengirim link Phishing")
+                except Exception: pass
+                await self.send_spam_log_v2(
+                    message.guild, message.author, message.channel.mention,
+                    "🚨 Rogue Webhook Phishing Link",
+                    f"Webhook terdeteksi menyebarkan link scam/phising: `{', '.join(urls)[:150]}`. Pesan dan Webhook telah dicabut.",
+                    str(message.id), message_content=message.content, media_url=first_media, is_webhook=True
+                )
+                return
             return
 
         guild_settings = self.get_guild_settings(message.guild.id)
@@ -1773,7 +1857,8 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
             except discord.Forbidden:
                 pass
                 
-            is_immune = is_whitelisted or message.author.guild_permissions.administrator or message.author.guild_permissions.kick_members or str(message.author.id) == "1000737066822410311"
+            is_owner = (await self.bot.is_owner(message.author)) or str(message.author.id) == os.getenv("BOT_OWNER_ID", "1000737066822410311")
+            is_immune = is_whitelisted or message.author.guild_permissions.administrator or message.author.guild_permissions.kick_members or is_owner
             if is_immune:
                 return
 
@@ -4160,6 +4245,6 @@ class ServerAdminCog(commands.Cog, name="👑 Administrasi"):
             await ctx.send(embed=self._create_embed(description=f"✅ Channel {target_channel.mention} telah dihapus dari daftar jebakan anti-spam.", color=self.color_success))
 
 async def setup(bot):
-    cog = ServerAdminCog(bot)
+    cog = SentinelGuard(bot)
     await bot.add_cog(cog)
     bot.add_view(cog.RealtimeModPanelView(cog))

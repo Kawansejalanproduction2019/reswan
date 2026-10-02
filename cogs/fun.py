@@ -125,7 +125,7 @@ class ConfessionSetupView(discord.ui.View):
     async def send_confess(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.send_modal(ConfessionModal(self.cog))
 
-class Fun(commands.Cog):
+class EntertainmentArcade(commands.Cog, name="Entertainment & Social Fun"):
     def __init__(self, bot):
         self.bot = bot
         self.db = self.bot.mongo_client["reSwan"]
@@ -484,10 +484,6 @@ class Fun(commands.Cog):
             except Exception:
                 pass
 
-    # ==========================================
-    # CONFESSION & FORTUNE TELLER COMMANDS (HYBRID/SLASH)
-    # ==========================================
-
     @app_commands.command(name="set_confess_channel", description="Set channel untuk menampung curhatan anonim.")
     @app_commands.describe(channel="Channel text tujuan")
     @app_commands.default_permissions(administrator=True)
@@ -801,4 +797,4 @@ class Fun(commands.Cog):
         await ctx.send(embed=embed)
 
 async def setup(bot):
-    await bot.add_cog(Fun(bot))
+    await bot.add_cog(EntertainmentArcade(bot))

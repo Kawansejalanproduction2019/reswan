@@ -1,0 +1,12 @@
+{
+    "whitelist_users": [],
+    "whitelist_channels": [],
+    "blacklist_words": [],
+    "sara_words": [],
+    "is_active": true,
+    "ai_whitelist_words": [],
+    "server_admins": {},
+    "blocked_image_descriptions": [],
+    "blocked_image_hashes": [],
+    "image_block_channel_id": null
+}

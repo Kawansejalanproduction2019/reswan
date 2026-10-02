@@ -31,8 +31,11 @@ def save_json_to_root(data, file_path):
     base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
     full_path = os.path.join(base_dir, file_path)
     os.makedirs(os.path.dirname(full_path), exist_ok=True)
-    with open(full_path, 'w', encoding='utf-8') as f:
+    temp_path = f"{full_path}.tmp"
+    with open(temp_path, 'w', encoding='utf-8') as f:
         json.dump(data, f, indent=4)
+    os.replace(temp_path, full_path)
+
 
 class DonationView(discord.ui.View):
     def __init__(self):
@@ -139,7 +142,7 @@ class TicTacToeButton(discord.ui.Button):
         view.board[button_index] = self.label
         await view.update_board(interaction)
 
-class Games1(commands.Cog):
+class ArcadeMinigames(commands.Cog, name="Arcade Mini-Games"):
     DONATION_BUTTONS_FILE = 'data/donation_buttons.json'
 
     def __init__(self, bot):
@@ -186,7 +189,7 @@ class Games1(commands.Cog):
         self.reward = {"rsw": 50, "exp": 100}
         self.daily_puzzle = None
         self.daily_puzzle_solvers = set()
-        self.daily_puzzle_channel_id = 765140300145360896
+        self.daily_puzzle_channel_id = int(os.getenv("DAILY_PUZZLE_CHANNEL_ID", 765140300145360896))
         #self.post_daily_puzzle.start()
         self.quiz_attempts_per_question = {}
         self.cooldown_users = {}
@@ -201,9 +204,13 @@ class Games1(commands.Cog):
         return data
 
     def get_anomaly_multiplier(self):
-        dunia_cog = self.bot.get_cog('DuniaHidup')
-        if dunia_cog and dunia_cog.active_anomaly and dunia_cog.active_anomaly.get('type') == 'exp_boost':
-            return dunia_cog.active_anomaly.get('effect', {}).get('multiplier', 1)
+        try:
+            dunia_cog = self.bot.get_cog('DuniaHidup')
+            if dunia_cog and hasattr(dunia_cog, 'active_anomaly') and isinstance(dunia_cog.active_anomaly, dict):
+                if dunia_cog.active_anomaly.get('type') == 'exp_boost':
+                    return dunia_cog.active_anomaly.get('effect', {}).get('multiplier', 1)
+        except Exception:
+            pass
         return 1
 
     async def end_game_cleanup(self, channel_id, channel_obj=None, game_type=None):
@@ -238,14 +245,16 @@ class Games1(commands.Cog):
                 game_dict.pop(identifier, None)
 
         if channel_obj:
-            donation_message = (
-                "🎮 **Permainan Telah Usai!** Terima kasih sudah bermain bersama kami.\n\n"
-                "Apakah kamu menikmati petualangan dan keseruan yang kami hadirkan?\n"
-                "Dukung terus pengembangan bot ini agar kami bisa terus berinovasi dan "
-                "memberikan pengalaman bermain yang lebih seru lagi!\n\n"
-                "Donasi sekecil apa pun sangat berarti untuk kami! 🙏"
-            )
-            await channel_obj.send(donation_message, view=DonationView())
+            self.game_completion_count = getattr(self, 'game_completion_count', 0) + 1
+            if self.game_completion_count % 4 == 0:
+                donation_message = (
+                    "🎮 **Permainan Telah Usai!** Terima kasih sudah bermain bersama kami.\n\n"
+                    "Apakah kamu menikmati petualangan dan keseruan yang kami hadirkan?\n"
+                    "Dukung terus pengembangan bot ini agar kami bisa terus berinovasi dan "
+                    "memberikan pengalaman bermain yang lebih seru lagi!\n\n"
+                    "Donasi sekecil apa pun sangat berarti untuk kami! 🙏"
+                )
+                await channel_obj.send(donation_message, view=DonationView())
 
     async def give_rewards_with_bonus_check(self, user: discord.Member, channel: discord.TextChannel, reward_base: dict = None):
         if reward_base is None:
@@ -1247,6 +1256,12 @@ class Games1(commands.Cog):
         self.daily_puzzle = random.choice(self.tekateki_harian_data)
         self.daily_puzzle_solvers.clear()
         channel = self.bot.get_channel(self.daily_puzzle_channel_id)
+        if not channel:
+            for guild in self.bot.guilds:
+                target_ch = guild.system_channel or next((c for c in guild.text_channels if c.permissions_for(guild.me).send_messages), None)
+                if target_ch:
+                    channel = target_ch
+                    break
         if channel:
             embed = discord.Embed(title="🤔 Teka-Teki Harian!", description=f"**Teka-teki untuk hari ini:**\n\n> {self.daily_puzzle['riddle']}", color=0x99aab5)
             embed.set_footer(text="Gunakan !jawab <jawabanmu> untuk menebak!")
@@ -1306,5 +1321,5 @@ class Games1(commands.Cog):
         await ctx.send(f"✅ Tombol donasi '{removed_button['label']}' berhasil dihapus.")
 
 async def setup(bot):
-    await bot.add_cog(Games1(bot))
+    await bot.add_cog(ArcadeMinigames(bot))
 

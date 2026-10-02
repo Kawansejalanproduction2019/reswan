@@ -127,6 +127,14 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+cookies.txt
+
+# Local Agent Docs & Implementation Plans
+PLAN_IMPLEMENTASI.md
+implementasi_plan.md
+ARCHITECTURE.md
+Rules_Agent.md
+*.plan.md
 
 # Spyder project settings
 .spyderproject

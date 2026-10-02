@@ -510,7 +510,7 @@ class TypeSelectView(discord.ui.View):
         back_button.callback = back_callback
         self.add_item(back_button)
 
-class Notif(commands.Cog, name="🔔 Notification"):
+class ContentRadar(commands.Cog, name="Content Radar & Feed"):
     def __init__(self, bot):
         self.bot = bot
         self.config_file = "data/notif.json"
@@ -1219,4 +1219,4 @@ class Notif(commands.Cog, name="🔔 Notification"):
 
 async def setup(bot):
     os.makedirs('data', exist_ok=True)
-    await bot.add_cog(Notif(bot))
+    await bot.add_cog(ContentRadar(bot))

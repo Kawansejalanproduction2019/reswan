@@ -9,7 +9,7 @@ from pilmoji import Pilmoji
 import asyncio
 from datetime import datetime, timedelta
 from PIL import Image, ImageDraw, ImageFont
-import requests
+import time
 from io import BytesIO
 import io
 import aiohttp
@@ -28,7 +28,13 @@ WEEKLY_RESET_DAY = 0
 EXP_PRICE_PER_UNIT = 10
 DAILY_EXP_LIMIT = 1500
 
+_memory_cache = {}
+_font_bold_bytes = None
+_font_reg_bytes = None
+
 def load_json(path):
+    if path in _memory_cache:
+        return _memory_cache[path]
     os.makedirs(os.path.dirname(path), exist_ok=True)
     if not os.path.exists(path):
         default_data = {}
@@ -43,22 +49,29 @@ def load_json(path):
         elif path == COLLAGE_FILE:
             default_data = {"collage_url": None}
         
-        with open(path, 'w', encoding='utf-8') as f:
+        temp_path = f"{path}.tmp"
+        with open(temp_path, 'w', encoding='utf-8') as f:
             json.dump(default_data, f, indent=4)
+        os.replace(temp_path, path)
+        _memory_cache[path] = default_data
         return default_data
 
     try:
         with open(path, 'r', encoding='utf-8') as f:
-            return json.load(f)
-    except json.JSONDecodeError:
-        with open(path, 'w', encoding='utf-8') as f:
-            json.dump({}, f)
+            data = json.load(f)
+            _memory_cache[path] = data
+            return data
+    except (json.JSONDecodeError, FileNotFoundError):
+        _memory_cache[path] = {}
         return {}
 
 def save_json(path, data):
+    _memory_cache[path] = data
     os.makedirs(os.path.dirname(path), exist_ok=True)
-    with open(path, 'w', encoding='utf-8') as f:
+    temp_path = f"{path}.tmp"
+    with open(temp_path, 'w', encoding='utf-8') as f:
         json.dump(data, f, indent=4)
+    os.replace(temp_path, path)
 
 def calculate_new_level(exp, exp_per_level, max_level):
     lvl = exp // exp_per_level
@@ -71,18 +84,21 @@ async def crop_avatar_to_circle(user: discord.User):
         async with session.get(user.display_avatar.url) as resp:
             avatar_bytes = await resp.read()
 
-    with Image.open(BytesIO(avatar_bytes)).convert("RGBA") as img:
-        size = (256, 256)
-        img = img.resize(size)
-        mask = Image.new("L", size, 0)
-        draw = ImageDraw.Draw(mask)
-        draw.ellipse((0, 0) + size, fill=255)
-        output = Image.new("RGBA", size)
-        output.paste(img, (0, 0), mask)
-        buffer = BytesIO()
-        output.save(buffer, format="PNG")
-        buffer.seek(0)
-        return buffer
+    def _crop():
+        with Image.open(BytesIO(avatar_bytes)).convert("RGBA") as img:
+            size = (256, 256)
+            img = img.resize(size)
+            mask = Image.new("L", size, 0)
+            draw = ImageDraw.Draw(mask)
+            draw.ellipse((0, 0) + size, fill=255)
+            output = Image.new("RGBA", size)
+            output.paste(img, (0, 0), mask)
+            buffer = BytesIO()
+            output.save(buffer, format="PNG")
+            buffer.seek(0)
+            return buffer
+
+    return await asyncio.to_thread(_crop)
 
 class ConfigRatesModal(discord.ui.Modal, title="Konfigurasi Rate Server"):
     def __init__(self, guild_id):
@@ -218,7 +234,7 @@ class EXPInputModal(discord.ui.Modal, title="Beli EXP Langsung"):
         if new_level > user_data.get('level', 0):
             user_data['level'] = new_level
             save_json(LEVEL_FILE, level_data)
-            cog = interaction.client.get_cog("⭐ Leveling Exp")
+            cog = interaction.client.get_cog("Progression & Economy")
             member = interaction.guild.get_member(int(self.user_id))
             if cog and member:
                 await cog.level_up(member, interaction.guild, interaction.channel, new_level, level_data.get(self.guild_id))
@@ -633,21 +649,77 @@ class GiveawayJoinView(discord.ui.View):
         await interaction.response.send_message("Berhasil terdaftar ke dalam giveaway!", ephemeral=True)
 
 
-class Leveling(commands.Cog, name="⭐ Leveling Exp"):
+class ProgressionSystem(commands.Cog, name="Progression & Economy"):
     def __init__(self, bot):
         self.bot = bot
         self.giveaways = {}
         self.voice_task = self.create_voice_task()
         self.last_reset = datetime.utcnow()
+        self._dirty_level = False
+        self._dirty_bank = False
         self.daily_quest_task.start()
         self.voice_task.start()
+        self.flush_buffer_task.start()
         self.shop_data = load_json(SHOP_FILE)
         self.collage_url = load_json(COLLAGE_FILE).get("collage_url")
 
+    def cog_unload(self):
+        self.daily_quest_task.cancel()
+        self.voice_task.cancel()
+        self.flush_buffer_task.cancel()
+        if getattr(self, '_dirty_level', False):
+            level_data = _memory_cache.get(LEVEL_FILE)
+            if level_data:
+                save_json(LEVEL_FILE, level_data)
+        if getattr(self, '_dirty_bank', False):
+            bank_data = _memory_cache.get(BANK_FILE)
+            if bank_data:
+                save_json(BANK_FILE, bank_data)
+
+    @tasks.loop(seconds=30)
+    async def flush_buffer_task(self):
+        mongo_client = getattr(self.bot, 'mongo_client', None)
+        if getattr(self, '_dirty_level', False):
+            level_data = _memory_cache.get(LEVEL_FILE)
+            if level_data:
+                save_json(LEVEL_FILE, level_data)
+                if mongo_client:
+                    try:
+                        def _sync_level():
+                            mongo_client.get_database("rtmbot")["level_data"].replace_one(
+                                {"_id": "global_levels"},
+                                {"_id": "global_levels", "data": level_data, "updated_at": time.time()},
+                                upsert=True
+                            )
+                        await asyncio.to_thread(_sync_level)
+                    except Exception:
+                        pass
+            self._dirty_level = False
+        if getattr(self, '_dirty_bank', False):
+            bank_data = _memory_cache.get(BANK_FILE)
+            if bank_data:
+                save_json(BANK_FILE, bank_data)
+                if mongo_client:
+                    try:
+                        def _sync_bank():
+                            mongo_client.get_database("rtmbot")["bank_data"].replace_one(
+                                {"_id": "global_banks"},
+                                {"_id": "global_banks", "data": bank_data, "updated_at": time.time()},
+                                upsert=True
+                            )
+                        await asyncio.to_thread(_sync_bank)
+                    except Exception:
+                        pass
+            self._dirty_bank = False
+
     def get_anomaly_multiplier(self):
-        dunia_cog = self.bot.get_cog('DuniaHidup')
-        if dunia_cog and dunia_cog.active_anomaly and dunia_cog.active_anomaly.get('type') == 'exp_boost':
-            return dunia_cog.active_anomaly.get('effect', {}).get('multiplier', 1)
+        try:
+            dunia_cog = self.bot.get_cog('DuniaHidup')
+            if dunia_cog and hasattr(dunia_cog, 'active_anomaly') and isinstance(dunia_cog.active_anomaly, dict):
+                if dunia_cog.active_anomaly.get('type') == 'exp_boost':
+                    return dunia_cog.active_anomaly.get('effect', {}).get('multiplier', 1)
+        except Exception:
+            pass
         return 1
 
     async def create_rank_image(self, target, level, exp, balance, guild, rank_pos, badges):
@@ -681,109 +753,124 @@ class Leveling(commands.Cog, name="⭐ Leveling Exp"):
             progress_ratio = min(exp_progress / exp_needed, 1.0)
             display_text = f"{exp} / {next_level_exp} EXP"
 
-        width = 1000
-        height = 330
-        
-        background = Image.new('RGBA', (width, height), (20, 22, 25, 255))
-        draw = ImageDraw.Draw(background)
-
-        draw.polygon([(0, 0), (1000, 0), (1000, 330), (0, 330)], fill=(15, 15, 20, 255))
-        draw.polygon([(0, 330), (320, 330), (450, 0), (0, 0)], fill=(30, 35, 45, 255))
-        draw.line((448, 0, 318, 330), fill=(0, 255, 200, 255), width=6)
-
-        draw.ellipse((40, 55, 260, 275), outline=(0, 255, 200, 180), width=4)
-        draw.ellipse((25, 40, 275, 290), outline=(255, 255, 255, 40), width=1)
-        draw.line((150, 10, 150, 45), fill=(0, 255, 200, 255), width=3)
-        draw.line((150, 285, 150, 320), fill=(0, 255, 200, 255), width=3)
-        draw.line((5, 165, 40, 165), fill=(0, 255, 200, 255), width=3)
-        draw.line((260, 165, 295, 165), fill=(0, 255, 200, 255), width=3)
-
         avatar_bytes = await target.display_avatar.replace(size=256, format="png").read()
-        avatar_img = Image.open(BytesIO(avatar_bytes)).convert("RGBA")
-        avatar_img = avatar_img.resize((200, 200))
-
-        mask = Image.new("L", (200, 200), 0)
-        draw_mask = ImageDraw.Draw(mask)
-        draw_mask.ellipse((0, 0, 200, 200), fill=255)
-        background.paste(avatar_img, (50, 65), mask)
-
-        try:
-            url_bold = "https://github.com/google/fonts/raw/main/ofl/poppins/Poppins-Bold.ttf"
-            url_reg = "https://github.com/google/fonts/raw/main/ofl/poppins/Poppins-Regular.ttf"
-            
-            async with aiohttp.ClientSession() as session:
-                async with session.get(url_bold) as resp_bold:
-                    font_bold_bytes = await resp_bold.read()
-                async with session.get(url_reg) as resp_reg:
-                    font_reg_bytes = await resp_reg.read()
-            
-            font_title = ImageFont.truetype(BytesIO(font_bold_bytes), 45)
-            font_rank = ImageFont.truetype(BytesIO(font_bold_bytes), 65)
-            font_subtitle = ImageFont.truetype(BytesIO(font_bold_bytes), 35)
-            font_text = ImageFont.truetype(BytesIO(font_reg_bytes), 22)
-            font_small = ImageFont.truetype(BytesIO(font_reg_bytes), 18)
-        except Exception:
-            font_title = ImageFont.load_default()
-            font_rank = ImageFont.load_default()
-            font_subtitle = ImageFont.load_default()
-            font_text = ImageFont.load_default()
-            font_small = ImageFont.load_default()
-
-        safe_guild_name = unicodedata.normalize('NFKC', guild.name)
-        safe_target_name = unicodedata.normalize('NFKC', target.display_name)
-
+        g_icon_bytes = None
         if guild.icon:
             try:
                 g_icon_bytes = await guild.icon.replace(size=64, format="png").read()
-                g_img = Image.open(BytesIO(g_icon_bytes)).convert("RGBA").resize((35, 35))
-                g_mask = Image.new("L", (35, 35), 0)
-                ImageDraw.Draw(g_mask).ellipse((0, 0, 35, 35), fill=255)
-                background.paste(g_img, (480, 45), g_mask)
-                draw.text((525, 50), f"{safe_guild_name}", font=font_small, fill=(180, 180, 180, 255))
             except Exception:
-                draw.text((480, 50), f"Server: {safe_guild_name}", font=font_small, fill=(180, 180, 180, 255))
-        else:
-            draw.text((480, 50), f"Server: {safe_guild_name}", font=font_small, fill=(180, 180, 180, 255))
-
-        draw.text((480, 85), f"{safe_target_name}", font=font_title, fill=(255, 255, 255, 255))
-        
-        draw.text((480, 145), f"Level {level}", font=font_subtitle, fill=(0, 255, 200, 255))
-        draw.text((650, 155), f"|  Saldo: {balance} RSWN", font=font_text, fill=(255, 215, 0, 255))
-        
-        with Pilmoji(background) as pilmoji:
-            pilmoji.text((480, 195), f"Badges: {badges_str}", font=font_text, fill=(200, 200, 200, 255))
-
-        draw.text((950, 80), f"#{rank_pos}", font=font_rank, fill=(255, 215, 0, 255), anchor="ra")
-
-        bar_x1 = 480
-        bar_y1 = 235
-        bar_x2 = 950
-        bar_y2 = 260
-        
-        draw.rounded_rectangle([(bar_x1, bar_y1), (bar_x2, bar_y2)], radius=12, fill=(40, 45, 55, 255))
-        
-        if progress_ratio > 0:
-            current_bar_x2 = bar_x1 + (bar_x2 - bar_x1) * progress_ratio
-            if current_bar_x2 < bar_x1 + 24:
-                current_bar_x2 = bar_x1 + 24
-            draw.rounded_rectangle([(bar_x1, bar_y1), (current_bar_x2, bar_y2)], radius=12, fill=(0, 255, 200, 255))
-        
-        draw.text((950, 210), display_text, font=font_small, fill=(185, 187, 190, 255), anchor="ra")
-
+                pass
+        bot_avatar_bytes = None
         try:
             bot_avatar_bytes = await self.bot.user.display_avatar.replace(size=64, format="png").read()
-            bot_img = Image.open(BytesIO(bot_avatar_bytes)).convert("RGBA").resize((25, 25))
-            bot_mask = Image.new("L", (25, 25), 0)
-            ImageDraw.Draw(bot_mask).ellipse((0, 0, 25, 25), fill=255)
-            background.paste(bot_img, (740, 285), bot_mask)
-            draw.text((775, 288), f"© {self.bot.user.name} Leveling System", font=font_small, fill=(100, 100, 100, 255))
         except Exception:
-            draw.text((775, 288), f"© {self.bot.user.name} Leveling System", font=font_small, fill=(100, 100, 100, 255))
+            pass
 
-        buffer = BytesIO()
-        background.save(buffer, format="PNG")
-        buffer.seek(0)
-        
+        global _font_bold_bytes, _font_reg_bytes
+        if not _font_bold_bytes or not _font_reg_bytes:
+            try:
+                url_bold = "https://github.com/google/fonts/raw/main/ofl/poppins/Poppins-Bold.ttf"
+                url_reg = "https://github.com/google/fonts/raw/main/ofl/poppins/Poppins-Regular.ttf"
+                async with aiohttp.ClientSession() as session:
+                    if not _font_bold_bytes:
+                        async with session.get(url_bold) as resp_b:
+                            if resp_b.status == 200:
+                                _font_bold_bytes = await resp_b.read()
+                    if not _font_reg_bytes:
+                        async with session.get(url_reg) as resp_r:
+                            if resp_r.status == 200:
+                                _font_reg_bytes = await resp_r.read()
+            except Exception:
+                pass
+
+        def _render_card():
+            width = 1000
+            height = 330
+            background = Image.new('RGBA', (width, height), (20, 22, 25, 255))
+            draw = ImageDraw.Draw(background)
+
+            draw.polygon([(0, 0), (1000, 0), (1000, 330), (0, 330)], fill=(15, 15, 20, 255))
+            draw.polygon([(0, 330), (320, 330), (450, 0), (0, 0)], fill=(30, 35, 45, 255))
+            draw.line((448, 0, 318, 330), fill=(0, 255, 200, 255), width=6)
+
+            draw.ellipse((40, 55, 260, 275), outline=(0, 255, 200, 180), width=4)
+            draw.ellipse((25, 40, 275, 290), outline=(255, 255, 255, 40), width=1)
+            draw.line((150, 10, 150, 45), fill=(0, 255, 200, 255), width=3)
+            draw.line((150, 285, 150, 320), fill=(0, 255, 200, 255), width=3)
+            draw.line((5, 165, 40, 165), fill=(0, 255, 200, 255), width=3)
+            draw.line((260, 165, 295, 165), fill=(0, 255, 200, 255), width=3)
+
+            avatar_img = Image.open(BytesIO(avatar_bytes)).convert("RGBA").resize((200, 200))
+            mask = Image.new("L", (200, 200), 0)
+            draw_mask = ImageDraw.Draw(mask)
+            draw_mask.ellipse((0, 0, 200, 200), fill=255)
+            background.paste(avatar_img, (50, 65), mask)
+
+            try:
+                if _font_bold_bytes and _font_reg_bytes:
+                    font_title = ImageFont.truetype(BytesIO(_font_bold_bytes), 45)
+                    font_rank = ImageFont.truetype(BytesIO(_font_bold_bytes), 65)
+                    font_subtitle = ImageFont.truetype(BytesIO(_font_bold_bytes), 35)
+                    font_text = ImageFont.truetype(BytesIO(_font_reg_bytes), 22)
+                    font_small = ImageFont.truetype(BytesIO(_font_reg_bytes), 18)
+                else:
+                    font_title = font_rank = font_subtitle = font_text = font_small = ImageFont.load_default()
+            except Exception:
+                font_title = font_rank = font_subtitle = font_text = font_small = ImageFont.load_default()
+
+            safe_guild_name = unicodedata.normalize('NFKC', guild.name)
+            safe_target_name = unicodedata.normalize('NFKC', target.display_name)
+
+            if g_icon_bytes:
+                try:
+                    g_img = Image.open(BytesIO(g_icon_bytes)).convert("RGBA").resize((35, 35))
+                    g_mask = Image.new("L", (35, 35), 0)
+                    ImageDraw.Draw(g_mask).ellipse((0, 0, 35, 35), fill=255)
+                    background.paste(g_img, (480, 45), g_mask)
+                    draw.text((525, 50), f"{safe_guild_name}", font=font_small, fill=(180, 180, 180, 255))
+                except Exception:
+                    draw.text((480, 50), f"Server: {safe_guild_name}", font=font_small, fill=(180, 180, 180, 255))
+            else:
+                draw.text((480, 50), f"Server: {safe_guild_name}", font=font_small, fill=(180, 180, 180, 255))
+
+            draw.text((480, 85), f"{safe_target_name}", font=font_title, fill=(255, 255, 255, 255))
+            draw.text((480, 145), f"Level {level}", font=font_subtitle, fill=(0, 255, 200, 255))
+            draw.text((650, 155), f"|  Saldo: {balance} RSWN", font=font_text, fill=(255, 215, 0, 255))
+
+            with Pilmoji(background) as pilmoji:
+                pilmoji.text((480, 195), f"Badges: {badges_str}", font=font_text, fill=(200, 200, 200, 255))
+
+            draw.text((950, 80), f"#{rank_pos}", font=font_rank, fill=(255, 215, 0, 255), anchor="ra")
+
+            bar_x1, bar_y1, bar_x2, bar_y2 = 480, 235, 950, 260
+            draw.rounded_rectangle([(bar_x1, bar_y1), (bar_x2, bar_y2)], radius=12, fill=(40, 45, 55, 255))
+
+            if progress_ratio > 0:
+                current_bar_x2 = bar_x1 + (bar_x2 - bar_x1) * progress_ratio
+                if current_bar_x2 < bar_x1 + 24:
+                    current_bar_x2 = bar_x1 + 24
+                draw.rounded_rectangle([(bar_x1, bar_y1), (current_bar_x2, bar_y2)], radius=12, fill=(0, 255, 200, 255))
+
+            draw.text((950, 210), display_text, font=font_small, fill=(185, 187, 190, 255), anchor="ra")
+
+            if bot_avatar_bytes:
+                try:
+                    bot_img = Image.open(BytesIO(bot_avatar_bytes)).convert("RGBA").resize((25, 25))
+                    bot_mask = Image.new("L", (25, 25), 0)
+                    ImageDraw.Draw(bot_mask).ellipse((0, 0, 25, 25), fill=255)
+                    background.paste(bot_img, (740, 285), bot_mask)
+                    draw.text((775, 288), f"© {self.bot.user.name} Leveling System", font=font_small, fill=(100, 100, 100, 255))
+                except Exception:
+                    draw.text((775, 288), f"© {self.bot.user.name} Leveling System", font=font_small, fill=(100, 100, 100, 255))
+            else:
+                draw.text((775, 288), f"© {self.bot.user.name} Leveling System", font=font_small, fill=(100, 100, 100, 255))
+
+            buffer = BytesIO()
+            background.save(buffer, format="PNG")
+            buffer.seek(0)
+            return buffer
+
+        buffer = await asyncio.to_thread(_render_card)
         return discord.File(buffer, filename=f"rank_{target.name}.png")
 
 
@@ -923,10 +1010,11 @@ class Leveling(commands.Cog, name="⭐ Leveling Exp"):
         if new_level > user_level_data.get("level", 0):
             user_level_data["level"] = new_level
             await self.level_up(message.author, message.guild, message.channel, new_level, data)
+            save_json(LEVEL_FILE, all_level_data)
         
         all_level_data[guild_id] = data
-        save_json(LEVEL_FILE, all_level_data)
-        save_json(BANK_FILE, bank_data)
+        self._dirty_level = True
+        self._dirty_bank = True
 
     @tasks.loop(hours=24)
     async def daily_quest_task(self):
@@ -1075,7 +1163,7 @@ class Leveling(commands.Cog, name="⭐ Leveling Exp"):
         await ctx.send(content=f"<@{winner}>", embed=embed)
            
 
-    @commands.hybrid_command(name="setlevelconfig", description="Atur kebutuhan EXP per level dan batas Max Level server")
+    @commands.command(name="setlevelconfig", help="Atur kebutuhan EXP per level dan batas Max Level server")
     @commands.has_permissions(administrator=True)
     async def set_level_config(self, ctx: commands.Context, exp_per_level: int, max_level: int):
         guild_id = str(ctx.guild.id)
@@ -1086,7 +1174,7 @@ class Leveling(commands.Cog, name="⭐ Leveling Exp"):
         save_json(CONFIG_FILE, all_configs)
         await ctx.send(f"✅ Pengaturan Level berhasil diubah!\nEXP per Level: **{exp_per_level}**\nMax Level: **{max_level if max_level > 0 else 'Tidak Terbatas'}**")
 
-    @commands.hybrid_command(name="setlevelbadge", description="Atur badge khusus yang diberikan otomatis saat capai level tertentu")
+    @commands.command(name="setlevelbadge", help="Atur badge khusus yang diberikan otomatis saat capai level tertentu")
     @commands.has_permissions(administrator=True)
     async def set_level_badge(self, ctx: commands.Context, level: int, emoji: str):
         guild_id = str(ctx.guild.id)
@@ -1097,7 +1185,7 @@ class Leveling(commands.Cog, name="⭐ Leveling Exp"):
         save_json(CONFIG_FILE, all_configs)
         await ctx.send(f"✅ Badge untuk **Level {level}** berhasil diatur menjadi {emoji}")
 
-    @commands.hybrid_command(name="removelevelbadge", description="Hapus pengaturan badge pada level tertentu")
+    @commands.command(name="removelevelbadge", help="Hapus pengaturan badge pada level tertentu")
     @commands.has_permissions(administrator=True)
     async def remove_level_badge(self, ctx: commands.Context, level: int):
         guild_id = str(ctx.guild.id)
@@ -1111,7 +1199,7 @@ class Leveling(commands.Cog, name="⭐ Leveling Exp"):
         else:
             await ctx.send(f"❌ Tidak ada badge yang diatur untuk **Level {level}**.")
 
-    @commands.hybrid_command(name="viewlevelconfig", description="Lihat daftar konfigurasi badge dan role level server")
+    @commands.command(name="viewlevelconfig", help="Lihat daftar konfigurasi badge dan role level server")
     async def view_level_config(self, ctx: commands.Context):
         guild_id = str(ctx.guild.id)
         all_configs = load_json(CONFIG_FILE)
@@ -1134,9 +1222,7 @@ class Leveling(commands.Cog, name="⭐ Leveling Exp"):
         
         await ctx.send(embed=embed, ephemeral=True)
 
-    @commands.hybrid_command(name="setlevelannouncement", description="Atur channel dan kustom pesan pengumuman naik level")
-    @commands.has_permissions(administrator=True)
-    @app_commands.describe(channel="Pilih channel pengumuman", pesan="Pesan kustom. Gunakan {mention} dan {level}")
+    @commands.command(name="setlevelannouncement", help="Atur channel dan kustom pesan pengumuman naik level")
     async def set_level_announcement(self, ctx: commands.Context, channel: discord.TextChannel = None, pesan: str = None):
         guild_id = str(ctx.guild.id)
         all_configs = load_json(CONFIG_FILE)
@@ -1150,7 +1236,7 @@ class Leveling(commands.Cog, name="⭐ Leveling Exp"):
         save_json(CONFIG_FILE, all_configs)
         await ctx.send("✅ Konfigurasi pengumuman level berhasil diperbarui.", ephemeral=True)
             
-    @commands.hybrid_command(name="configrates", description="Buka panel untuk mengatur pendapatan EXP dan RSWN server")
+    @commands.command(name="configrates", help="Buka panel untuk mengatur pendapatan EXP dan RSWN server")
     @commands.has_permissions(administrator=True)
     async def configrates(self, ctx: commands.Context):
         embed = discord.Embed(
@@ -1161,7 +1247,7 @@ class Leveling(commands.Cog, name="⭐ Leveling Exp"):
         view = ConfigRatesView(ctx.guild.id)
         await ctx.send(embed=embed, view=view)
 
-    @commands.hybrid_command(name="setlevelrole", description="Atur role yang diberikan otomatis saat capai level tertentu")
+    @commands.command(name="setlevelrole", help="Atur role yang diberikan otomatis saat capai level tertentu")
     @commands.has_permissions(administrator=True)
     async def set_level_role(self, ctx: commands.Context, level: int, role: discord.Role):
         if level <= 0:
@@ -1175,7 +1261,7 @@ class Leveling(commands.Cog, name="⭐ Leveling Exp"):
         save_json(CONFIG_FILE, all_configs)
         await ctx.send(f"✅ Role {role.mention} akan diberikan saat mencapai **Level {level}**.")
 
-    @commands.hybrid_command(name="removelevelrole", description="Hapus pengaturan role pada level tertentu")
+    @commands.command(name="removelevelrole", help="Hapus pengaturan role pada level tertentu")
     @commands.has_permissions(administrator=True)
     async def remove_level_role(self, ctx: commands.Context, level: int):
         guild_id = str(ctx.guild.id)
@@ -1189,7 +1275,7 @@ class Leveling(commands.Cog, name="⭐ Leveling Exp"):
         else:
             await ctx.send(f"❌ Tidak ada pengaturan role untuk **Level {level}**.")
 
-    @commands.hybrid_command(name="uangall", description="Berikan RSWN ke seluruh member di server")
+    @commands.command(name="uangall", help="Berikan RSWN ke seluruh member di server")
     @commands.has_permissions(administrator=True)
     async def give_all_money(self, ctx: commands.Context, amount: int):
         if amount <= 0:
@@ -1207,7 +1293,7 @@ class Leveling(commands.Cog, name="⭐ Leveling Exp"):
         save_json(BANK_FILE, bank_data)
         await ctx.send(f"✅ Berhasil memberikan **{amount} RSWN** kepada **{updated_users_count} anggota** di server ini!")
 
-    @commands.hybrid_command(name="xpall", description="Berikan EXP ke seluruh member di server")
+    @commands.command(name="xpall", help="Berikan EXP ke seluruh member di server")
     @commands.has_permissions(administrator=True)
     async def give_all_xp(self, ctx: commands.Context, amount: int):
         if amount <= 0:
@@ -1248,7 +1334,7 @@ class Leveling(commands.Cog, name="⭐ Leveling Exp"):
         save_json(LEVEL_FILE, all_level_data)
         await ctx.send(f"✅ Berhasil memberikan **{amount} EXP** kepada **{updated_users_count} anggota** di server ini!")
 
-    @commands.hybrid_command(name="addquest", description="Tambahkan quest harian baru ke sistem")
+    @commands.command(name="addquest", help="Tambahkan quest harian baru ke sistem")
     @commands.has_permissions(administrator=True)
     async def add_quest(self, ctx: commands.Context, description: str, reward_exp: int, reward_coins: int):
         if reward_exp < 0 or reward_coins < 0:
@@ -1331,7 +1417,7 @@ class Leveling(commands.Cog, name="⭐ Leveling Exp"):
         except Exception as e:
             await ctx.send(f"❌ Terjadi kesalahan: {str(e)}")
 
-    @commands.hybrid_command(name="giveexp", description="Berikan EXP gratis kepada member tertentu")
+    @commands.command(name="giveexp", help="Berikan EXP gratis kepada member tertentu")
     @commands.has_permissions(administrator=True)
     async def giveexp(self, ctx: commands.Context, member: discord.Member, amount: int):
         guild_id = str(ctx.guild.id)
@@ -1368,7 +1454,7 @@ class Leveling(commands.Cog, name="⭐ Leveling Exp"):
         #     pass
         await ctx.send(f"✅ Kamu telah memberikan **{amount} EXP** ke {member.mention}.", ephemeral=True)
 
-    @commands.hybrid_command(name="givecoins", description="Berikan RSWN gratis kepada member tertentu")
+    @commands.command(name="givecoins", help="Berikan RSWN gratis kepada member tertentu")
     @commands.has_permissions(administrator=True)
     async def givecoins(self, ctx: commands.Context, member: discord.Member, amount: int):
         bank_data = load_json(BANK_FILE)
@@ -1405,7 +1491,7 @@ class Leveling(commands.Cog, name="⭐ Leveling Exp"):
         #     pass
         await ctx.send(f"✅ Transfer **{amount} 🪙RSWN** ke {member.mention} berhasil.", ephemeral=True)
 
-    @commands.hybrid_command(name="setlevel", description="Ubah level member secara instan")
+    @commands.command(name="setlevel", help="Ubah level member secara instan")
     @commands.has_permissions(administrator=True)
     async def setlevel(self, ctx: commands.Context, member: discord.Member, level: int):
         guild_id = str(ctx.guild.id)
@@ -1502,7 +1588,7 @@ class Leveling(commands.Cog, name="⭐ Leveling Exp"):
         rank_image_file = await self.create_rank_image(target, level, exp, balance, ctx.guild, rank_pos, badges)
         await ctx.send(file=rank_image_file)
 
-    @commands.hybrid_command(name="reduceuser", description="Kurangi EXP dan RSWN dari member beserta alasannya")
+    @commands.command(name="reduceuser", help="Kurangi EXP dan RSWN dari member beserta alasannya")
     @commands.has_permissions(administrator=True)
     async def reduce_user(self, ctx: commands.Context, member: discord.Member, exp: int, rswn: int, reason: str):
         guild_id = str(ctx.guild.id)
@@ -1532,7 +1618,7 @@ class Leveling(commands.Cog, name="⭐ Leveling Exp"):
         save_json(BANK_FILE, bank_data)
         await ctx.send(f"✅ {member.mention} telah dikurangi **{exp} EXP** dan **{rswn} RSWN**! Alasan: *{reason}*")
 
-    @commands.hybrid_command(name="resetall", description="Reset ulang seluruh EXP dan Rank semua orang di server")
+    @commands.command(name="resetall", help="Reset ulang seluruh EXP dan Rank semua orang di server")
     @commands.has_permissions(administrator=True)
     async def resetall(self, ctx: commands.Context):
         guild_id = str(ctx.guild.id)
@@ -1549,7 +1635,7 @@ class Leveling(commands.Cog, name="⭐ Leveling Exp"):
         save_json(LEVEL_FILE, all_level_data)
         await ctx.send("✅ Semua data EXP, Level, dan Badge pengguna di server ini telah direset!")
 
-    @commands.hybrid_command(name="manageitems", description="Buka panel admin untuk edit dan hapus item di toko")
+    @commands.command(name="manageitems", help="Buka panel admin untuk edit dan hapus item di toko")
     @commands.has_permissions(administrator=True)
     async def manageitems(self, ctx: commands.Context):
         with open(SHOP_FILE, 'r') as f:
@@ -1581,7 +1667,7 @@ class Leveling(commands.Cog, name="⭐ Leveling Exp"):
         view = ShopCategoryView(self.bot, self.shop_data, ctx.author.id, ctx.guild.id)
         await ctx.send(embed=embed, view=view)
 
-    @commands.hybrid_command(name="toggleshop", description="Buka atau tutup akses ke shop utama")
+    @commands.command(name="toggleshop", help="Buka atau tutup akses ke shop utama")
     @commands.has_permissions(administrator=True)
     async def toggle_shop(self, ctx: commands.Context):
         status = load_json(SHOP_STATUS_FILE)
@@ -1590,7 +1676,7 @@ class Leveling(commands.Cog, name="⭐ Leveling Exp"):
         state = "🟢 TERBUKA" if status["is_open"] else "🔴 TERTUTUP"
         await ctx.send(f"Toko sekarang telah diatur ke: **{state}**", ephemeral=True)
 
-    @commands.hybrid_command(name="toggleexpshop", description="Buka atau tutup akses user untuk membeli EXP")
+    @commands.command(name="toggleexpshop", help="Buka atau tutup akses user untuk membeli EXP")
     @commands.has_permissions(administrator=True)
     async def toggle_exp_shop(self, ctx: commands.Context):
         status = load_json(SHOP_STATUS_FILE)
@@ -1599,9 +1685,7 @@ class Leveling(commands.Cog, name="⭐ Leveling Exp"):
         state = "🟢 TERBUKA" if status["exp_shop_open"] else "🔴 TERTUTUP"
         await ctx.send(f"Toko pembelian EXP sekarang telah diatur ke: **{state}**", ephemeral=True)
 
-    @commands.hybrid_command(name="additem", description="Tambahkan item baru ke toko")
-    @commands.has_permissions(administrator=True)
-    @app_commands.describe(extra_1="Role ID atau Multiplier", extra_2="Image URL atau Durasi Menit")
+    @commands.command(name="additem", help="Tambahkan item baru ke toko")
     async def add_item(self, ctx: commands.Context, category: str, name: str, price: int, description: str, emoji_or_type: str = None, stock: str = "unlimited", extra_1: str = None, extra_2: str = None):
         shop_data = load_json(SHOP_FILE)
         valid_categories = ["badges", "exp", "roles", "special_items"]
@@ -1664,7 +1748,7 @@ class Leveling(commands.Cog, name="⭐ Leveling Exp"):
         save_json(SHOP_FILE, shop_data)
         await ctx.send(f"✅ Item baru di kategori **{category_lower}**: **{name}**")
 
-    @commands.hybrid_command(name="addcollage", description="Ubah gambar banner kolase pada shop")
+    @commands.command(name="addcollage", help="Ubah gambar banner kolase pada shop")
     @commands.has_permissions(administrator=True)
     async def add_collage(self, ctx: commands.Context, url: str):
         if not url.startswith("http://") and not url.startswith("https://"):
@@ -1674,7 +1758,7 @@ class Leveling(commands.Cog, name="⭐ Leveling Exp"):
         self.collage_url = url
         await ctx.send("✅ Gambar kolase berhasil diperbarui.", ephemeral=True)
 
-    @commands.hybrid_command(name="removeitem", description="Hapus item tertentu dari shop secara instan")
+    @commands.command(name="removeitem", help="Hapus item tertentu dari shop secara instan")
     @commands.has_permissions(administrator=True)
     async def remove_item(self, ctx: commands.Context, category: str, name: str):
         shop_data = load_json(SHOP_FILE)
@@ -1693,4 +1777,4 @@ class Leveling(commands.Cog, name="⭐ Leveling Exp"):
             await ctx.send(f"❌ Item **{name}** tidak ditemukan.", ephemeral=True)
 
 async def setup(bot):
-    await bot.add_cog(Leveling(bot))
+    await bot.add_cog(ProgressionSystem(bot))

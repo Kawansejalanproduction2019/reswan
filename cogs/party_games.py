@@ -9,7 +9,6 @@ import string
 import sys # Untuk stderr
 from collections import Counter # Untuk menghitung suara
 
-# --- Helper Functions ---
 def load_json_from_root(file_path, default_value=None):
     """
     Memuat data JSON dari file yang berada di root direktori proyek bot.
@@ -38,14 +37,16 @@ def load_json_from_root(file_path, default_value=None):
         return {}
 
 def save_json_to_root(data, file_path):
-    """Menyimpan data ke file JSON di root direktori proyek."""
+    """Menyimpan data ke file JSON di root direktori proyek secara atomik."""
     base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
     full_path = os.path.join(base_dir, file_path)
     os.makedirs(os.path.dirname(full_path), exist_ok=True)
-    with open(full_path, 'w', encoding='utf-8') as f:
+    temp_path = f"{full_path}.tmp"
+    with open(temp_path, 'w', encoding='utf-8') as f:
         json.dump(data, f, indent=4)
+    os.replace(temp_path, full_path)
 
-# --- Discord UI Components for Werewolf Role Setup ---
+
 class RoleQuantityModal(discord.ui.Modal):
     def __init__(self, game_cog, role_name, current_quantity, total_players, message_to_update_id, channel_id):
         super().__init__(title=f"Atur Jumlah {role_name}")
@@ -272,12 +273,11 @@ class WerewolfRoleSetupView(discord.ui.View):
         print(f"[{datetime.now()}] [DEBUG GLOBAL EVENTS] Pengaturan Werewolf selesai, view dihentikan.")
 
 
-class Games2(commands.Cog):
+class TavernPartyGames(commands.Cog, name="Tavern & Party Games"):
     def __init__(self, bot):
         self.bot = bot
         self.active_games = set() # Channel IDs where a game is active in this cog (Werewolf, Wheel, Horse Racing)
 
-        # --- Game States ---
         self.werewolf_join_queues = {} # {guild_id: {channel_id: [players]}}
         self.werewolf_game_states = {}
         # {channel_id: {
@@ -306,7 +306,6 @@ class Games2(commands.Cog):
         self.horse_racing_states = {} # {channel_id: {'status': 'betting'/'racing'/'finished', 'bets': {user_id: {'amount': int, 'horse_id': int}}, 'horses': [], 'race_message': None, 'betting_timer': None, 'race_timer': None, 'game_task': None, 'track_length': int, 'betting_duration': int, 'odds': {horse_id: float}}}
         self.horse_racing_data = load_json_from_root('data/horse_racing_data.json', default_value={"horses": []})
 
-        # --- Konfigurasi Game dari JSON ---
         self.global_werewolf_config = load_json_from_root(
             'data/global_werewolf_config.json',
             default_value={
@@ -361,7 +360,6 @@ class Games2(commands.Cog):
             }
         )
 
-        # --- Interaksi Cog Lain ---
         self.dunia_cog = None # Akan diisi di on_ready listener dari DuniaHidup.py
         print(f"[{datetime.now()}] [DEBUG GLOBAL EVENTS] Cog GamesGlobalEvents diinisialisasi.")
 
@@ -397,9 +395,14 @@ class Games2(commands.Cog):
 
     def get_anomaly_multiplier(self):
         """Mengambil multiplier anomali EXP dari DuniaHidup cog jika ada."""
-        if self.dunia_cog and hasattr(self.dunia_cog, 'active_anomaly') and self.dunia_cog.active_anomaly and self.dunia_cog.active_anomaly.get('type') == 'exp_boost':
-            print(f"[{datetime.now()}] [DEBUG GLOBAL EVENTS] Anomali EXP Boost aktif. Multiplier: {self.dunia_cog.active_anomaly.get('effect', {}).get('multiplier', 1)}x")
-            return self.dunia_cog.active_anomaly.get('effect', {}).get('multiplier', 1)
+        try:
+            if not self.dunia_cog:
+                self.dunia_cog = self.bot.get_cog('DuniaHidup')
+            if self.dunia_cog and hasattr(self.dunia_cog, 'active_anomaly') and isinstance(self.dunia_cog.active_anomaly, dict):
+                if self.dunia_cog.active_anomaly.get('type') == 'exp_boost':
+                    return self.dunia_cog.active_anomaly.get('effect', {}).get('multiplier', 1)
+        except Exception:
+            pass
         return 1
 
     async def give_rewards_with_bonus_check(self, user: discord.Member, guild_id: int, channel: discord.TextChannel = None, custom_rsw: int = None, custom_exp: int = None):
@@ -516,9 +519,6 @@ class Games2(commands.Cog):
             del self.horse_racing_states[channel_id]
             print(f"[{datetime.now()}] [DEBUG GLOBAL EVENTS] Cleanup Horse Racing state untuk channel {channel_id}.")
 
-
-    # --- GAME: WEREWOLF ---
-    # Grup untuk command Werewolf (misal: !ww join, !ww mulai, !ww set)
     @commands.group(name="ww", invoke_without_command=True, help="Kumpulan perintah untuk game Werewolf. Gunakan `!ww help` untuk melihat semua perintah.")
     async def werewolf_group(self, ctx):
         print(f"[{datetime.now()}] [DEBUG WW] Command !ww (group) dipanggil oleh {ctx.author.display_name}. Subcommand tidak ditentukan.")
@@ -1044,19 +1044,15 @@ class Games2(commands.Cog):
         global_config = self.global_werewolf_config.get('default_config', {})
 
         try:
-            # --- Inisialisasi Peran ---
             await self._assign_roles(game_state)
 
-            # --- Game Start Visual & Audio ---
             game_state['phase'] = 'starting'
             await self._send_werewolf_visual(main_channel, "game_start")
             await self._play_werewolf_audio(game_state, "game_start_audio_url")
             await main_channel.send(f"Selamat datang di {main_channel.guild.name} The Werewolf! Setiap pemain telah menerima peran mereka melalui DM.")
             await asyncio.sleep(5)
 
-            # Game Loop
             while True:
-                # --- Pengecekan Kondisi Kemenangan Awal Ronde ---
                 winner = self._check_win_condition(game_state)
                 if winner:
                     print(f"[{datetime.now()}] [DEBUG WW] Kondisi kemenangan terpenuhi di awal ronde: {winner}.")
@@ -1065,7 +1061,6 @@ class Games2(commands.Cog):
 
                 game_state['day_num'] += 1
 
-                # --- Fase Malam ---
                 game_state['phase'] = 'night'
                 game_state['killed_this_night'] = None # Reset korban malam yang dibunuh Werewolf
                 game_state['role_actions_pending'] = {} # Reset aksi peran: {player_id: {role_name: target_id, 'Penyihir_command': 'racun'/'penawar'}}
@@ -1088,7 +1083,6 @@ class Games2(commands.Cog):
                 except asyncio.CancelledError:
                     raise # Rethrow jika game dibatalkan
 
-                # --- Resolusi Malam ---
                 game_state['phase'] = 'night_resolution'
                 print(f"[{datetime.now()}] [DEBUG WW] Memproses aksi malam untuk Hari {game_state['day_num']}.")
                 await self._process_night_actions(game_state)
@@ -1151,14 +1145,12 @@ class Games2(commands.Cog):
                 print(f"[{datetime.now()}] [DEBUG WW] Resolusi malam untuk Hari {game_state['day_num']} selesai.")
                 await asyncio.sleep(5)
 
-                # --- Pengecekan Kondisi Kemenangan Setelah Malam ---
                 winner = self._check_win_condition(game_state)
                 if winner:
                     print(f"[{datetime.now()}] [DEBUG WW] Kondisi kemenangan terpenuhi setelah malam: {winner}.")
                     await self._end_game(game_state, winner)
                     break
 
-                # --- Fase Siang (Diskusi & Voting) ---
                 game_state['phase'] = 'day'
                 game_state['voted_out_today'] = None # Reset vote siang
                 game_state['players_who_voted'] = set() # Reset voter
@@ -1186,7 +1178,6 @@ class Games2(commands.Cog):
                 except asyncio.CancelledError:
                     raise # Rethrow jika game dibatalkan
 
-                # --- Resolusi Siang (Lynch) ---
                 game_state['phase'] = 'voting_resolution'
                 print(f"[{datetime.now()}] [DEBUG WW] Memproses voting siang untuk Hari {game_state['day_num']}.")
                 await self._process_day_vote(game_state)
@@ -1538,10 +1529,6 @@ class Games2(commands.Cog):
         for p_id in game_state['living_players']:
             game_state['players'][p_id]['death_reason'] = None
 
-
-        # --- FASE 0: Penjaga Malam (Order 0) ---
-        # Penjaga Malam melindungi dari SEMUA aksi. Target mereka tidak bisa diapa-apakan.
-        # Jadi, aksi lain yang menarget Penjaga Malam akan gagal.
         for action in [a for a in actions_to_process if a['order'] == 0]:
             guard_player_data = game_state['players'].get(action['player_id'])
             target_player_data = game_state['players'].get(action['target_id'])
@@ -1554,7 +1541,6 @@ class Games2(commands.Cog):
                 if guard_player_data and guard_player_data['status'] == 'alive':
                     await self.send_dm(guard_player_data['obj'].id, "Targetmu tidak valid atau sudah mati. Aksimu gagal.")
 
-        # --- FASE 1: Dokter & Ksatria Suci (Order 1) ---
         for action in [a for a in actions_to_process if a['order'] == 1]:
             acting_player_data = game_state['players'].get(action['player_id'])
             target_player_data = game_state['players'].get(action['target_id'])
@@ -1581,8 +1567,6 @@ class Games2(commands.Cog):
                 await self.send_dm(acting_player_data['obj'].id, f"Kamu telah melindungi **{target_player_data['obj'].display_name}** dengan perisaimu malam ini.")
                 self.log_game_event(f"Ksatria Suci {acting_player_data['obj'].display_name} melindungi {target_player_data['obj'].display_name}.")
 
-        # --- FASE 2: Werewolf & Alpha Werewolf (Order 2) ---
-        # Aksi Werewolf sudah dikumpulkan di werewolf_votes. Tentukan target final di sini.
         if potential_werewolf_kill_target_id:
             target_to_kill_data = game_state['players'].get(potential_werewolf_kill_target_id)
             if target_to_kill_data and target_to_kill_data['status'] == 'alive': # Pastikan target masih hidup
@@ -1623,8 +1607,6 @@ class Games2(commands.Cog):
             self.log_game_event(f"Tidak ada target pembunuhan yang disepakati oleh Werewolf.")
             game_state['killed_this_night'] = None # Tidak ada korban karena tidak ada voting WW
 
-
-        # --- FASE 3: Peramal & Mata-Mata Werewolf (Order 3) ---
         for action in [a for a in actions_to_process if a['order'] == 3]:
             acting_player_data = game_state['players'].get(action['player_id'])
             target_player_data = game_state['players'].get(action['target_id'])
@@ -1653,7 +1635,6 @@ class Games2(commands.Cog):
                 await self.send_dm(acting_player_data['obj'].id, f"Hasil intaianmu: **{target_player_data['obj'].display_name}** adalah seorang **{target_actual_role_name}**.")
                 self.log_game_event(f"Mata-Mata Werewolf {acting_player_data['obj'].display_name} mengintai {target_player_data['obj'].display_name} ({target_actual_role_name}).")
 
-        # --- FASE 5: Penyihir (Order 5) ---
         for action in [a for a in actions_to_process if a['order'] == 5]:
             witch_player_data = game_state['players'].get(action['player_id'])
             target_player_data = game_state['players'].get(action['target_id'])
@@ -1986,7 +1967,6 @@ class Games2(commands.Cog):
 
         print(f"[{datetime.now()}] [DEBUG WW] Game berakhir di channel {game_state['main_channel'].name}. Pemenang: {winner}.")
 
-        # --- Tambahkan Bagian Donasi di Sini ---
         donasi_embed = discord.Embed(
             title="✨ Suka dengan permainannya? Dukung kami! ✨",
             description=(
@@ -2104,9 +2084,6 @@ class Games2(commands.Cog):
             await ctx.send("Tidak ada audio Werewolf yang sedang diputar.")
             print(f"[{datetime.now()}] [DEBUG GLOBAL EVENTS] Tidak ada audio Werewolf yang diputar di channel {ctx.channel.name}.")
 
-
-    
-    # --- GAME: BALAPAN KUDA ---
     @commands.command(name="balapan", aliases=['race'], help="Mulai sesi taruhan Balapan Kuda!")
     @commands.cooldown(1, 60, commands.BucketType.channel)
     async def start_horse_race(self, ctx):
@@ -2366,7 +2343,6 @@ class Games2(commands.Cog):
         await ctx.send(embed=result_embed)
         print(f"[{datetime.now()}] [DEBUG GLOBAL EVENTS] Balapan Kuda: Hasil balapan dikirim.")
 
-        # --- Tambahkan Bagian Donasi di Sini ---
         donasi_embed = discord.Embed(
             title="✨ Suka dengan Balapan Kudanya? Dukung kami! ✨",
             description=(
@@ -2458,6 +2434,6 @@ class Games2(commands.Cog):
 
 
 async def setup(bot):
-    await bot.add_cog(Games2(bot))
+    await bot.add_cog(TavernPartyGames(bot))
 
 

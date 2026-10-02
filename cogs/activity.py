@@ -110,7 +110,7 @@ class ActView(discord.ui.View):
         super().__init__(timeout=120)
         self.add_item(ActSelect(cog))
 
-class BotActivity(commands.Cog, name="Bot Activity Manager"):
+class PresenceHub(commands.Cog, name="Rich Presence & Status"):
     def __init__(self, bot):
         self.bot = bot
 
@@ -147,7 +147,7 @@ class BotActivity(commands.Cog, name="Bot Activity Manager"):
             
         await self.bot.change_presence(activity=act_obj)
 
-    @commands.command(name="act", aliases=["setact", "statusbot"])
+    @commands.hybrid_command(name="act", aliases=["setact", "statusbot"], description="Atur status aktivitas dan presence bot (Khusus Owner)")
     @commands.is_owner()
     async def set_activity_cmd(self, ctx):
         embed = discord.Embed(
@@ -163,4 +163,4 @@ async def setup(bot):
     if mongo_client:
         mongo_db = mongo_client["reSwan"]
         mongo_col = mongo_db["bot_data"]
-    await bot.add_cog(BotActivity(bot))
+    await bot.add_cog(PresenceHub(bot))

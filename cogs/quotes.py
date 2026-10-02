@@ -1,5 +1,6 @@
 import discord
 from discord.ext import commands
+from discord import app_commands
 import json
 import os
 from datetime import datetime
@@ -7,7 +8,7 @@ import logging
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-class Quotes(commands.Cog):
+class QuoteSanctuary(commands.Cog, name="Inspirational Quotes"):
     def __init__(self, bot):
         self.bot = bot
         self.config_file_path = os.path.join('data', 'quotes_config.json')
@@ -27,7 +28,7 @@ class Quotes(commands.Cog):
         with open(self.config_file_path, 'w', encoding='utf-8') as f:
             json.dump(self.config, f, indent=4)
 
-    @commands.hybrid_command(name="setchannelq", help="Admin untuk mengatur channel kutipan.")
+    @commands.command(name="setchannelq", help="Admin untuk mengatur channel kutipan.")
     @commands.has_permissions(manage_guild=True)
     async def set_quotes_channel(self, ctx, channel: discord.TextChannel):
         guild_id = str(ctx.guild.id)
@@ -66,9 +67,12 @@ class Quotes(commands.Cog):
             view.add_item(deny_button)
             await msg.edit(view=view)
 
-        await ctx.message.delete()
+        if ctx.message:
+            try: await ctx.message.delete()
+            except: pass
 
-    @commands.command(name="resq", help="Kirim quotes.")
+    @commands.hybrid_command(name="resq", aliases=["quote", "kirimquote"], description="Kirim quotes.")
+    @app_commands.describe(quote_text="Teks kutipan yang ingin dikirim", show_name="Tampilkan nama? (yes/no)")
     async def resq(self, ctx, show_name: str = "yes", *, quote_text: str):
         guild_id = str(ctx.guild.id)
         if guild_id not in self.config:
@@ -100,7 +104,9 @@ class Quotes(commands.Cog):
             view.add_item(deny_button)
             await msg.edit(view=view)
 
-        await ctx.message.delete()
+        if ctx.message:
+            try: await ctx.message.delete()
+            except: pass
 
     @commands.command(name="deletequote", help="Menghapus kutipan berdasarkan ID.")
     @commands.has_permissions(administrator=True)
@@ -176,40 +182,49 @@ class Quotes(commands.Cog):
         await msg.delete()
         await interaction.response.send_message("Kutipan telah ditolak dan dihapus.", ephemeral=True)
 
+    def _load_json(self, file_path, default=None):
+        if default is None:
+            default = {}
+        if not os.path.exists(file_path):
+            os.makedirs(os.path.dirname(file_path), exist_ok=True)
+            with open(file_path, 'w', encoding='utf-8') as f:
+                json.dump(default, f, indent=4)
+            return default
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError):
+            return default
+
+    def _save_json(self, file_path, data):
+        os.makedirs(os.path.dirname(file_path), exist_ok=True)
+        temp_path = f"{file_path}.tmp"
+        with open(temp_path, 'w', encoding='utf-8') as f:
+            json.dump(data, f, indent=4)
+        os.replace(temp_path, file_path)
+
     async def give_reward(self, server_id, user_id, exp, rswn):
         try:
-            with open(self.level_file_path, 'r', encoding='utf-8') as f:
-                level_data = json.load(f)
-            
-            server_data = level_data.get(str(server_id), {})
-            user_levels = server_data.get(user_id, {'level': 1, 'exp': 0})
+            level_data = self._load_json(self.level_file_path, {})
+            server_data = level_data.setdefault(str(server_id), {})
+            user_levels = server_data.setdefault(str(user_id), {'level': 1, 'exp': 0})
             user_levels['exp'] += exp
 
             if user_levels['exp'] >= 10000:
                 user_levels['level'] += 1
                 user_levels['exp'] -= 10000
-            
-            if str(server_id) not in level_data:
-                level_data[str(server_id)] = {}
-            level_data[str(server_id)][user_id] = user_levels
 
-            with open(self.level_file_path, 'w', encoding='utf-8') as f:
-                json.dump(level_data, f, indent=4)
+            self._save_json(self.level_file_path, level_data)
 
-            with open(self.bank_file_path, 'r', encoding='utf-8') as f:
-                bank_data = json.load(f)
-            
-            if user_id in bank_data:
-                bank_data[user_id]['balance'] += rswn
-            else:
-                bank_data[user_id] = {'balance': rswn, 'debt': 0}
+            bank_data = self._load_json(self.bank_file_path, {})
+            bank_user = bank_data.setdefault(str(user_id), {'balance': 0, 'debt': 0})
+            bank_user['balance'] += rswn
 
-            with open(self.bank_file_path, 'w', encoding='utf-8') as f:
-                json.dump(bank_data, f, indent=4)
+            self._save_json(self.bank_file_path, bank_data)
 
             logging.info(f"User {user_id} di server {server_id} diberi hadiah: {exp} EXP dan {rswn} RSWN.")
         except Exception as e:
             logging.error(f"Error memberikan hadiah kepada user {user_id} di server {server_id}: {e}")
 
 async def setup(bot):
-    await bot.add_cog(Quotes(bot))
+    await bot.add_cog(QuoteSanctuary(bot))

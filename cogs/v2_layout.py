@@ -159,3 +159,7 @@ async def edit_v2_message(bot, channel_id: int, message_id: int, components: lis
     except Exception as e:
         print(f"Failed to edit V2 layout: {e}")
         return None
+
+async def setup(bot):
+    pass
+

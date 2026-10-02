@@ -364,60 +364,6 @@ async def on_guild_remove(guild):
         except Exception as e:
             log.error(f"Terjadi error saat mengirim notifikasi keluar server: {e}")
 
-@bot.command(name="help", aliases=["h"])
-async def custom_help(ctx, *, command_name: str = None):
-    prefix = ctx.prefix
-
-    if not command_name:
-        embed = discord.Embed(
-            title="👋 Bantuan Perintah Bot",
-            description=f"Cek website untuk detail cara penggunaan nya",
-            color=0x3498db
-        )
-        if bot.user.avatar:
-            embed.set_thumbnail(url=bot.user.avatar.url)
-
-        for cog_name, cog in bot.cogs.items():
-            if cog_name in ["Jishaku"]:
-                continue
-            
-            commands_list = [f"`{c.name}`" for c in cog.get_commands() if not c.hidden]
-            if commands_list:
-                embed.add_field(
-                    name=f"**Kategori: {cog_name}**",
-                    value=" ".join(commands_list),
-                    inline=False
-                )
-        
-        embed.add_field(
-            name="Panduan Lengkap",
-            value='Untuk cara pakai yang lebih detail, kunjungi website kami di:\n**🔗 [Klik di sini untuk melihat cara pakai]( https://kawansejalanproduction2019.github.io/html/ )**',
-            inline=False
-        )
-        
-        embed.set_footer(text=f"Diminta oleh: {ctx.author.display_name}")
-        await ctx.send(embed=embed)
-        return
-
-    cmd = bot.get_command(command_name.lower())
-    if not cmd or cmd.hidden:
-        await ctx.send(f"❌ Command `{command_name}` tidak ditemukan.", delete_after=10)
-        return
-
-    embed = discord.Embed(
-        title=f"🔎 Detail Command: `{cmd.name}`",
-        description=cmd.help or "Tidak ada deskripsi untuk command ini.",
-        color=0x2ecc71
-    )
-    
-    aliases = ", ".join([f"`{a}`" for a in cmd.aliases]) if cmd.aliases else "Tidak ada"
-    embed.add_field(name="Alias", value=aliases, inline=True)
-    
-    usage = f"`{prefix}{cmd.name} {cmd.signature}`"
-    embed.add_field(name="Cara Penggunaan", value=usage, inline=True)
-    
-    embed.set_footer(text="Tanda < > berarti wajib, [ ] berarti opsional.")
-    await ctx.send(embed=embed)
 
 async def push_to_github(file_path, content_str):
     token = os.getenv("GITHUB_TOKEN")
@@ -668,10 +614,71 @@ async def cog_backup_error(ctx, error):
         await ctx.send(f"❌ Error yang tidak terduga terjadi: {error}", ephemeral=True)
         log.error(f"Error tak terduga pada !cogbackup: {error}", exc_info=True)
 
+@bot.event
+async def on_command_error(ctx, error):
+    if hasattr(ctx.command, 'on_error'):
+        return
+
+    error = getattr(error, 'original', error)
+
+    if isinstance(error, commands.CommandNotFound):
+        return
+
+    embed = discord.Embed(color=discord.Color.red())
+
+    if isinstance(error, commands.MissingPermissions):
+        perms = ", ".join(f"`{p}`" for p in error.missing_permissions)
+        embed.title = "🚫 Izin Tidak Cukup"
+        embed.description = f"Kamu tidak memiliki izin yang diperlukan untuk perintah ini:\n{perms}"
+        try: await ctx.send(embed=embed, delete_after=10)
+        except: pass
+
+    elif isinstance(error, commands.BotMissingPermissions):
+        perms = ", ".join(f"`{p}`" for p in error.missing_permissions)
+        embed.title = "⚠️ Izin Bot Kurang"
+        embed.description = f"Bot membutuhkan izin berikut di channel ini untuk menjalankan perintah:\n{perms}"
+        try: await ctx.send(embed=embed, delete_after=10)
+        except: pass
+
+    elif isinstance(error, commands.MissingRequiredArgument):
+        embed.title = "📝 Parameter Kurang"
+        embed.description = f"Argumen `{error.param.name}` wajib diisi!\nContoh format: `{ctx.prefix}{ctx.command.name} {ctx.command.signature}`"
+        try: await ctx.send(embed=embed, delete_after=10)
+        except: pass
+
+    elif isinstance(error, commands.BadArgument):
+        embed.title = "❌ Format Data Salah"
+        embed.description = f"Data yang kamu masukkan tidak valid:\n`{str(error)}`"
+        try: await ctx.send(embed=embed, delete_after=10)
+        except: pass
+
+    elif isinstance(error, commands.CommandOnCooldown):
+        embed.title = "⏳ Sedang Cooldown"
+        embed.description = f"Perintah ini sedang dalam jeda waktu. Coba lagi dalam **{round(error.retry_after, 1)} detik**."
+        try: await ctx.send(embed=embed, delete_after=5)
+        except: pass
+
+    elif isinstance(error, commands.NotOwner):
+        embed.title = "🔒 Khusus Pemilik Bot"
+        embed.description = "Perintah ini hanya dapat dijalankan oleh Developer / Owner bot."
+        try: await ctx.send(embed=embed, delete_after=10)
+        except: pass
+
+    elif isinstance(error, commands.NoPrivateMessage):
+        try: await ctx.send("❌ Perintah ini hanya bisa digunakan di dalam server Discord.", delete_after=10)
+        except: pass
+
+    else:
+        log.error(f"Unhandled command error in '{ctx.command}': {error}", exc_info=True)
+        embed.title = "⚠️ Terjadi Kesalahan"
+        embed.description = f"Terjadi kesalahan saat memproses perintah:\n`{str(error)[:200]}`"
+        try: await ctx.send(embed=embed, delete_after=10)
+        except: pass
+
 async def load_cogs():
     initial_extensions = [
-        "cogs.leveling", "cogs.moderation", "cogs.quotes", "cogs.endgame",
-        "cogs.webhook", "cogs.uang",  "cogs.notif", "cogs.multi", "cogs.info", "cogs.gemini", "cogs.game", "cogs.music", "cogs.fun"
+        "cogs.leveling", "cogs.moderation", "cogs.quotes", "cogs.minigames",
+        "cogs.webhook", "cogs.finance", "cogs.notif", "cogs.activity", "cogs.info", "cogs.gemini", "cogs.party_games", "cogs.temp_voice", "cogs.fun"
     ]
     for extension in initial_extensions:
         try:
