@@ -682,6 +682,7 @@ class ProgressionSystem(commands.Cog, name="Progression & Economy"):
         self.giveaways = {}
         self._voice_panel_locks = {}
         self._voice_active_sessions = {}
+        self._channel_voice_sessions = {}
         self.voice_task = self.create_voice_task()
         self.last_reset = datetime.utcnow()
         self._dirty_level = False
@@ -695,13 +696,13 @@ class ProgressionSystem(commands.Cog, name="Progression & Economy"):
         self.collage_url = load_json(COLLAGE_FILE).get("collage_url")
 
     def load_data_from_mongo(self):
-        """Memuat data konfigurasi panel voice, level, dan bank dari MongoDB ke cache/file lokal saat startup."""
+        """Memuat data konfigurasi panel voice, rekor voice, level, dan bank dari MongoDB ke cache/file lokal saat startup."""
         mongo_client = getattr(self.bot, 'mongo_client', None)
         if not mongo_client:
             return
         try:
             db = mongo_client.get_database("rtmbot")
-            # 1. Config Data (Lokasi channel & Message ID panel)
+            # 1. Config Data (Lokasi channel, Message ID panel, & Rekor Voice)
             cfg_doc = db["config_data"].find_one({"_id": "global_configs"})
             if cfg_doc and "data" in cfg_doc and isinstance(cfg_doc["data"], dict):
                 local_configs = load_json(CONFIG_FILE)
@@ -710,11 +711,18 @@ class ProgressionSystem(commands.Cog, name="Progression & Economy"):
                         local_configs[g_id] = g_cfg
                     else:
                         for k, v in g_cfg.items():
-                            if k in ("voice_panel_channel_id", "voice_panel_message_id") and v:
+                            if k in ("voice_panel_channel_id", "voice_panel_message_id", "voice_records") and v:
                                 local_configs[g_id][k] = v
                             elif k not in local_configs[g_id]:
                                 local_configs[g_id][k] = v
                 save_json(CONFIG_FILE, local_configs)
+
+            # Pulihkan active channel session dari config lokal/mongo jika ada yang sedang aktif
+            all_cfg = load_json(CONFIG_FILE)
+            for g_id, g_cfg in all_cfg.items():
+                longest = g_cfg.get("voice_records", {}).get("longest_session", {})
+                if longest.get("is_active_now", False) and longest.get("channel_id"):
+                    self._channel_voice_sessions[(g_id, longest["channel_id"])] = longest.get("duration_seconds", 0)
 
             # 2. Level Data (Merge pintar dari MongoDB: pulihkan voice_time & exp tertinggi)
             lvl_doc = db["level_data"].find_one({"_id": "global_levels"})
@@ -1035,16 +1043,49 @@ class ProgressionSystem(commands.Cog, name="Progression & Economy"):
                     bank_data = load_json(BANK_FILE)
 
                     all_configs = load_json(CONFIG_FILE)
-                    guild_config = all_configs.get(guild_id, {})
+                    guild_config = all_configs.setdefault(guild_id, {})
                     base_exp_vc = guild_config.get("exp_per_vc_min", 5)
                     base_rswn_vc = guild_config.get("rswn_per_vc_min", 10)
                     exp_per_level = guild_config.get("exp_per_level", 3500)
                     max_level = guild_config.get("max_level", 0)
 
+                    records = guild_config.setdefault("voice_records", {})
+                    longest = records.setdefault("longest_session", {
+                        "channel_id": None,
+                        "channel_name": None,
+                        "duration_seconds": 0,
+                        "is_active_now": False
+                    })
+                    cfg_dirty = False
+
                     for vc in guild.voice_channels:
                         # Lewati channel AFK server resmi jika ada
                         if guild.afk_channel and vc.id == guild.afk_channel.id:
                             continue
+
+                        active_vc_members = [m for m in vc.members if not m.bot]
+                        ch_key = (guild_id, vc.id)
+
+                        if active_vc_members:
+                            # Tambah durasi sesi room berjalan (60 detik per menit perulangan)
+                            current_sess = self._channel_voice_sessions.get(ch_key, 0) + 60
+                            self._channel_voice_sessions[ch_key] = current_sess
+
+                            # Periksa apakah sesi ini adalah rekor tertinggi server
+                            if current_sess >= longest.get("duration_seconds", 0):
+                                longest["channel_id"] = vc.id
+                                longest["channel_name"] = vc.name
+                                longest["duration_seconds"] = current_sess
+                                longest["is_active_now"] = True
+                                longest["updated_at"] = datetime.utcnow().isoformat()
+                                cfg_dirty = True
+                        else:
+                            # Jika room kosong dan tadinya tercatat sebagai pemegang rekor aktif
+                            if longest.get("channel_id") == vc.id and longest.get("is_active_now", False):
+                                longest["is_active_now"] = False
+                                cfg_dirty = True
+                            self._channel_voice_sessions.pop(ch_key, None)
+
                         for member in vc.members:
                             if member.bot:
                                 continue
@@ -1079,6 +1120,9 @@ class ProgressionSystem(commands.Cog, name="Progression & Economy"):
                             if new_level > data[user_id].get("level", 0):
                                 data[user_id]["level"] = new_level
                                 await self.level_up(member, guild, None, new_level, data)
+
+                    if cfg_dirty:
+                        self.save_config_data(all_configs)
 
                     all_level_data[guild_id] = data
                     self.save_level_data(all_level_data)
@@ -1844,7 +1888,28 @@ class ProgressionSystem(commands.Cog, name="Progression & Economy"):
                     names += f" +{len(active_in_vc) - 4} lainnya"
                 active_channels_info.append(f"🔊 **{vc.name}** ({len(active_in_vc)} member): {names}")
 
+        # 4. Rekor Voice Channel Terlama Server
+        all_configs = load_json(CONFIG_FILE)
+        guild_config = all_configs.get(guild_id, {})
+        records = guild_config.get("voice_records", {})
+        longest = records.get("longest_session", {})
+        rec_dur = longest.get("duration_seconds", 0)
+        rec_ch_name = longest.get("channel_name")
+        rec_ch_id = longest.get("channel_id")
+        rec_active = longest.get("is_active_now", False)
+
+        if rec_dur > 0 and (rec_ch_name or rec_ch_id):
+            ch_display = f"#{rec_ch_name}" if rec_ch_name else f"<#{rec_ch_id}>"
+            status_tag = "🔥 *Sedang Berjalan*" if rec_active else "🏁 *Rekor Tercatat*"
+            record_str = f"**{ch_display}** — `{format_voice_duration(rec_dur)}` ({status_tag})"
+        else:
+            record_str = "Belum ada rekor sesi voice tercatat."
+
         fields = [
+            {
+                "name": "🏆 REKOR VOICE TERLAMA SERVER",
+                "value": record_str
+            },
             {
                 "name": "👑 TOP 10 MEMBER VOICE TERLAMA (ALL-TIME)",
                 "value": "\n".join(top_all_lines) if top_all_lines else "Belum ada catatan durasi voice."
@@ -2166,6 +2231,110 @@ class ProgressionSystem(commands.Cog, name="Progression & Economy"):
             f"• **Termasuk Mingguan:** `{'Ya' if weekly else 'Tidak'}`",
             ephemeral=True
         )
+
+    @commands.hybrid_command(
+        name="setchannelrecord",
+        description="Atur atau adopsi rekor voice channel terlama server (bisa untuk room yang sedang berjalan)"
+    )
+    @app_commands.describe(
+        channel="Voice channel yang memegang rekor",
+        jam="Jumlah jam durasi rekor",
+        menit="Jumlah menit durasi rekor",
+        detik="Jumlah detik durasi rekor",
+        sedang_aktif="Apakah sesi voice di channel ini sedang aktif berjalan sekarang? (Default: True)"
+    )
+    async def setchannelrecord(
+        self,
+        ctx: commands.Context,
+        channel: discord.VoiceChannel,
+        jam: int = 0,
+        menit: int = 0,
+        detik: int = 0,
+        sedang_aktif: bool = True
+    ):
+        await ctx.defer(ephemeral=True)
+        is_bot_owner = await self.bot.is_owner(ctx.author)
+        if not is_bot_owner and ctx.author.id != ctx.guild.owner_id and not ctx.author.guild_permissions.administrator:
+            return await ctx.send("❌ Perintah ini khusus untuk Administrator atau Owner bot/Server!", ephemeral=True)
+
+        total_sec = (jam * 3600) + (menit * 60) + detik
+        if total_sec < 0:
+            return await ctx.send("❌ Durasi tidak boleh negatif!", ephemeral=True)
+
+        guild_id = str(ctx.guild.id)
+        all_configs = load_json(CONFIG_FILE)
+        guild_config = all_configs.setdefault(guild_id, {})
+        records = guild_config.setdefault("voice_records", {})
+
+        records["longest_session"] = {
+            "channel_id": channel.id,
+            "channel_name": channel.name,
+            "duration_seconds": total_sec,
+            "is_active_now": sedang_aktif,
+            "updated_at": datetime.utcnow().isoformat()
+        }
+
+        # Jika sedang aktif di channel tersebut, sinkronkan ke memori tracker sesi aktif
+        if sedang_aktif:
+            self._channel_voice_sessions[(guild_id, channel.id)] = total_sec
+        else:
+            self._channel_voice_sessions.pop((guild_id, channel.id), None)
+
+        self.save_config_data(all_configs)
+
+        try:
+            await self.update_voice_panel(ctx.guild)
+        except Exception:
+            pass
+
+        dur_str = format_voice_duration(total_sec)
+        status_info = "Sedang Berjalan (akan terus bertambah setiap menit jika ada member di room)" if sedang_aktif else "Tercatat sebagai rekor selesai"
+
+        await ctx.send(
+            f"✅ **Rekor voice channel server berhasil diatur!**\n"
+            f"• **Channel:** {channel.mention}\n"
+            f"• **Durasi Rekor:** `{dur_str}`\n"
+            f"• **Status:** {status_info}",
+            ephemeral=True
+        )
+
+    @commands.hybrid_command(name="voicerecord", description="Cek rekor durasi sesi voice channel terlama di server ini")
+    async def voicerecord(self, ctx: commands.Context):
+        await ctx.defer()
+        guild_id = str(ctx.guild.id)
+        all_configs = load_json(CONFIG_FILE)
+        guild_config = all_configs.get(guild_id, {})
+        records = guild_config.get("voice_records", {})
+        longest = records.get("longest_session", {})
+
+        dur_sec = longest.get("duration_seconds", 0)
+        ch_name = longest.get("channel_name")
+        ch_id = longest.get("channel_id")
+        is_active = longest.get("is_active_now", False)
+
+        embed = discord.Embed(
+            title=f"🏆 Rekor Voice Channel Terlama — {ctx.guild.name}",
+            color=0xF1C40F,
+            timestamp=datetime.now()
+        )
+        if ctx.guild.icon:
+            embed.set_thumbnail(url=ctx.guild.icon.url)
+
+        if dur_sec > 0 and (ch_name or ch_id):
+            channel_obj = ctx.guild.get_channel(ch_id) if ch_id else None
+            ch_mention = channel_obj.mention if channel_obj else (f"#{ch_name}" if ch_name else f"<#{ch_id}>")
+            dur_str = format_voice_duration(dur_sec)
+            status_text = "🔥 **Sedang Berjalan Sekarang**" if is_active else "🏁 **Rekor Selesai Tercatat**"
+
+            embed.add_field(name="🎙️ Channel Pemegang Rekor", value=ch_mention, inline=True)
+            embed.add_field(name="⏱️ Durasi Rekor", value=f"`{dur_str}`", inline=True)
+            embed.add_field(name="📡 Status Sesi", value=status_text, inline=False)
+            embed.set_footer(text="Gunakan /voicepanel untuk melihat papan live activity.")
+        else:
+            embed.description = "Belum ada rekor sesi voice channel yang tercatat di server ini."
+            embed.set_footer(text="Rekor akan otomatis tercatat saat member aktif di voice channel.")
+
+        await ctx.send(embed=embed)
 
     @commands.Cog.listener()
     async def on_ready(self):
