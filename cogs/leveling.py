@@ -1951,9 +1951,9 @@ class ProgressionSystem(commands.Cog, name="Progression & Economy"):
             guild_config["voice_panel_message_id"] = int(resp["id"])
             guild_config["voice_panel_channel_id"] = ctx.channel.id
             self.save_config_data(all_configs)
-            await ctx.send("✅ Panel aktivitas voice berhasil dipasang di channel ini, tersimpan di MongoDB, dan selalu berada di posisi paling bawah!", ephemeral=True)
+            await ctx.send("✅ Panel aktivitas voice berhasil dipasang di channel ini dan akan selalu berada di posisi terbawah.", ephemeral=True)
         else:
-            await ctx.send("❌ Gagal mengirim panel voice dengan format Layout V2.", ephemeral=True)
+            await ctx.send("❌ Gagal memasang panel voice. Silakan coba beberapa saat lagi.", ephemeral=True)
 
     @commands.hybrid_command(name="voicepanel_remove", description="Hapus dan nonaktifkan panel aktivitas voice di server ini")
     @commands.has_permissions(manage_guild=True)
@@ -1978,7 +1978,7 @@ class ProgressionSystem(commands.Cog, name="Progression & Economy"):
         guild_config["voice_panel_message_id"] = None
         guild_config["voice_panel_channel_id"] = None
         self.save_config_data(all_configs)
-        await ctx.send("✅ Panel aktivitas voice berhasil dinonaktifkan dan dihapus dari server ini.", ephemeral=True)
+        await ctx.send("✅ Panel aktivitas voice berhasil dinonaktifkan.", ephemeral=True)
 
     @commands.hybrid_command(name="voicetime", description="Cek total durasi aktif di voice channel server ini")
     @app_commands.describe(member="Member yang ingin dicek waktu voice-nya (kosongkan untuk diri sendiri)")
@@ -2016,7 +2016,7 @@ class ProgressionSystem(commands.Cog, name="Progression & Economy"):
         embed.set_footer(text="Gunakan /voicepanel untuk memasang papan leaderboard voice lengkap.")
         await ctx.send(embed=embed)
 
-    @commands.hybrid_command(name="addvoicetime", description="[OWNER] Tambahkan durasi voice untuk diri sendiri atau member lain")
+    @commands.hybrid_command(name="addvoicetime", description="Tambahkan durasi voice untuk diri sendiri atau member lain")
     @app_commands.describe(
         jam="Jumlah jam yang ingin ditambahkan",
         menit="Jumlah menit yang ingin ditambahkan",
@@ -2068,16 +2068,15 @@ class ProgressionSystem(commands.Cog, name="Progression & Economy"):
         total_weekly_str = format_voice_duration(user_data.get("weekly_voice_time", 0))
 
         await ctx.send(
-            f"👑 **[OWNER BOOST] Berhasil menambahkan durasi voice!**\n"
+            f"✅ **Durasi voice berhasil ditambahkan!**\n"
             f"• **Target:** {target.mention}\n"
-            f"• **Ditambahkan:** `+{added_str}`\n"
-            f"• **Total All-Time Sekarang:** `{total_all_str}`\n"
-            f"• **Total Mingguan Sekarang:** `{total_weekly_str}`\n"
-            f"⚡ Papan Voice Leaderboard telah diperbarui secara instan!",
+            f"• **Penambahan:** `+{added_str}`\n"
+            f"• **Total All-Time:** `{total_all_str}`\n"
+            f"• **Total Mingguan:** `{total_weekly_str}`",
             ephemeral=True
         )
 
-    @commands.hybrid_command(name="setvoicetime", description="[OWNER] Atur total durasi voice diri sendiri atau member lain ke angka tertentu")
+    @commands.hybrid_command(name="setvoicetime", description="Atur total durasi voice diri sendiri atau member lain ke angka tertentu")
     @app_commands.describe(
         jam="Jumlah jam yang ingin diatur",
         menit="Jumlah menit yang ingin diatur",
@@ -2123,11 +2122,10 @@ class ProgressionSystem(commands.Cog, name="Progression & Economy"):
 
         set_str = format_voice_duration(total_sec)
         await ctx.send(
-            f"👑 **[OWNER SET] Berhasil mengatur ulang total durasi voice!**\n"
+            f"✅ **Durasi voice berhasil diatur!**\n"
             f"• **Target:** {target.mention}\n"
-            f"• **Total Diatur Ke:** `{set_str}`\n"
-            f"• **Termasuk Mingguan:** `{'Ya' if weekly else 'Tidak'}`\n"
-            f"⚡ Papan Voice Leaderboard telah diperbarui secara instan!",
+            f"• **Total Durasi:** `{set_str}`\n"
+            f"• **Termasuk Mingguan:** `{'Ya' if weekly else 'Tidak'}`",
             ephemeral=True
         )
 
