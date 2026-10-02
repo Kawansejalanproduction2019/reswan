@@ -13,10 +13,7 @@ from datetime import datetime
 
 log = logging.getLogger("FinancialAdvisor")
 
-try:
-    from cogs.gemini import generate_smart_response
-except ImportError:
-    generate_smart_response = None
+generate_smart_response = None
 
 INCOME_CATEGORIES = [
     ("💼 Gaji", "Gaji"),
@@ -50,33 +47,82 @@ def make_progress_bar(percentage: float, length: int = 10) -> str:
     bar = "█" * filled + "░" * (length - filled)
     return f"[{bar}] {percentage:.1f}%"
 
+def strip_discord_formatting(text: str) -> str:
+    """Bersihkan mention user/bot, role, channel, custom emoji, dan URL dari teks."""
+    cleaned = re.sub(r'<@!?\d+>', '', text)
+    cleaned = re.sub(r'<@&\d+>', '', cleaned)
+    cleaned = re.sub(r'<#\d+>', '', cleaned)
+    cleaned = re.sub(r'<a?:\w+:\d+>', '', cleaned)
+    cleaned = re.sub(r'https?://\S+', '', cleaned)
+    return cleaned.strip()
+
 def parse_quick_amount(text: str) -> int:
     """
     Ekstrak nominal uang dari teks santai:
     - 25k / 25rb / 25 ribu -> 25.000
     - 1.5jt / 1,5 juta -> 1.500.000
-    - 50000 / 50.000 -> 50.000
+    - rp 50000 / rp. 50.000 -> 50.000
+    - makan 25000 -> 25.000 (hanya jika ada konteks transaksi keuangan)
     """
-    text_clean = text.lower().replace(",", ".")
-    match_jt = re.search(r'(\d+(?:\.\d+)?)\s*(?:jt|juta)', text_clean)
+    # 1. Bersihkan mention discord dan url dulu agar ID snowflake bot/user tidak terdeteksi sebagai nominal uang
+    text_clean = strip_discord_formatting(text).lower().replace(",", ".")
+    if not text_clean:
+        return 0
+
+    # 2. Format Juta (jt / juta): contoh 1.5jt, 2 juta
+    match_jt = re.search(r'\b(\d+(?:\.\d+)?)\s*(?:jt|juta)\b', text_clean)
     if match_jt:
         try:
-            return int(float(match_jt.group(1)) * 1_000_000)
+            val = int(float(match_jt.group(1)) * 1_000_000)
+            if 0 < val <= 1_000_000_000:
+                return val
         except Exception: pass
-    
-    match_rb = re.search(r'(\d+(?:\.\d+)?)\s*(?:rb|k|ribu)', text_clean)
+
+    # 3. Format Ribu (rb / k / ribu): contoh 25k, 50rb, 100 ribu
+    match_rb = re.search(r'\b(\d+(?:\.\d+)?)\s*(?:rb|k|ribu)\b', text_clean)
     if match_rb:
         try:
-            return int(float(match_rb.group(1)) * 1_000)
+            val = int(float(match_rb.group(1)) * 1_000)
+            if 0 < val <= 1_000_000_000:
+                return val
         except Exception: pass
-    
-    match_num = re.search(r'(?:rp\.?\s*)?(\d{1,3}(?:\.\d{3})+|\d{3,12})', text_clean)
-    if match_num:
+
+    # 4. Format Eksplisit Rupiah (rp / rp.): contoh rp 50.000, rp50000
+    match_rp = re.search(r'\brp\.?\s*(\d{1,3}(?:\.\d{3})+|\d{3,9})\b', text_clean)
+    if match_rp:
         try:
-            raw_num = match_num.group(1).replace(".", "")
-            return int(raw_num)
+            raw_num = match_rp.group(1).replace(".", "")
+            val = int(raw_num)
+            if 0 < val <= 1_000_000_000:
+                return val
         except Exception: pass
-        
+
+    # 5. Format Angka bertitik ribuan (contoh: 25.000, 150.000)
+    match_dot = re.search(r'\b(\d{1,3}(?:\.\d{3})+)\b', text_clean)
+    if match_dot:
+        try:
+            raw_num = match_dot.group(1).replace(".", "")
+            val = int(raw_num)
+            if 0 < val <= 1_000_000_000:
+                return val
+        except Exception: pass
+
+    # 6. Angka polos 4-9 digit (contoh: 25000, 50000)
+    # HANYA diekstrak jika terdapat kata kunci transaksi keuangan yang jelas
+    tx_intent_words = [
+        "catat", "beli", "bayar", "makan", "minum", "jajan", "bensin", "parkir",
+        "ongkir", "gaji", "masuk", "keluar", "topup", "sewa", "tagihan", "belanja",
+        "transfer", "kas", "pengeluaran", "pemasukan", "biaya"
+    ]
+    if any(w in text_clean for w in tx_intent_words):
+        match_plain = re.search(r'\b(\d{4,9})\b', text_clean)
+        if match_plain:
+            try:
+                val = int(match_plain.group(1))
+                if 0 < val <= 1_000_000_000:
+                    return val
+            except Exception: pass
+
     return 0
 
 def detect_category(text: str, tx_type: str) -> str:
@@ -293,9 +339,33 @@ class FinancialAdvisor(commands.Cog, name="Personal Financial Advisor"):
                     doc = mongo_client.get_database("rtmbot")["user_finance"].find_one({"_id": "all_users"})
                     if doc and "data" in doc:
                         self.data = doc["data"]
-                        self.save_data()
                 except Exception:
                     pass
+
+        # Sanitasi data: bersihkan transaksi anomali hasil salah tangkap mention bot (> 10 Miliar atau note bot)
+        changed = False
+        for uid, profile in list(self.data.items()):
+            txs = profile.get("transactions", [])
+            valid_txs = []
+            recalc_balance = 0
+            for tx in txs:
+                note = str(tx.get("note", ""))
+                amt = tx.get("amount", 0)
+                if amt >= 10_000_000_000 or "<@" in note or "rtmxbadut" in note.lower():
+                    changed = True
+                    continue
+                valid_txs.append(tx)
+                if tx.get("type") == "IN":
+                    recalc_balance += amt
+                else:
+                    recalc_balance -= amt
+            if len(valid_txs) != len(txs):
+                profile["transactions"] = valid_txs
+                profile["balance"] = recalc_balance
+                changed = True
+
+        if changed:
+            self.save_data()
 
     def save_data(self):
         try:
@@ -557,7 +627,12 @@ class FinancialAdvisor(commands.Cog, name="Personal Financial Advisor"):
         return embed
 
     async def generate_ai_financial_advice(self, user: discord.User, user_question: str = None) -> str:
-        stats = self.calculate_stats(user.id)
+        global generate_smart_response
+        if generate_smart_response is None:
+            try:
+                from cogs.gemini import generate_smart_response
+            except ImportError:
+                generate_smart_response = None
         if not generate_smart_response:
             return None
 
@@ -835,46 +910,50 @@ class FinancialAdvisor(commands.Cog, name="Personal Financial Advisor"):
         if message.content.startswith(prefixes):
             return
 
-        text = message.content.strip()
-        if not text:
-            return
+        # Bersihkan mention user/bot, role, channel, emoji, dan url
+        text_clean = strip_discord_formatting(message.content).strip()
+        if not text_clean:
+            return  # Pesan hanya berisi mention bot / link, jangan diintersep
 
-        text_lower = text.lower()
+        text_lower = text_clean.lower()
 
         # 1. Cek Intent: Cek Saldo / Buka Dasbor Portofolio
-        if any(k in text_lower for k in ["saldo", "dompet", "wallet", "uang", "keuangan", "cek saldo"]):
+        if text_lower in ["saldo", "dompet", "cek saldo", "cek dompet", "kas", "keuangan", "portofolio", "dasbor"] or \
+           bool(re.search(r'\b(cek saldo|saldo saya|lihat saldo|dompet saya|dasbor keuangan)\b', text_lower)):
             embed = self.build_dashboard_embed(message.author)
             view = DashboardView(self, message.author)
             await message.channel.send(embed=embed, view=view)
             return
 
         # 2. Cek Intent: Mutasi / Arus Kas
-        if any(k in text_lower for k in ["cashflow", "mutasi", "rekap", "laporan", "riwayat"]):
+        if text_lower in ["mutasi", "cashflow", "arus kas", "rekap", "laporan"] or \
+           bool(re.search(r'\b(cek mutasi|arus kas|laporan keuangan|rekap keuangan|riwayat transaksi)\b', text_lower)):
             embed = self.build_cashflow_embed(message.author)
             await message.channel.send(embed=embed)
             return
 
         # 3. Cek Intent: Pencatatan Transaksi Cepat (Natural Language Logging via DM)
-        nominal = parse_quick_amount(text)
+        nominal = parse_quick_amount(text_clean)
         if nominal > 0:
-            tx_type = detect_tx_type(text)
-            category = detect_category(text, tx_type)
-            note = text[:100]
+            tx_type = detect_tx_type(text_clean)
+            category = detect_category(text_clean, tx_type)
+            note = text_clean[:100]
 
             tx = self.add_transaction(message.author.id, tx_type, nominal, category, note)
             embed = self.build_transaction_embed(message.author, tx, tx_type)
             await message.channel.send(embed=embed)
             return
 
-        # 4. Cek Intent: Konsultasi Keuangan via Chat DM (AI Financial Advisor)
-        financial_keywords = [
-            "boncos", "hemat", "investasi", "nabung", "budget", "anggaran",
-            "cicilan", "gaji", "beli", "saran", "tips", "nasehat", "konsultasi",
-            "evaluasi", "pengeluaran", "pemasukan", "rekomendasi"
+        # 4. Cek Intent: Konsultasi Keuangan Eksplisit via Chat DM (AI Financial Advisor)
+        # HANYA jika pesan secara spesifik membahas rencana keuangan/investasi/budgeting
+        financial_explicit_triggers = [
+            "konsultasi keuangan", "saran keuangan", "tips keuangan", "manajemen keuangan",
+            "audit keuangan", "rekomendasi budget", "rencana keuangan", "dana darurat",
+            "investasi apa", "reksadana", "kenapa boncos", "evaluasi pengeluaran"
         ]
-        if any(w in text_lower for w in financial_keywords) or len(text.split()) >= 3:
+        if any(trigger in text_lower for trigger in financial_explicit_triggers):
             async with message.channel.typing():
-                ai_reply = await self.generate_ai_financial_advice(message.author, user_question=text)
+                ai_reply = await self.generate_ai_financial_advice(message.author, user_question=text_clean)
                 if ai_reply:
                     embed = discord.Embed(
                         title="💡 Konsultasi Finansial Pribadi",
@@ -887,6 +966,10 @@ class FinancialAdvisor(commands.Cog, name="Personal Financial Advisor"):
                 else:
                     embed = self.build_advice_embed(message.author)
                     await message.channel.send(embed=embed)
+            return
+
+        # Jika pesan adalah percakapan biasa (contoh: "halo", "lagi apa", dsb),
+        # biarkan lewat agar cogs/gemini.py (Raka AI) dapat merespons obrolan secara alami.
 
 async def setup(bot):
     await bot.add_cog(FinancialAdvisor(bot))
