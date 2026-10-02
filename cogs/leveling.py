@@ -679,6 +679,7 @@ class ProgressionSystem(commands.Cog, name="Progression & Economy"):
     def __init__(self, bot):
         self.bot = bot
         self.giveaways = {}
+        self._voice_panel_locks = {}
         self.voice_task = self.create_voice_task()
         self.last_reset = datetime.utcnow()
         self._dirty_level = False
@@ -986,6 +987,15 @@ class ProgressionSystem(commands.Cog, name="Progression & Economy"):
 
         all_configs = load_json(CONFIG_FILE)
         guild_config = all_configs.get(guild_id, {})
+
+        # Sticky Voice Panel: jika ada pesan baru di channel panel, reposisi panel ke dasar channel
+        try:
+            v_channel_id = guild_config.get("voice_panel_channel_id")
+            if v_channel_id and message.channel.id == v_channel_id:
+                asyncio.create_task(self.reposition_voice_panel_bottom(message.guild, message.channel))
+        except Exception:
+            pass
+
         base_exp_msg = guild_config.get("exp_per_msg", 10)
         base_rswn_msg = guild_config.get("rswn_per_msg", 1)
         exp_per_level = guild_config.get("exp_per_level", 3500)
@@ -1736,6 +1746,37 @@ class ProgressionSystem(commands.Cog, name="Progression & Economy"):
         )
         return card
 
+    async def reposition_voice_panel_bottom(self, guild: discord.Guild, channel: discord.abc.Messageable):
+        """Hapus panel lama dan kirim ulang di paling bawah jika ada chat baru yang masuk ke channel panel."""
+        guild_id = str(guild.id)
+        lock = self._voice_panel_locks.setdefault(guild_id, asyncio.Lock())
+        if lock.locked():
+            return
+        async with lock:
+            all_configs = load_json(CONFIG_FILE)
+            guild_config = all_configs.get(guild_id, {})
+            panel_id = guild_config.get("voice_panel_message_id")
+            channel_id = guild_config.get("voice_panel_channel_id")
+
+            if not panel_id or channel.id != channel_id:
+                return
+
+            try:
+                old_panel = await channel.fetch_message(panel_id)
+                await old_panel.delete()
+            except Exception:
+                pass
+
+            card = self.build_voice_panel_card(guild)
+            try:
+                from cogs.v2_layout import send_v2_message
+                resp = await send_v2_message(self.bot, channel.id, [card])
+                if resp and isinstance(resp, dict) and "id" in resp:
+                    guild_config["voice_panel_message_id"] = int(resp["id"])
+                    save_json(CONFIG_FILE, all_configs)
+            except Exception:
+                pass
+
     async def update_voice_panel(self, guild: discord.Guild):
         guild_id = str(guild.id)
         all_configs = load_json(CONFIG_FILE)
@@ -1750,33 +1791,53 @@ class ProgressionSystem(commands.Cog, name="Progression & Economy"):
         if not channel:
             return
 
-        try:
-            panel_message = await channel.fetch_message(panel_id)
-        except discord.NotFound:
-            guild_config["voice_panel_message_id"] = None
-            save_json(CONFIG_FILE, all_configs)
+        lock = self._voice_panel_locks.setdefault(guild_id, asyncio.Lock())
+        if lock.locked():
             return
-        except Exception:
-            return
+        async with lock:
+            try:
+                panel_message = await channel.fetch_message(panel_id)
+            except discord.NotFound:
+                guild_config["voice_panel_message_id"] = None
+                save_json(CONFIG_FILE, all_configs)
+                return
+            except Exception:
+                return
 
-        card = self.build_voice_panel_card(guild)
-        try:
-            from cogs.v2_layout import edit_v2_message
-            resp = await edit_v2_message(self.bot, channel.id, panel_message.id, [card])
-            if resp is None:
-                try: await panel_message.delete()
-                except Exception: pass
+            card = self.build_voice_panel_card(guild)
+
+            # Jika ada pesan baru di bawah panel (bukan pesan terbawah), hapus dan kirim ulang di paling bawah
+            if channel.last_message_id and channel.last_message_id != panel_id:
+                try:
+                    await panel_message.delete()
+                except Exception:
+                    pass
                 from cogs.v2_layout import send_v2_message
-                new_resp = await send_v2_message(self.bot, channel.id, [card])
-                if new_resp and isinstance(new_resp, dict) and "id" in new_resp:
-                    guild_config["voice_panel_message_id"] = int(new_resp["id"])
+                resp = await send_v2_message(self.bot, channel.id, [card])
+                if resp and isinstance(resp, dict) and "id" in resp:
+                    guild_config["voice_panel_message_id"] = int(resp["id"])
                     save_json(CONFIG_FILE, all_configs)
-        except Exception:
-            pass
+                return
+
+            # Jika panel sudah di paling bawah, update data secara in-place dengan edit_v2_message
+            try:
+                from cogs.v2_layout import edit_v2_message
+                resp = await edit_v2_message(self.bot, channel.id, panel_message.id, [card])
+                if resp is None:
+                    try: await panel_message.delete()
+                    except Exception: pass
+                    from cogs.v2_layout import send_v2_message
+                    new_resp = await send_v2_message(self.bot, channel.id, [card])
+                    if new_resp and isinstance(new_resp, dict) and "id" in new_resp:
+                        guild_config["voice_panel_message_id"] = int(new_resp["id"])
+                        save_json(CONFIG_FILE, all_configs)
+            except Exception:
+                pass
 
     @commands.hybrid_command(name="voicepanel", description="Pasang panel leaderboard dan aktivitas voice server yang otomatis ter-update.")
     @commands.has_permissions(manage_guild=True)
     async def voicepanel(self, ctx: commands.Context):
+        await ctx.defer(ephemeral=True)
         guild = ctx.guild
         guild_id = str(guild.id)
         all_configs = load_json(CONFIG_FILE)
@@ -1800,7 +1861,7 @@ class ProgressionSystem(commands.Cog, name="Progression & Economy"):
             guild_config["voice_panel_message_id"] = int(resp["id"])
             guild_config["voice_panel_channel_id"] = ctx.channel.id
             save_json(CONFIG_FILE, all_configs)
-            await ctx.send("✅ Panel aktivitas voice berhasil dipasang di channel ini dan akan otomatis di-update setiap menit!", ephemeral=True)
+            await ctx.send("✅ Panel aktivitas voice berhasil dipasang di channel ini dan akan selalu berada di posisi paling bawah!", ephemeral=True)
         else:
             await ctx.send("❌ Gagal mengirim panel voice dengan format Layout V2.", ephemeral=True)
 

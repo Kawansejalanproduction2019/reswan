@@ -1,5 +1,6 @@
 import discord
 from discord.ext import commands
+from discord import app_commands
 import discord.ui as ui
 import aiohttp
 import base64
@@ -284,6 +285,11 @@ async def on_message(message):
 async def on_ready():
     log.info(f"😎 Bot {bot.user} is now online and ready!")
     log.info(f"Total server: {len(bot.guilds)}")
+    try:
+        synced = await bot.tree.sync()
+        log.info(f"⚡ [AUTO-SYNC] Berhasil menyinkronkan {len(synced)} Slash Commands ke Discord!")
+    except Exception as e:
+        log.warning(f"⚠️ [AUTO-SYNC] Gagal sinkronisasi command tree: {e}")
 
 @bot.event
 async def on_guild_join(guild):
@@ -560,14 +566,24 @@ async def sendbackup(ctx):
         log.error(f"❌ Terjadi error saat mengambil data backup: {e}", exc_info=True)
 
 
-@bot.command(name="sync")
+@bot.hybrid_command(name="sync", description="Sinkronkan perintah slash (hybrid command) bot ke Discord")
+@app_commands.describe(scope="Pilih cakupan: 'guild' (instan langsung muncul di server ini) atau 'global' (seluruh server)")
 @commands.is_owner()
-async def sync_commands(ctx):
+async def sync_commands(ctx: commands.Context, scope: str = "guild"):
+    await ctx.defer(ephemeral=True)
     try:
-        synced = await bot.tree.sync()
-        await ctx.send(f"✅ Berhasil menyinkronkan {len(synced)} Slash Commands secara instan!")
+        if scope.lower() == "global":
+            synced = await bot.tree.sync()
+            msg = f"🌐 Berhasil menyinkronkan **{len(synced)}** Slash Commands secara global!"
+        else:
+            bot.tree.copy_global_to(guild=ctx.guild)
+            synced = await bot.tree.sync(guild=ctx.guild)
+            msg = f"⚡ Berhasil menyinkronkan **{len(synced)}** Slash Commands secara instan ke server **{ctx.guild.name}**!"
+        await ctx.send(msg, ephemeral=True)
+        log.info(msg)
     except Exception as e:
-        await ctx.send(f"❌ Gagal melakukan sinkronisasi: {e}")
+        await ctx.send(f"❌ Gagal melakukan sinkronisasi: {e}", ephemeral=True)
+        log.error(f"Sync error: {e}")
 
 
 @bot.command(name="cogbackup")
