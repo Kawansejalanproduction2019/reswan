@@ -681,6 +681,7 @@ class ProgressionSystem(commands.Cog, name="Progression & Economy"):
         self.bot = bot
         self.giveaways = {}
         self._voice_panel_locks = {}
+        self._voice_active_sessions = {}
         self.voice_task = self.create_voice_task()
         self.last_reset = datetime.utcnow()
         self._dirty_level = False
@@ -1000,20 +1001,19 @@ class ProgressionSystem(commands.Cog, name="Progression & Economy"):
                     max_level = guild_config.get("max_level", 0)
 
                     for vc in guild.voice_channels:
+                        # Lewati channel AFK server resmi jika ada
+                        if guild.afk_channel and vc.id == guild.afk_channel.id:
+                            continue
                         for member in vc.members:
-                            if member.bot or member.voice.self_deaf or member.voice.self_mute:
+                            if member.bot:
                                 continue
 
                             user_id = str(member.id)
                             if user_id not in data:
                                 data[user_id] = {"exp": 0, "weekly_exp": 0, "level": 0, "badges": []}
                             
-                            exp_gain_vc = int(base_exp_vc * anomaly_multiplier)
-                            rswn_gain_vc = int(base_rswn_vc * anomaly_multiplier)
-
-                            data[user_id]["exp"] += exp_gain_vc
-                            data[user_id].setdefault("weekly_exp", 0)
-                            data[user_id]["weekly_exp"] += exp_gain_vc
+                            # Catat session timestamp untuk pelacakan real-time
+                            self._voice_active_sessions[member.id] = time.time()
 
                             # Rekap durasi aktif voice (60 detik per menit perulangan)
                             data[user_id].setdefault("voice_time", 0)
@@ -1021,9 +1021,18 @@ class ProgressionSystem(commands.Cog, name="Progression & Economy"):
                             data[user_id].setdefault("weekly_voice_time", 0)
                             data[user_id]["weekly_voice_time"] += 60
 
-                            if user_id not in bank_data:
-                                bank_data[user_id] = {"balance": 0, "debt": 0}
-                            bank_data[user_id]["balance"] += rswn_gain_vc
+                            # EXP & Koin (tetap dapat selama tidak deafen)
+                            if not (member.voice and member.voice.self_deaf):
+                                exp_gain_vc = int(base_exp_vc * anomaly_multiplier)
+                                rswn_gain_vc = int(base_rswn_vc * anomaly_multiplier)
+
+                                data[user_id]["exp"] += exp_gain_vc
+                                data[user_id].setdefault("weekly_exp", 0)
+                                data[user_id]["weekly_exp"] += exp_gain_vc
+
+                                if user_id not in bank_data:
+                                    bank_data[user_id] = {"balance": 0, "debt": 0}
+                                bank_data[user_id]["balance"] += rswn_gain_vc
 
                             new_level = calculate_new_level(data[user_id]["exp"], exp_per_level, max_level)
                             if new_level > data[user_id].get("level", 0):
@@ -2131,6 +2140,37 @@ class ProgressionSystem(commands.Cog, name="Progression & Economy"):
                 await self.update_voice_panel(guild)
             except Exception:
                 pass
+
+    @commands.Cog.listener()
+    async def on_voice_state_update(self, member: discord.Member, before: discord.VoiceState, after: discord.VoiceState):
+        """Mencatat durasi voice saat user join/leave dengan presisi dan menyimpan data seketika."""
+        if member.bot:
+            return
+
+        guild = member.guild
+        now = time.time()
+
+        # User baru join voice channel (dan bukan channel AFK)
+        if before.channel is None and after.channel is not None:
+            if not (guild.afk_channel and after.channel.id == guild.afk_channel.id):
+                self._voice_active_sessions[member.id] = now
+
+        # User keluar dari voice channel atau pindah ke channel AFK
+        elif before.channel is not None and (after.channel is None or (guild.afk_channel and after.channel.id == guild.afk_channel.id)):
+            join_time = self._voice_active_sessions.pop(member.id, None)
+            if join_time:
+                elapsed = int(now - join_time)
+                rem_seconds = elapsed % 60
+                if rem_seconds > 0:
+                    all_level_data = load_json(LEVEL_FILE)
+                    data = all_level_data.setdefault(str(guild.id), {})
+                    user_data = data.setdefault(str(member.id), {"exp": 0, "weekly_exp": 0, "level": 0, "badges": []})
+                    user_data.setdefault("voice_time", 0)
+                    user_data["voice_time"] += rem_seconds
+                    user_data.setdefault("weekly_voice_time", 0)
+                    user_data["weekly_voice_time"] += rem_seconds
+                    save_json(LEVEL_FILE, all_level_data)
+                    self._dirty_level = True
 
     @commands.Cog.listener()
     async def on_interaction(self, interaction: discord.Interaction):
