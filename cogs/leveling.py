@@ -716,19 +716,43 @@ class ProgressionSystem(commands.Cog, name="Progression & Economy"):
                                 local_configs[g_id][k] = v
                 save_json(CONFIG_FILE, local_configs)
 
-            # 2. Level Data (jika file lokal kosong)
-            local_levels = load_json(LEVEL_FILE)
-            if not local_levels:
-                lvl_doc = db["level_data"].find_one({"_id": "global_levels"})
-                if lvl_doc and "data" in lvl_doc and isinstance(lvl_doc["data"], dict):
-                    save_json(LEVEL_FILE, lvl_doc["data"])
+            # 2. Level Data (Merge pintar dari MongoDB: pulihkan voice_time & exp tertinggi)
+            lvl_doc = db["level_data"].find_one({"_id": "global_levels"})
+            if lvl_doc and "data" in lvl_doc and isinstance(lvl_doc["data"], dict):
+                mongo_levels = lvl_doc["data"]
+                local_levels = load_json(LEVEL_FILE)
+                for g_id, g_users in mongo_levels.items():
+                    if g_id not in local_levels:
+                        local_levels[g_id] = g_users
+                    else:
+                        for u_id, u_data in g_users.items():
+                            if u_id not in local_levels[g_id]:
+                                local_levels[g_id][u_id] = u_data
+                            else:
+                                curr = local_levels[g_id][u_id]
+                                # Pulihkan voice_time dari MongoDB jika di lokal lebih kecil
+                                if u_data.get("voice_time", 0) > curr.get("voice_time", 0):
+                                    curr["voice_time"] = u_data["voice_time"]
+                                if u_data.get("weekly_voice_time", 0) > curr.get("weekly_voice_time", 0):
+                                    curr["weekly_voice_time"] = u_data["weekly_voice_time"]
+                                if u_data.get("exp", 0) > curr.get("exp", 0):
+                                    curr["exp"] = u_data["exp"]
+                                if u_data.get("level", 0) > curr.get("level", 0):
+                                    curr["level"] = u_data["level"]
+                save_json(LEVEL_FILE, local_levels)
 
-            # 3. Bank Data (jika file lokal kosong)
-            local_banks = load_json(BANK_FILE)
-            if not local_banks:
-                bank_doc = db["bank_data"].find_one({"_id": "global_banks"})
-                if bank_doc and "data" in bank_doc and isinstance(bank_doc["data"], dict):
-                    save_json(BANK_FILE, bank_doc["data"])
+            # 3. Bank Data (Merge pintar dari MongoDB)
+            bank_doc = db["bank_data"].find_one({"_id": "global_banks"})
+            if bank_doc and "data" in bank_doc and isinstance(bank_doc["data"], dict):
+                mongo_banks = bank_doc["data"]
+                local_banks = load_json(BANK_FILE)
+                for u_id, u_bank in mongo_banks.items():
+                    if u_id not in local_banks:
+                        local_banks[u_id] = u_bank
+                    else:
+                        if u_bank.get("balance", 0) > local_banks[u_id].get("balance", 0):
+                            local_banks[u_id]["balance"] = u_bank["balance"]
+                save_json(BANK_FILE, local_banks)
         except Exception as e:
             logging.error(f"[PROGRESSION MONGO RESTORE ERROR] {e}")
 
@@ -746,6 +770,23 @@ class ProgressionSystem(commands.Cog, name="Progression & Economy"):
                         upsert=True
                     )
                 threading.Thread(target=_sync_cfg, daemon=True).start()
+            except Exception:
+                pass
+
+    def save_level_data(self, all_level_data):
+        """Menyimpan level data & voice time ke lokal JSON dan menyinkronkannya ke MongoDB secara instan."""
+        save_json(LEVEL_FILE, all_level_data)
+        self._dirty_level = True
+        mongo_client = getattr(self.bot, 'mongo_client', None)
+        if mongo_client:
+            try:
+                def _sync_lvl():
+                    mongo_client.get_database("rtmbot")["level_data"].replace_one(
+                        {"_id": "global_levels"},
+                        {"_id": "global_levels", "data": all_level_data, "updated_at": time.time()},
+                        upsert=True
+                    )
+                threading.Thread(target=_sync_lvl, daemon=True).start()
             except Exception:
                 pass
 
@@ -1040,9 +1081,8 @@ class ProgressionSystem(commands.Cog, name="Progression & Economy"):
                                 await self.level_up(member, guild, None, new_level, data)
 
                     all_level_data[guild_id] = data
-                    save_json(LEVEL_FILE, all_level_data)
+                    self.save_level_data(all_level_data)
                     save_json(BANK_FILE, bank_data)
-                    self._dirty_level = True
                     self._dirty_bank = True
 
                     # Pembaruan otomatis (auto-update) panel voice terlama jika aktif di server
@@ -2055,8 +2095,7 @@ class ProgressionSystem(commands.Cog, name="Progression & Economy"):
             user_data.setdefault("weekly_voice_time", 0)
             user_data["weekly_voice_time"] += total_sec
 
-        save_json(LEVEL_FILE, all_level_data)
-        self._dirty_level = True
+        self.save_level_data(all_level_data)
 
         try:
             await self.update_voice_panel(ctx.guild)
@@ -2112,8 +2151,7 @@ class ProgressionSystem(commands.Cog, name="Progression & Economy"):
         if weekly:
             user_data["weekly_voice_time"] = total_sec
 
-        save_json(LEVEL_FILE, all_level_data)
-        self._dirty_level = True
+        self.save_level_data(all_level_data)
 
         try:
             await self.update_voice_panel(ctx.guild)
@@ -2167,8 +2205,7 @@ class ProgressionSystem(commands.Cog, name="Progression & Economy"):
                     user_data["voice_time"] += rem_seconds
                     user_data.setdefault("weekly_voice_time", 0)
                     user_data["weekly_voice_time"] += rem_seconds
-                    save_json(LEVEL_FILE, all_level_data)
-                    self._dirty_level = True
+                    self.save_level_data(all_level_data)
 
     @commands.Cog.listener()
     async def on_interaction(self, interaction: discord.Interaction):
