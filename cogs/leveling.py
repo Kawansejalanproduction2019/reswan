@@ -14,6 +14,7 @@ from io import BytesIO
 import io
 import aiohttp
 import unicodedata
+import threading
 
 try:
     from cogs.v2_layout import build_v2_card, send_v2_message, edit_v2_message
@@ -684,11 +685,68 @@ class ProgressionSystem(commands.Cog, name="Progression & Economy"):
         self.last_reset = datetime.utcnow()
         self._dirty_level = False
         self._dirty_bank = False
+        self._dirty_config = False
+        self.load_data_from_mongo()
         self.daily_quest_task.start()
         self.voice_task.start()
         self.flush_buffer_task.start()
         self.shop_data = load_json(SHOP_FILE)
         self.collage_url = load_json(COLLAGE_FILE).get("collage_url")
+
+    def load_data_from_mongo(self):
+        """Memuat data konfigurasi panel voice, level, dan bank dari MongoDB ke cache/file lokal saat startup."""
+        mongo_client = getattr(self.bot, 'mongo_client', None)
+        if not mongo_client:
+            return
+        try:
+            db = mongo_client.get_database("rtmbot")
+            # 1. Config Data (Lokasi channel & Message ID panel)
+            cfg_doc = db["config_data"].find_one({"_id": "global_configs"})
+            if cfg_doc and "data" in cfg_doc and isinstance(cfg_doc["data"], dict):
+                local_configs = load_json(CONFIG_FILE)
+                for g_id, g_cfg in cfg_doc["data"].items():
+                    if g_id not in local_configs:
+                        local_configs[g_id] = g_cfg
+                    else:
+                        for k, v in g_cfg.items():
+                            if k in ("voice_panel_channel_id", "voice_panel_message_id") and v:
+                                local_configs[g_id][k] = v
+                            elif k not in local_configs[g_id]:
+                                local_configs[g_id][k] = v
+                save_json(CONFIG_FILE, local_configs)
+
+            # 2. Level Data (jika file lokal kosong)
+            local_levels = load_json(LEVEL_FILE)
+            if not local_levels:
+                lvl_doc = db["level_data"].find_one({"_id": "global_levels"})
+                if lvl_doc and "data" in lvl_doc and isinstance(lvl_doc["data"], dict):
+                    save_json(LEVEL_FILE, lvl_doc["data"])
+
+            # 3. Bank Data (jika file lokal kosong)
+            local_banks = load_json(BANK_FILE)
+            if not local_banks:
+                bank_doc = db["bank_data"].find_one({"_id": "global_banks"})
+                if bank_doc and "data" in bank_doc and isinstance(bank_doc["data"], dict):
+                    save_json(BANK_FILE, bank_doc["data"])
+        except Exception as e:
+            logging.error(f"[PROGRESSION MONGO RESTORE ERROR] {e}")
+
+    def save_config_data(self, all_configs):
+        """Menyimpan konfigurasi bot (termasuk panel voice) ke lokal JSON dan menyinkronkannya ke MongoDB."""
+        save_json(CONFIG_FILE, all_configs)
+        self._dirty_config = True
+        mongo_client = getattr(self.bot, 'mongo_client', None)
+        if mongo_client:
+            try:
+                def _sync_cfg():
+                    mongo_client.get_database("rtmbot")["config_data"].replace_one(
+                        {"_id": "global_configs"},
+                        {"_id": "global_configs", "data": all_configs, "updated_at": time.time()},
+                        upsert=True
+                    )
+                threading.Thread(target=_sync_cfg, daemon=True).start()
+            except Exception:
+                pass
 
     def cog_unload(self):
         self.daily_quest_task.cancel()
@@ -702,6 +760,10 @@ class ProgressionSystem(commands.Cog, name="Progression & Economy"):
             bank_data = _memory_cache.get(BANK_FILE)
             if bank_data:
                 save_json(BANK_FILE, bank_data)
+        if getattr(self, '_dirty_config', False):
+            config_data = _memory_cache.get(CONFIG_FILE)
+            if config_data:
+                save_json(CONFIG_FILE, config_data)
 
     @tasks.loop(seconds=30)
     async def flush_buffer_task(self):
@@ -738,6 +800,22 @@ class ProgressionSystem(commands.Cog, name="Progression & Economy"):
                     except Exception:
                         pass
             self._dirty_bank = False
+        if getattr(self, '_dirty_config', False):
+            config_data = _memory_cache.get(CONFIG_FILE)
+            if config_data:
+                save_json(CONFIG_FILE, config_data)
+                if mongo_client:
+                    try:
+                        def _sync_config():
+                            mongo_client.get_database("rtmbot")["config_data"].replace_one(
+                                {"_id": "global_configs"},
+                                {"_id": "global_configs", "data": config_data, "updated_at": time.time()},
+                                upsert=True
+                            )
+                        await asyncio.to_thread(_sync_config)
+                    except Exception:
+                        pass
+            self._dirty_config = False
 
     def get_anomaly_multiplier(self):
         try:
@@ -955,6 +1033,8 @@ class ProgressionSystem(commands.Cog, name="Progression & Economy"):
                     all_level_data[guild_id] = data
                     save_json(LEVEL_FILE, all_level_data)
                     save_json(BANK_FILE, bank_data)
+                    self._dirty_level = True
+                    self._dirty_bank = True
 
                     # Pembaruan otomatis (auto-update) panel voice terlama jika aktif di server
                     try:
@@ -1758,14 +1838,15 @@ class ProgressionSystem(commands.Cog, name="Progression & Economy"):
             panel_id = guild_config.get("voice_panel_message_id")
             channel_id = guild_config.get("voice_panel_channel_id")
 
-            if not panel_id or channel.id != channel_id:
+            if not channel_id or channel.id != channel_id:
                 return
 
-            try:
-                old_panel = await channel.fetch_message(panel_id)
-                await old_panel.delete()
-            except Exception:
-                pass
+            if panel_id:
+                try:
+                    old_panel = await channel.fetch_message(panel_id)
+                    await old_panel.delete()
+                except Exception:
+                    pass
 
             card = self.build_voice_panel_card(guild)
             try:
@@ -1773,18 +1854,19 @@ class ProgressionSystem(commands.Cog, name="Progression & Economy"):
                 resp = await send_v2_message(self.bot, channel.id, [card])
                 if resp and isinstance(resp, dict) and "id" in resp:
                     guild_config["voice_panel_message_id"] = int(resp["id"])
-                    save_json(CONFIG_FILE, all_configs)
+                    self.save_config_data(all_configs)
             except Exception:
                 pass
 
     async def update_voice_panel(self, guild: discord.Guild):
+        """Update data panel voice secara berkala dengan sistem Self-Healing (otomatis buat ulang jika terhapus)."""
         guild_id = str(guild.id)
         all_configs = load_json(CONFIG_FILE)
         guild_config = all_configs.get(guild_id, {})
         panel_id = guild_config.get("voice_panel_message_id")
         channel_id = guild_config.get("voice_panel_channel_id")
 
-        if not panel_id or not channel_id:
+        if not channel_id:
             return
 
         channel = guild.get_channel(channel_id)
@@ -1795,42 +1877,41 @@ class ProgressionSystem(commands.Cog, name="Progression & Economy"):
         if lock.locked():
             return
         async with lock:
-            try:
-                panel_message = await channel.fetch_message(panel_id)
-            except discord.NotFound:
-                guild_config["voice_panel_message_id"] = None
-                save_json(CONFIG_FILE, all_configs)
-                return
-            except Exception:
-                return
+            panel_message = None
+            if panel_id:
+                try:
+                    panel_message = await channel.fetch_message(panel_id)
+                except discord.NotFound:
+                    panel_message = None  # Terhapus -> picu Self-Healing Auto-Recovery
+                except Exception:
+                    return
 
             card = self.build_voice_panel_card(guild)
+            from cogs.v2_layout import send_v2_message, edit_v2_message
 
-            # Jika ada pesan baru di bawah panel (bukan pesan terbawah), hapus dan kirim ulang di paling bawah
-            if channel.last_message_id and channel.last_message_id != panel_id:
-                try:
-                    await panel_message.delete()
-                except Exception:
-                    pass
-                from cogs.v2_layout import send_v2_message
+            # Jika panel terhapus (None) ATAU ada chat baru di bawah panel -> buat ulang di pesan terbawah
+            if panel_message is None or (channel.last_message_id and channel.last_message_id != panel_id):
+                if panel_message:
+                    try:
+                        await panel_message.delete()
+                    except Exception:
+                        pass
                 resp = await send_v2_message(self.bot, channel.id, [card])
                 if resp and isinstance(resp, dict) and "id" in resp:
                     guild_config["voice_panel_message_id"] = int(resp["id"])
-                    save_json(CONFIG_FILE, all_configs)
+                    self.save_config_data(all_configs)
                 return
 
-            # Jika panel sudah di paling bawah, update data secara in-place dengan edit_v2_message
+            # Jika panel masih berada di paling bawah -> edit data in-place secara halus
             try:
-                from cogs.v2_layout import edit_v2_message
                 resp = await edit_v2_message(self.bot, channel.id, panel_message.id, [card])
                 if resp is None:
                     try: await panel_message.delete()
                     except Exception: pass
-                    from cogs.v2_layout import send_v2_message
                     new_resp = await send_v2_message(self.bot, channel.id, [card])
                     if new_resp and isinstance(new_resp, dict) and "id" in new_resp:
                         guild_config["voice_panel_message_id"] = int(new_resp["id"])
-                        save_json(CONFIG_FILE, all_configs)
+                        self.save_config_data(all_configs)
             except Exception:
                 pass
 
@@ -1860,10 +1941,35 @@ class ProgressionSystem(commands.Cog, name="Progression & Economy"):
         if resp and isinstance(resp, dict) and "id" in resp:
             guild_config["voice_panel_message_id"] = int(resp["id"])
             guild_config["voice_panel_channel_id"] = ctx.channel.id
-            save_json(CONFIG_FILE, all_configs)
-            await ctx.send("✅ Panel aktivitas voice berhasil dipasang di channel ini dan akan selalu berada di posisi paling bawah!", ephemeral=True)
+            self.save_config_data(all_configs)
+            await ctx.send("✅ Panel aktivitas voice berhasil dipasang di channel ini, tersimpan di MongoDB, dan selalu berada di posisi paling bawah!", ephemeral=True)
         else:
             await ctx.send("❌ Gagal mengirim panel voice dengan format Layout V2.", ephemeral=True)
+
+    @commands.hybrid_command(name="voicepanel_remove", description="Hapus dan nonaktifkan panel aktivitas voice di server ini")
+    @commands.has_permissions(manage_guild=True)
+    async def voicepanel_remove(self, ctx: commands.Context):
+        await ctx.defer(ephemeral=True)
+        guild = ctx.guild
+        guild_id = str(guild.id)
+        all_configs = load_json(CONFIG_FILE)
+        guild_config = all_configs.setdefault(guild_id, {})
+        panel_id = guild_config.get("voice_panel_message_id")
+        channel_id = guild_config.get("voice_panel_channel_id")
+
+        if panel_id and channel_id:
+            channel = guild.get_channel(channel_id)
+            if channel:
+                try:
+                    msg = await channel.fetch_message(panel_id)
+                    await msg.delete()
+                except Exception:
+                    pass
+
+        guild_config["voice_panel_message_id"] = None
+        guild_config["voice_panel_channel_id"] = None
+        self.save_config_data(all_configs)
+        await ctx.send("✅ Panel aktivitas voice berhasil dinonaktifkan dan dihapus dari server ini.", ephemeral=True)
 
     @commands.hybrid_command(name="voicetime", description="Cek total durasi aktif di voice channel server ini")
     @app_commands.describe(member="Member yang ingin dicek waktu voice-nya (kosongkan untuk diri sendiri)")
@@ -1900,6 +2006,131 @@ class ProgressionSystem(commands.Cog, name="Progression & Economy"):
         embed.add_field(name="📡 Status Voice Saat Ini", value=status_text, inline=False)
         embed.set_footer(text="Gunakan /voicepanel untuk memasang papan leaderboard voice lengkap.")
         await ctx.send(embed=embed)
+
+    @commands.hybrid_command(name="addvoicetime", description="[OWNER] Tambahkan durasi voice untuk diri sendiri atau member lain")
+    @app_commands.describe(
+        jam="Jumlah jam yang ingin ditambahkan",
+        menit="Jumlah menit yang ingin ditambahkan",
+        detik="Jumlah detik yang ingin ditambahkan",
+        member="Member target (kosongkan untuk diri sendiri)",
+        weekly="Apakah ditambahkan juga ke statistik mingguan? (Default: True)"
+    )
+    async def addvoicetime(
+        self,
+        ctx: commands.Context,
+        jam: int = 0,
+        menit: int = 0,
+        detik: int = 0,
+        member: discord.Member = None,
+        weekly: bool = True
+    ):
+        await ctx.defer(ephemeral=True)
+        is_bot_owner = await self.bot.is_owner(ctx.author)
+        if not is_bot_owner and ctx.author.id != ctx.guild.owner_id:
+            return await ctx.send("❌ Perintah ini khusus untuk Owner bot / Server!", ephemeral=True)
+
+        total_sec = (jam * 3600) + (menit * 60) + detik
+        if total_sec <= 0:
+            return await ctx.send("❌ Masukkan durasi yang valid (minimal 1 detik/menit/jam)!", ephemeral=True)
+
+        target = member or ctx.author
+        guild_id = str(ctx.guild.id)
+        all_level_data = load_json(LEVEL_FILE)
+        data = all_level_data.setdefault(guild_id, {})
+        user_data = data.setdefault(str(target.id), {"exp": 0, "weekly_exp": 0, "level": 0, "badges": []})
+
+        user_data.setdefault("voice_time", 0)
+        user_data["voice_time"] += total_sec
+
+        if weekly:
+            user_data.setdefault("weekly_voice_time", 0)
+            user_data["weekly_voice_time"] += total_sec
+
+        save_json(LEVEL_FILE, all_level_data)
+        self._dirty_level = True
+
+        try:
+            await self.update_voice_panel(ctx.guild)
+        except Exception:
+            pass
+
+        added_str = format_voice_duration(total_sec)
+        total_all_str = format_voice_duration(user_data["voice_time"])
+        total_weekly_str = format_voice_duration(user_data.get("weekly_voice_time", 0))
+
+        await ctx.send(
+            f"👑 **[OWNER BOOST] Berhasil menambahkan durasi voice!**\n"
+            f"• **Target:** {target.mention}\n"
+            f"• **Ditambahkan:** `+{added_str}`\n"
+            f"• **Total All-Time Sekarang:** `{total_all_str}`\n"
+            f"• **Total Mingguan Sekarang:** `{total_weekly_str}`\n"
+            f"⚡ Papan Voice Leaderboard telah diperbarui secara instan!",
+            ephemeral=True
+        )
+
+    @commands.hybrid_command(name="setvoicetime", description="[OWNER] Atur total durasi voice diri sendiri atau member lain ke angka tertentu")
+    @app_commands.describe(
+        jam="Jumlah jam yang ingin diatur",
+        menit="Jumlah menit yang ingin diatur",
+        detik="Jumlah detik yang ingin diatur",
+        member="Member target (kosongkan untuk diri sendiri)",
+        weekly="Apakah diterapkan juga ke statistik mingguan? (Default: True)"
+    )
+    async def setvoicetime(
+        self,
+        ctx: commands.Context,
+        jam: int = 0,
+        menit: int = 0,
+        detik: int = 0,
+        member: discord.Member = None,
+        weekly: bool = True
+    ):
+        await ctx.defer(ephemeral=True)
+        is_bot_owner = await self.bot.is_owner(ctx.author)
+        if not is_bot_owner and ctx.author.id != ctx.guild.owner_id:
+            return await ctx.send("❌ Perintah ini khusus untuk Owner bot / Server!", ephemeral=True)
+
+        total_sec = (jam * 3600) + (menit * 60) + detik
+        if total_sec < 0:
+            return await ctx.send("❌ Durasi tidak boleh negatif!", ephemeral=True)
+
+        target = member or ctx.author
+        guild_id = str(ctx.guild.id)
+        all_level_data = load_json(LEVEL_FILE)
+        data = all_level_data.setdefault(guild_id, {})
+        user_data = data.setdefault(str(target.id), {"exp": 0, "weekly_exp": 0, "level": 0, "badges": []})
+
+        user_data["voice_time"] = total_sec
+        if weekly:
+            user_data["weekly_voice_time"] = total_sec
+
+        save_json(LEVEL_FILE, all_level_data)
+        self._dirty_level = True
+
+        try:
+            await self.update_voice_panel(ctx.guild)
+        except Exception:
+            pass
+
+        set_str = format_voice_duration(total_sec)
+        await ctx.send(
+            f"👑 **[OWNER SET] Berhasil mengatur ulang total durasi voice!**\n"
+            f"• **Target:** {target.mention}\n"
+            f"• **Total Diatur Ke:** `{set_str}`\n"
+            f"• **Termasuk Mingguan:** `{'Ya' if weekly else 'Tidak'}`\n"
+            f"⚡ Papan Voice Leaderboard telah diperbarui secara instan!",
+            ephemeral=True
+        )
+
+    @commands.Cog.listener()
+    async def on_ready(self):
+        """Sinkronisasi data dari MongoDB dan verifikasi panel voice di semua server saat bot ready."""
+        self.load_data_from_mongo()
+        for guild in self.bot.guilds:
+            try:
+                await self.update_voice_panel(guild)
+            except Exception:
+                pass
 
     @commands.Cog.listener()
     async def on_interaction(self, interaction: discord.Interaction):
