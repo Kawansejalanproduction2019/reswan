@@ -15,6 +15,13 @@ import io
 import aiohttp
 import unicodedata
 
+try:
+    from cogs.v2_layout import build_v2_card, send_v2_message, edit_v2_message
+except ImportError:
+    build_v2_card = None
+    send_v2_message = None
+    edit_v2_message = None
+
 LEVEL_FILE = "data/level_data.json"
 BANK_FILE = "data/bank_data.json"
 SHOP_FILE = "data/shop_items.json"
@@ -78,6 +85,25 @@ def calculate_new_level(exp, exp_per_level, max_level):
     if max_level > 0 and lvl > max_level:
         return max_level
     return lvl
+
+def format_voice_duration(seconds: int) -> str:
+    """Format durasi detik ke format teks manusia (Hari, Jam, Menit, Detik)."""
+    if seconds <= 0:
+        return "0 Menit"
+    days, remainder = divmod(seconds, 86400)
+    hours, remainder = divmod(remainder, 3600)
+    minutes, secs = divmod(remainder, 60)
+
+    parts = []
+    if days > 0:
+        parts.append(f"{days} Hari")
+    if hours > 0:
+        parts.append(f"{hours} Jam")
+    if minutes > 0:
+        parts.append(f"{minutes} Menit")
+    if not parts:
+        parts.append(f"{secs} Detik")
+    return " ".join(parts)
 
 async def crop_avatar_to_circle(user: discord.User):
     async with aiohttp.ClientSession() as session:
@@ -910,6 +936,12 @@ class ProgressionSystem(commands.Cog, name="Progression & Economy"):
                             data[user_id].setdefault("weekly_exp", 0)
                             data[user_id]["weekly_exp"] += exp_gain_vc
 
+                            # Rekap durasi aktif voice (60 detik per menit perulangan)
+                            data[user_id].setdefault("voice_time", 0)
+                            data[user_id]["voice_time"] += 60
+                            data[user_id].setdefault("weekly_voice_time", 0)
+                            data[user_id]["weekly_voice_time"] += 60
+
                             if user_id not in bank_data:
                                 bank_data[user_id] = {"balance": 0, "debt": 0}
                             bank_data[user_id]["balance"] += rswn_gain_vc
@@ -923,9 +955,16 @@ class ProgressionSystem(commands.Cog, name="Progression & Economy"):
                     save_json(LEVEL_FILE, all_level_data)
                     save_json(BANK_FILE, bank_data)
 
+                    # Pembaruan otomatis (auto-update) panel voice terlama jika aktif di server
+                    try:
+                        await self.update_voice_panel(guild)
+                    except Exception:
+                        pass
+
                     if now.weekday() == WEEKLY_RESET_DAY and now.date() != self.last_reset.date():
                         for user_data in data.values():
                             user_data["weekly_exp"] = 0
+                            user_data["weekly_voice_time"] = 0
                         self.last_reset = now
                         save_json(LEVEL_FILE, all_level_data)
             except Exception:
@@ -1517,20 +1556,53 @@ class ProgressionSystem(commands.Cog, name="Progression & Economy"):
         data = all_level_data.get(guild_id, {})
         if not data:
             return await ctx.send("Belum ada data EXP di server ini.")
-            
+
         sorted_users = sorted(data.items(), key=lambda x: x[1].get('exp', 0), reverse=True)
-        embed = discord.Embed(title="🏆 Leaderboard EXP", color=discord.Color.gold())
-        
-        if ctx.guild.icon:
-            embed.set_thumbnail(url=ctx.guild.icon.url)
-            
+        medals = ["🥇", "🥈", "🥉"] + [f"`#{i}`" for i in range(4, 11)]
+
+        top_lines = []
         for idx, (user_id, user_data) in enumerate(sorted_users[:10], start=1):
             user = ctx.guild.get_member(int(user_id))
             if user:
-                badges = " ".join(user_data.get("badges", [])) or "Tidak ada"
-                embed.add_field(name=f"{idx}. {user.display_name}", 
-                                value=f"**Level:** {user_data.get('level', 0)} | **EXP:** {user_data.get('exp', 0)}\n**Badges:** {badges}", 
-                                inline=False)
+                medal = medals[idx - 1] if idx <= 10 else f"`#{idx}`"
+                badges = " ".join(user_data.get("badges", []))
+                badge_str = f" • {badges}" if badges else ""
+                exp_val = user_data.get('exp', 0)
+                lvl_val = user_data.get('level', 0)
+                vc_sec = user_data.get('voice_time', 0)
+                vc_str = f" | 🎙️ {format_voice_duration(vc_sec)}" if vc_sec > 0 else ""
+                top_lines.append(f"{medal} **{user.display_name}**\nLevel **{lvl_val}** (EXP: `{exp_val:,}`){badge_str}{vc_str}")
+
+        v2_fields = [{
+            "name": "🏆 TOP 10 PERINGKAT EXP SERVER",
+            "value": "\n\n".join(top_lines) if top_lines else "Belum ada member yang memiliki EXP."
+        }]
+
+        card = build_v2_card(
+            title=f"🏆 EXP Leaderboard — {ctx.guild.name}",
+            description="Peringkat 10 anggota teratas dengan perolehan EXP dan level tertinggi di server ini.",
+            fields=v2_fields,
+            color=0xF1C40F,
+            footer=f"Total Data: {len(data)} Member • Diperbarui: {datetime.now().strftime('%d/%m/%Y %H:%M')} WIB"
+        )
+
+        try:
+            from cogs.v2_layout import send_v2_message
+            resp = await send_v2_message(self.bot, ctx.channel.id, [card])
+            if resp and (not isinstance(resp, dict) or "error_msg" not in resp):
+                return
+        except Exception:
+            pass
+
+        # Fallback ke Discord Embed jika layout V2 tidak tersedia
+        embed = discord.Embed(
+            title=f"🏆 EXP Leaderboard — {ctx.guild.name}",
+            description="\n\n".join(top_lines) if top_lines else "Belum ada member.",
+            color=discord.Color.gold(),
+            timestamp=datetime.now()
+        )
+        if ctx.guild.icon:
+            embed.set_thumbnail(url=ctx.guild.icon.url)
         await ctx.send(embed=embed)
 
     @commands.hybrid_command(name="weekly", description="Melihat peringkat 10 besar EXP mingguan di server ini")
@@ -1541,21 +1613,263 @@ class ProgressionSystem(commands.Cog, name="Progression & Economy"):
         data = all_level_data.get(guild_id, {})
         if not data:
             return await ctx.send("Belum ada data EXP di server ini.")
-            
+
         valid_users = {uid: udata for uid, udata in data.items() if ctx.guild.get_member(int(uid))}
         sorted_users = sorted(valid_users.items(), key=lambda x: x[1].get('weekly_exp', 0), reverse=True)
-        embed = discord.Embed(title="🏅 Weekly Leaderboard", color=discord.Color.blue())
-        
-        if ctx.guild.icon:
-            embed.set_thumbnail(url=ctx.guild.icon.url)
-            
+        medals = ["🥇", "🥈", "🥉"] + [f"`#{i}`" for i in range(4, 11)]
+
+        top_lines = []
         for idx, (user_id, user_data) in enumerate(sorted_users[:10], start=1):
             user = ctx.guild.get_member(int(user_id))
             if user:
-                embed.add_field(name=f"{idx}. {user.display_name}", 
-                                value=f"**Weekly EXP:** {user_data.get('weekly_exp', 0)}", 
-                                inline=False)
+                medal = medals[idx - 1] if idx <= 10 else f"`#{idx}`"
+                w_exp = user_data.get('weekly_exp', 0)
+                w_vc = user_data.get('weekly_voice_time', 0)
+                vc_info = f" | 🎙️ {format_voice_duration(w_vc)}" if w_vc > 0 else ""
+                top_lines.append(f"{medal} **{user.display_name}**\nEXP Mingguan: `+{w_exp:,}`{vc_info}")
+
+        v2_fields = [{
+            "name": "🏅 TOP 10 PEROLEHAN EXP MINGGU INI",
+            "value": "\n\n".join(top_lines) if top_lines else "Belum ada aktivitas mingguan."
+        }]
+
+        card = build_v2_card(
+            title=f"🏅 Weekly Leaderboard — {ctx.guild.name}",
+            description="Peringkat anggota paling aktif mengumpulkan EXP selama minggu ini (reset otomatis setiap Senin).",
+            fields=v2_fields,
+            color=0x3498DB,
+            footer=f"Reset mingguan: Senin 00:00 UTC • {datetime.now().strftime('%d/%m/%Y %H:%M')} WIB"
+        )
+
+        try:
+            from cogs.v2_layout import send_v2_message
+            resp = await send_v2_message(self.bot, ctx.channel.id, [card])
+            if resp and (not isinstance(resp, dict) or "error_msg" not in resp):
+                return
+        except Exception:
+            pass
+
+        embed = discord.Embed(
+            title=f"🏅 Weekly Leaderboard — {ctx.guild.name}",
+            description="\n\n".join(top_lines) if top_lines else "Belum ada aktivitas mingguan.",
+            color=discord.Color.blue(),
+            timestamp=datetime.now()
+        )
+        if ctx.guild.icon:
+            embed.set_thumbnail(url=ctx.guild.icon.url)
         await ctx.send(embed=embed)
+
+    def build_voice_panel_card(self, guild: discord.Guild):
+        guild_id = str(guild.id)
+        all_level_data = load_json(LEVEL_FILE)
+        data = all_level_data.get(guild_id, {})
+
+        # 1. Top 10 All-Time Voice Time
+        users_with_voice = [
+            (uid, udata) for uid, udata in data.items()
+            if udata.get("voice_time", 0) > 0 and guild.get_member(int(uid))
+        ]
+        sorted_voice_all = sorted(users_with_voice, key=lambda x: x[1].get("voice_time", 0), reverse=True)[:10]
+
+        medals = ["🥇", "🥈", "🥉"] + [f"`#{i}`" for i in range(4, 11)]
+        top_all_lines = []
+        for idx, (uid, udata) in enumerate(sorted_voice_all, start=1):
+            member = guild.get_member(int(uid))
+            if member:
+                m_icon = medals[idx - 1]
+                dur = format_voice_duration(udata.get("voice_time", 0))
+                top_all_lines.append(f"{m_icon} **{member.display_name}** — `{dur}`")
+
+        # 2. Top 5 Weekly Voice Time
+        users_with_weekly = [
+            (uid, udata) for uid, udata in data.items()
+            if udata.get("weekly_voice_time", 0) > 0 and guild.get_member(int(uid))
+        ]
+        sorted_voice_weekly = sorted(users_with_weekly, key=lambda x: x[1].get("weekly_voice_time", 0), reverse=True)[:5]
+        top_weekly_lines = []
+        for idx, (uid, udata) in enumerate(sorted_voice_weekly, start=1):
+            member = guild.get_member(int(uid))
+            if member:
+                dur = format_voice_duration(udata.get("weekly_voice_time", 0))
+                top_weekly_lines.append(f"• **{member.display_name}** — `{dur}`")
+
+        # 3. Aktivitas Voice Saat Ini
+        active_members_count = 0
+        active_channels_info = []
+        for vc in guild.voice_channels:
+            active_in_vc = [m for m in vc.members if not m.bot]
+            if active_in_vc:
+                active_members_count += len(active_in_vc)
+                names = ", ".join(m.display_name for m in active_in_vc[:4])
+                if len(active_in_vc) > 4:
+                    names += f" +{len(active_in_vc) - 4} lainnya"
+                active_channels_info.append(f"🔊 **{vc.name}** ({len(active_in_vc)} member): {names}")
+
+        fields = [
+            {
+                "name": "👑 TOP 10 MEMBER VOICE TERLAMA (ALL-TIME)",
+                "value": "\n".join(top_all_lines) if top_all_lines else "Belum ada catatan durasi voice."
+            },
+            {
+                "name": "⚡ TOP VOICE MINGGU INI",
+                "value": "\n".join(top_weekly_lines) if top_weekly_lines else "Belum ada catatan voice minggu ini."
+            },
+            {
+                "name": f"🎙️ STATUS VOICE REAL-TIME ({active_members_count} MEMBER AKTIF)",
+                "value": "\n".join(active_channels_info) if active_channels_info else "Saat ini belum ada member di Voice Channel."
+            }
+        ]
+
+        buttons = [
+            {"label": "Cek Voice Saya", "style": 1, "emoji": "⏱️", "custom_id": "voicepanel_check_self"},
+            {"label": "Perbarui Panel", "style": 2, "emoji": "🔄", "custom_id": "voicepanel_refresh"}
+        ]
+
+        now_wib = datetime.utcnow() + timedelta(hours=7)
+        card = build_v2_card(
+            title=f"🎙️ Voice Activity & Leaderboard — {guild.name}",
+            description="Papan statistik dan peringkat member terlama aktif di voice channel server.",
+            fields=fields,
+            color=0x2ECC71,
+            buttons=buttons,
+            footer=f"Auto-update tiap 1 menit • Terakhir diperbarui: {now_wib.strftime('%d/%m/%Y %H:%M:%S')} WIB"
+        )
+        return card
+
+    async def update_voice_panel(self, guild: discord.Guild):
+        guild_id = str(guild.id)
+        all_configs = load_json(CONFIG_FILE)
+        guild_config = all_configs.get(guild_id, {})
+        panel_id = guild_config.get("voice_panel_message_id")
+        channel_id = guild_config.get("voice_panel_channel_id")
+
+        if not panel_id or not channel_id:
+            return
+
+        channel = guild.get_channel(channel_id)
+        if not channel:
+            return
+
+        try:
+            panel_message = await channel.fetch_message(panel_id)
+        except discord.NotFound:
+            guild_config["voice_panel_message_id"] = None
+            save_json(CONFIG_FILE, all_configs)
+            return
+        except Exception:
+            return
+
+        card = self.build_voice_panel_card(guild)
+        try:
+            from cogs.v2_layout import edit_v2_message
+            resp = await edit_v2_message(self.bot, channel.id, panel_message.id, [card])
+            if resp is None:
+                try: await panel_message.delete()
+                except Exception: pass
+                from cogs.v2_layout import send_v2_message
+                new_resp = await send_v2_message(self.bot, channel.id, [card])
+                if new_resp and isinstance(new_resp, dict) and "id" in new_resp:
+                    guild_config["voice_panel_message_id"] = int(new_resp["id"])
+                    save_json(CONFIG_FILE, all_configs)
+        except Exception:
+            pass
+
+    @commands.hybrid_command(name="voicepanel", description="Pasang panel leaderboard dan aktivitas voice server yang otomatis ter-update.")
+    @commands.has_permissions(manage_guild=True)
+    async def voicepanel(self, ctx: commands.Context):
+        guild = ctx.guild
+        guild_id = str(guild.id)
+        all_configs = load_json(CONFIG_FILE)
+        guild_config = all_configs.setdefault(guild_id, {})
+
+        old_panel_id = guild_config.get("voice_panel_message_id")
+        old_channel_id = guild_config.get("voice_panel_channel_id")
+        if old_panel_id and old_channel_id:
+            old_channel = guild.get_channel(old_channel_id)
+            if old_channel:
+                try:
+                    old_msg = await old_channel.fetch_message(old_panel_id)
+                    await old_msg.delete()
+                except Exception:
+                    pass
+
+        card = self.build_voice_panel_card(guild)
+        from cogs.v2_layout import send_v2_message
+        resp = await send_v2_message(self.bot, ctx.channel.id, [card])
+        if resp and isinstance(resp, dict) and "id" in resp:
+            guild_config["voice_panel_message_id"] = int(resp["id"])
+            guild_config["voice_panel_channel_id"] = ctx.channel.id
+            save_json(CONFIG_FILE, all_configs)
+            await ctx.send("✅ Panel aktivitas voice berhasil dipasang di channel ini dan akan otomatis di-update setiap menit!", ephemeral=True)
+        else:
+            await ctx.send("❌ Gagal mengirim panel voice dengan format Layout V2.", ephemeral=True)
+
+    @commands.hybrid_command(name="voicetime", description="Cek total durasi aktif di voice channel server ini")
+    @app_commands.describe(member="Member yang ingin dicek waktu voice-nya (kosongkan untuk diri sendiri)")
+    async def voicetime(self, ctx: commands.Context, member: discord.Member = None):
+        target = member or ctx.author
+        guild_id = str(ctx.guild.id)
+        all_level_data = load_json(LEVEL_FILE)
+        data = all_level_data.get(guild_id, {})
+        user_data = data.get(str(target.id), {})
+
+        v_time = user_data.get("voice_time", 0)
+        w_time = user_data.get("weekly_voice_time", 0)
+
+        all_v = sorted([(uid, ud.get("voice_time", 0)) for uid, ud in data.items()], key=lambda x: x[1], reverse=True)
+        rank_no = "N/A"
+        for idx, (uid, _) in enumerate(all_v, start=1):
+            if uid == str(target.id):
+                rank_no = f"#{idx}"
+                break
+
+        current_vc = target.voice.channel if target.voice else None
+        status_text = f"🟢 Sedang online di **#{current_vc.name}**" if current_vc else "⚪ Sedang tidak berada di Voice Channel"
+
+        embed = discord.Embed(
+            title=f"🎙️ Statistik Voice • {target.display_name}",
+            color=0x2ECC71 if current_vc else discord.Color.blue(),
+            timestamp=datetime.now()
+        )
+        if target.avatar:
+            embed.set_thumbnail(url=target.avatar.url)
+        embed.add_field(name="⏱️ Total Waktu Voice (All-Time)", value=f"**{format_voice_duration(v_time)}**", inline=True)
+        embed.add_field(name="⚡ Waktu Minggu Ini", value=f"**{format_voice_duration(w_time)}**", inline=True)
+        embed.add_field(name="🏆 Peringkat Voice Server", value=f"**{rank_no}** dari {len(all_v)} member", inline=True)
+        embed.add_field(name="📡 Status Voice Saat Ini", value=status_text, inline=False)
+        embed.set_footer(text="Gunakan /voicepanel untuk memasang papan leaderboard voice lengkap.")
+        await ctx.send(embed=embed)
+
+    @commands.Cog.listener()
+    async def on_interaction(self, interaction: discord.Interaction):
+        if interaction.type != discord.InteractionType.component:
+            return
+        custom_id = interaction.data.get("custom_id", "")
+        if custom_id == "voicepanel_check_self":
+            guild = interaction.guild
+            if not guild:
+                return
+            all_level_data = load_json(LEVEL_FILE)
+            data = all_level_data.get(str(guild.id), {})
+            user_data = data.get(str(interaction.user.id), {})
+            v_time = user_data.get("voice_time", 0)
+            w_time = user_data.get("weekly_voice_time", 0)
+            cur_vc = interaction.user.voice.channel if interaction.user.voice else None
+            status_str = f"Sedang aktif di #{cur_vc.name}" if cur_vc else "Tidak sedang berada di Voice Channel"
+
+            resp_text = (
+                f"🎙️ **Statistik Voice Kamu di {guild.name}**:\n"
+                f"• **Total Waktu Voice (All-Time):** `{format_voice_duration(v_time)}`\n"
+                f"• **Total Waktu Minggu Ini:** `{format_voice_duration(w_time)}`\n"
+                f"• **Status Sekarang:** {status_str}"
+            )
+            await interaction.response.send_message(resp_text, ephemeral=True)
+        elif custom_id == "voicepanel_refresh":
+            guild = interaction.guild
+            if not guild:
+                return
+            await self.update_voice_panel(guild)
+            await interaction.response.send_message("✅ Panel Voice berhasil diperbarui ke data terbaru!", ephemeral=True)
         
     @commands.hybrid_command(name="rank", description="Lihat kartu rank, progress level, dan status RSWN dengan visual eksklusif")
     @app_commands.describe(member="Pilih member untuk melihat rank mereka (opsional)")
