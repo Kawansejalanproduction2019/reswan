@@ -851,21 +851,34 @@ class IntelligenceCore(commands.Cog, name="Cyber Defense & AI Raka"):
                 break
         
         first_media = message.attachments[0].url if message.attachments else None
+        first_media_bytes = None
+        first_media_filename = None
+        if message.attachments:
+            try:
+                first_media_bytes = await message.attachments[0].read()
+                first_media_filename = message.attachments[0].filename or "evidence.png"
+            except Exception:
+                pass
         is_wh = message.webhook_id is not None
 
         if mod_cog:
             try:
                 await mod_cog.send_spam_log_v2(
-                    message.guild, message.author, message.channel.mention,
-                    "Terdeteksi mengirim pesan berisi spam atau phising (Sistem Anti-Spam)",
-                    reason, str(message.id),
+                    guild=message.guild,
+                    member=message.author,
+                    trigger_channels=message.channel.mention,
+                    reason="Terdeteksi mengirim pesan berisi spam atau phising (Sistem Anti-Spam)",
+                    detailed_reason=reason,
+                    message_id=str(message.id),
                     message_content=message.content,
                     media_url=first_media,
-                    is_webhook=is_wh
+                    is_webhook=is_wh,
+                    media_bytes=first_media_bytes,
+                    media_filename=first_media_filename
                 )
             except Exception as e:
                 import logging
-                logging.getLogger("discord").error(f"Error sending spam log V2: {e}")
+                logging.getLogger("discord").error(f"Error sending spam log: {e}")
 
         try: await message.delete()
         except: pass
@@ -909,15 +922,31 @@ class IntelligenceCore(commands.Cog, name="Cyber Defense & AI Raka"):
             except: pass
             return
 
+        async def safe_timeout(member: discord.Member, duration: timedelta, t_reason: str):
+            try:
+                now_utc = datetime.now(timezone.utc)
+                fresh_member = member.guild.get_member(member.id) or member
+                if fresh_member.is_timed_out() and fresh_member.timed_out_until:
+                    remaining = fresh_member.timed_out_until - now_utc
+                    if remaining >= duration:
+                        log.info(f"[SAFE_TIMEOUT] Skipped: {member} sisa timeout {remaining} >= {duration}")
+                        return False
+                await fresh_member.timeout(duration, reason=t_reason)
+                return True
+            except Exception as e:
+                log.error(f"[SAFE_TIMEOUT_FAIL] {e}")
+                return False
+
         if action in ["kick", "ban"]:
             try:
-                await message.author.timeout(timedelta(days=28), reason=reason)
-                try:
-                    dm_embed = discord.Embed(title=f"⚠️ Sanksi Timeout - {message.guild.name}", description=f"Anda telah di-timeout selama 28 Hari oleh sistem keamanan karena melanggar aturan.\n\n**Alasan:** {reason}\n\n*Anda dapat mengajukan banding atas aksi ini dengan mengirim DM ke admin/moderator server.*", color=0xFF0000)
-                    await message.author.send(embed=dm_embed)
-                except: pass
-                try: await message.channel.send(f"🛡️ {message.author.mention} otomatis di-timeout **28 Hari** karena melanggar aturan keamanan berat.", delete_after=15)
-                except: pass
+                applied = await safe_timeout(message.author, timedelta(days=27, hours=23, minutes=59), reason)
+                if applied:
+                    try:
+                        dm_embed = discord.Embed(title=f"⚠️ Sanksi Timeout - {message.guild.name}", description=f"Anda telah di-timeout selama 28 Hari oleh sistem keamanan karena melanggar aturan.\n\n**Alasan:** {reason}\n\n*Anda dapat mengajukan banding atas aksi ini dengan mengirim DM ke admin/moderator server.*", color=0xFF0000)
+                        await message.author.send(embed=dm_embed)
+                    except: pass
+                    try: await message.channel.send(f"🛡️ {message.author.mention} otomatis di-timeout **28 Hari** karena melanggar aturan keamanan berat.", delete_after=15)
+                    except: pass
             except Exception: pass
             return
 
@@ -944,13 +973,14 @@ class IntelligenceCore(commands.Cog, name="Cyber Defense & AI Raka"):
             idx = min(count - 2, len(durations) - 1)
             duration_m = durations[idx]
             try:
-                await message.author.timeout(timedelta(minutes=duration_m), reason=f"RTM_AI Auto-Timeout: {reason}")
-                try:
-                    dm_embed = discord.Embed(title=f"⚠️ Sanksi Timeout - {message.guild.name}", description=f"Anda telah di-timeout selama {duration_m} Menit oleh sistem keamanan karena melanggar aturan secara beruntun.\n\n**Alasan:** {reason}\n\n*Anda dapat mengajukan banding atas aksi ini dengan mengirim DM ke admin/moderator server.*", color=0xFF0000)
-                    await message.author.send(embed=dm_embed)
-                except: pass
-                try: await message.channel.send(f"🛡️ <@{uid_str}> otomatis di-timeout **{duration_m} Menit** karena mengulangi pelanggaran beruntun.", delete_after=15)
-                except: pass
+                applied = await safe_timeout(message.author, timedelta(minutes=duration_m), f"RTM_AI Auto-Timeout: {reason}")
+                if applied:
+                    try:
+                        dm_embed = discord.Embed(title=f"⚠️ Sanksi Timeout - {message.guild.name}", description=f"Anda telah di-timeout selama {duration_m} Menit oleh sistem keamanan karena melanggar aturan secara beruntun.\n\n**Alasan:** {reason}\n\n*Anda dapat mengajukan banding atas aksi ini dengan mengirim DM ke admin/moderator server.*", color=0xFF0000)
+                        await message.author.send(embed=dm_embed)
+                    except: pass
+                    try: await message.channel.send(f"🛡️ <@{uid_str}> otomatis di-timeout **{duration_m} Menit** karena mengulangi pelanggaran beruntun.", delete_after=15)
+                    except: pass
             except Exception: pass
 
     @commands.Cog.listener()
@@ -1065,7 +1095,7 @@ class IntelligenceCore(commands.Cog, name="Cyber Defense & AI Raka"):
                         if "YA" in hasil_ai:
                             violation_found  = True
                             violation_reason = "AI Deep Scan: Terdeteksi phising/scam."
-                            action_to_take   = "timeout"
+                            action_to_take   = "ban"
                             break
                     except Exception as e:
                         log.error(f"[IMG_AI] Error: {e}")

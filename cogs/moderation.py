@@ -1095,7 +1095,20 @@ class SentinelGuard(commands.Cog, name="Sentinel Moderation"):
                 pass
         else:
             pass
-    async def send_spam_log_v2(self, guild: discord.Guild, member, trigger_channels: str, reason: str, detailed_reason: str, message_id: str, message_content: str = None, media_url: str = None, is_webhook: bool = False):
+    async def send_spam_log_v2(
+        self,
+        guild: discord.Guild,
+        member,
+        trigger_channels: str,
+        reason: str,
+        detailed_reason: str,
+        message_id: str,
+        message_content: str = None,
+        media_url: str = None,
+        is_webhook: bool = False,
+        media_bytes: bytes = None,
+        media_filename: str = None
+    ):
         spam_log_channel_id = self.get_guild_settings(guild.id).get("spam_log_channel_id")
         if not spam_log_channel_id: return
         log_channel = guild.get_channel(spam_log_channel_id)
@@ -1103,6 +1116,7 @@ class SentinelGuard(commands.Cog, name="Sentinel Moderation"):
 
         from cogs.v2_layout import build_v2_card, send_v2_message
         import time
+        import io
 
         actor_str = f"🚨 Compromised Webhook: `{getattr(member, 'name', 'Webhook')}` (ID: `{getattr(member, 'id', 'Unknown')}`)" if is_webhook else f"{getattr(member, 'mention', str(member))} (`{getattr(member, 'id', 'Unknown')}`)"
 
@@ -1116,41 +1130,57 @@ class SentinelGuard(commands.Cog, name="Sentinel Moderation"):
         ]
 
         if message_content and message_content.strip():
-            v2_fields.append({"name": "💬 Isi Pesan Dihapus", "value": f"```{message_content[:900]}```"})
+            v2_fields.append({"name": "💬 Isi Pesan Pelanggar", "value": f"```{message_content[:900]}```"})
+        elif media_bytes or media_url:
+            v2_fields.append({"name": "💬 Isi Pesan Pelanggar", "value": "*[Pesan hanya berupa lampiran media/gambar tanpa teks]*"})
 
-        if media_url:
+        att_name = media_filename or "evidence.png"
+        evidence_file = None
+        if media_bytes:
+            evidence_file = discord.File(fp=io.BytesIO(media_bytes), filename=att_name)
+            v2_fields.append({"name": "🖼️ Bukti Media", "value": f"*(File bukti tersimpan permanen di channel ini: `{att_name}`)*"})
+        elif media_url:
             v2_fields.append({"name": "🖼️ Bukti Media / Foto", "value": f"[Klik untuk Buka Gambar]({media_url})"})
 
         card = build_v2_card(
-            title="⚠️ ANTI-SPAM & PHISHING SYSTEM ⚠️",
+            title="⚠️ SISTEM PERTAHANAN & KEAMANAN ⚠️",
             description="Tindakan keamanan otomatis telah diambil oleh sistem pertahanan server.",
             fields=v2_fields,
             color=0xFF0000,
             footer=f"Sistem Keamanan Otomatis • {guild.name}",
-            media_url=media_url
+            attachment_filename=att_name if media_bytes else None,
+            media_url=media_url if not media_bytes else None
         )
         
         sent = False
         try:
-            await send_v2_message(self.bot, log_channel.id, [card])
-            sent = True
+            files_to_send = [evidence_file] if evidence_file else None
+            resp = await send_v2_message(self.bot, log_channel.id, [card], files=files_to_send)
+            if resp and (not isinstance(resp, dict) or "error_msg" not in resp):
+                sent = True
         except Exception:
             pass
 
         if not sent:
             embed = discord.Embed(
-                title="⚠️ ANTI-SPAM & PHISHING SYSTEM ⚠️",
+                title="⚠️ SISTEM PERTAHANAN & KEAMANAN ⚠️",
                 description="Tindakan keamanan otomatis telah diambil oleh sistem pertahanan server.",
                 color=0xFF0000,
                 timestamp=datetime.now(timezone.utc)
             )
             for f in v2_fields:
                 embed.add_field(name=f["name"], value=f["value"], inline=False)
-            if media_url:
+            if media_bytes:
+                embed.set_image(url=f"attachment://{att_name}")
+            elif media_url:
                 embed.set_image(url=media_url)
             embed.set_footer(text=f"Sistem Keamanan Otomatis • {guild.name}")
             try:
-                await log_channel.send(embed=embed)
+                if media_bytes:
+                    f_obj = discord.File(fp=io.BytesIO(media_bytes), filename=att_name)
+                    await log_channel.send(embed=embed, file=f_obj)
+                else:
+                    await log_channel.send(embed=embed)
             except Exception:
                 pass
 
@@ -1852,6 +1882,15 @@ class SentinelGuard(commands.Cog, name="Sentinel Moderation"):
         # Trigger Channel Trap (Honey-Pot)
         trigger_channels = guild_settings.get("trigger_channels", [])
         if message.channel.id in trigger_channels and not is_command:
+            trap_media_bytes = None
+            trap_media_filename = None
+            if message.attachments:
+                try:
+                    trap_media_bytes = await message.attachments[0].read()
+                    trap_media_filename = message.attachments[0].filename or "evidence.png"
+                except Exception:
+                    pass
+
             try:
                 await message.delete()
             except discord.Forbidden:
@@ -1863,17 +1902,24 @@ class SentinelGuard(commands.Cog, name="Sentinel Moderation"):
                 return
 
             try:
-                # Global Timeout (Lintas Server)
+                # Global Timeout (Lintas Server) - Eskalasi Cerdas & Anti-Downgrade
                 timeout_duration = timedelta(days=27, hours=23, minutes=59)
                 timeout_reason = "Terdeteksi mengirim pesan berisi spam atau phising (Sistem Anti-Spam)"
+                now_utc = datetime.now(timezone.utc)
                 
                 for guild_obj in self.bot.guilds:
                     member_in_guild = guild_obj.get_member(message.author.id)
-                    if member_in_guild and not member_in_guild.is_timed_out():
-                        try:
-                            await member_in_guild.timeout(timeout_duration, reason=timeout_reason)
-                        except Exception:
-                            pass
+                    if member_in_guild:
+                        should_apply = True
+                        if member_in_guild.is_timed_out() and member_in_guild.timed_out_until:
+                            remaining = member_in_guild.timed_out_until - now_utc
+                            if remaining >= timeout_duration:
+                                should_apply = False
+                        if should_apply:
+                            try:
+                                await member_in_guild.timeout(timeout_duration, reason=timeout_reason)
+                            except Exception:
+                                pass
             except Exception as e:
                 print(f"Global timeout failed: {e}")
                 
@@ -1893,7 +1939,15 @@ class SentinelGuard(commands.Cog, name="Sentinel Moderation"):
                     except Exception:
                         pass
                         
-            await self.send_spam_log_v2(message.guild, message.author, message.channel.mention, "Terdeteksi mengirim pesan berisi spam atau phising (Sistem Anti-Spam)", "Pengguna terdeteksi mengirim pesan berisi spam atau mengirim pesan di channel terlarang. Sistem telah menjatuhkan sanksi Timeout 28 Hari secara otomatis.", str(message.id))
+            await self.send_spam_log_v2(
+                message.guild, message.author, message.channel.mention,
+                "Terdeteksi mengirim pesan berisi spam atau phising (Sistem Anti-Spam)",
+                "Pengguna terdeteksi mengirim pesan di channel jebakan (Honey-Pot). Sistem telah menjatuhkan sanksi Timeout 28 Hari secara otomatis.",
+                str(message.id),
+                message_content=message.content,
+                media_bytes=trap_media_bytes,
+                media_filename=trap_media_filename
+            )
             
             # Auto-update Trap Message Globally
             global_count = self.settings.get("global_trap_count", 30) + 1
@@ -2061,7 +2115,14 @@ class SentinelGuard(commands.Cog, name="Sentinel Moderation"):
                        await self.send_spam_log_v2(message.guild, message.author, message.channel.mention, "Gagal Menghapus Pesan Spam", "Bot kekurangan izin Manage Messages.", str(message.id))
 
 
-                if not message.author.is_timed_out():
+                # Safe timeout check
+                now_utc = datetime.now(timezone.utc)
+                should_timeout = True
+                if message.author.is_timed_out() and message.author.timed_out_until:
+                    if (message.author.timed_out_until - now_utc) >= timedelta(minutes=10):
+                        should_timeout = False
+
+                if should_timeout:
                     duration = timedelta(minutes=10) 
                     reason = "Global Fast Spam: >5 messages in 10 seconds (Auto-Timeout 10m)."
                     try:
@@ -2076,9 +2137,21 @@ class SentinelGuard(commands.Cog, name="Sentinel Moderation"):
                             ),
                             delete_after=10
                         )
-                        await self.send_spam_log_v2(message.guild, message.author, message.channel.mention, "Terdeteksi mengirim pesan berisi spam atau phising (Sistem Anti-Spam)", "Pengguna terdeteksi mengirim pesan teks berisi spam secara beruntun (Fast Spam). Sistem telah menjatuhkan sanksi Timeout 10 Menit secara otomatis.", str(message.id))
+                        await self.send_spam_log_v2(
+                            message.guild, message.author, message.channel.mention,
+                            "Terdeteksi mengirim pesan berisi spam atau phising (Sistem Anti-Spam)",
+                            "Pengguna terdeteksi mengirim pesan teks berisi spam secara beruntun (Fast Spam). Sistem telah menjatuhkan sanksi Timeout 10 Menit secara otomatis.",
+                            str(message.id),
+                            message_content=message.content
+                        )
                     except discord.Forbidden:
-                        await self.send_spam_log_v2(message.guild, message.author, message.channel.mention, "Terdeteksi mengirim pesan berisi spam atau phising (Sistem Anti-Spam)", "Pengguna terdeteksi mengirim pesan teks berisi spam secara beruntun (Fast Spam). Sistem gagal menjatuhkan sanksi karena kekurangan izin.", str(message.id))
+                        await self.send_spam_log_v2(
+                            message.guild, message.author, message.channel.mention,
+                            "Terdeteksi mengirim pesan berisi spam atau phising (Sistem Anti-Spam)",
+                            "Pengguna terdeteksi mengirim pesan teks berisi spam secara beruntun (Fast Spam). Sistem gagal menjatuhkan sanksi karena kekurangan izin.",
+                            str(message.id),
+                            message_content=message.content
+                        )
                         
                 return
             
@@ -2105,7 +2178,13 @@ class SentinelGuard(commands.Cog, name="Sentinel Moderation"):
                         delete_after=10
                     )
                     
-                    if not message.author.is_timed_out():
+                    now_utc = datetime.now(timezone.utc)
+                    should_timeout = True
+                    if message.author.is_timed_out() and message.author.timed_out_until:
+                        if (message.author.timed_out_until - now_utc) >= timedelta(hours=1):
+                            should_timeout = False
+
+                    if should_timeout:
                         try:
                             await message.author.timeout(
                                 timedelta(hours=1), 
@@ -2162,13 +2241,36 @@ class SentinelGuard(commands.Cog, name="Sentinel Moderation"):
             
             if rapid_retry_after:
                 try:
+                    ev_bytes = None
+                    ev_filename = None
+                    if message.attachments:
+                        try:
+                            ev_bytes = await message.attachments[0].read()
+                            ev_filename = message.attachments[0].filename or "evidence.png"
+                        except Exception: pass
+
                     await message.delete()
-                    if not message.author.is_timed_out():
-                        await message.author.timeout(timeout_duration, reason="Rapid media spam (5+ media in 10 seconds or single message)")
+
+                    now_utc = datetime.now(timezone.utc)
+                    should_timeout = True
+                    if message.author.is_timed_out() and message.author.timed_out_until:
+                        if (message.author.timed_out_until - now_utc) >= timedelta(minutes=15):
+                            should_timeout = False
+
+                    if should_timeout:
+                        await message.author.timeout(timedelta(minutes=15), reason="Rapid media spam (5+ media in 10 seconds or single message)")
                         try:
                             await message.author.send(embed=self._create_embed(description=f"⚠️ Anda telah di-timeout selama 15 Menit oleh sistem keamanan karena mengirim terlalu banyak media secara beruntun.\n\n*Anda dapat mengajukan banding atas aksi ini dengan mengirim DM ke admin/moderator server.*", color=self.color_error))
                         except: pass
-                        await self.send_spam_log_v2(message.guild, message.author, message.channel.mention, "Terdeteksi mengirim pesan berisi spam atau phising (Sistem Anti-Spam)", "Pengguna terdeteksi mengirim pesan gambar berisi spam secara beruntun. Sistem telah menjatuhkan sanksi Timeout 15 Menit secara otomatis.", str(message.id))
+                        await self.send_spam_log_v2(
+                            message.guild, message.author, message.channel.mention,
+                            "Terdeteksi mengirim pesan berisi spam atau phising (Sistem Anti-Spam)",
+                            "Pengguna terdeteksi mengirim pesan gambar berisi spam secara beruntun. Sistem telah menjatuhkan sanksi Timeout 15 Menit secara otomatis.",
+                            str(message.id),
+                            message_content=message.content,
+                            media_bytes=ev_bytes,
+                            media_filename=ev_filename
+                        )
                         
                         await message.channel.send(
                             embed=self._create_embed(
@@ -2189,6 +2291,14 @@ class SentinelGuard(commands.Cog, name="Sentinel Moderation"):
             
             if basic_retry_after:
                 try:
+                    ev_bytes = None
+                    ev_filename = None
+                    if message.attachments:
+                        try:
+                            ev_bytes = await message.attachments[0].read()
+                            ev_filename = message.attachments[0].filename or "evidence.png"
+                        except Exception: pass
+
                     await message.delete()
                     await message.channel.send(
                         embed=self._create_embed(
@@ -2203,7 +2313,10 @@ class SentinelGuard(commands.Cog, name="Sentinel Moderation"):
                         message.channel.mention,
                         "Terdeteksi mengirim pesan berisi spam atau phising (Sistem Anti-Spam)",
                         "Pengguna terdeteksi mengirim terlalu banyak pesan gambar/file. Sistem telah menjatuhkan sanksi Timeout secara otomatis.",
-                        str(message.id)
+                        str(message.id),
+                        message_content=message.content,
+                        media_bytes=ev_bytes,
+                        media_filename=ev_filename
                     )
                     return
                 except discord.Forbidden:
@@ -2214,13 +2327,36 @@ class SentinelGuard(commands.Cog, name="Sentinel Moderation"):
             
             if heavy_retry_after:
                 try:
+                    ev_bytes = None
+                    ev_filename = None
+                    if message.attachments:
+                        try:
+                            ev_bytes = await message.attachments[0].read()
+                            ev_filename = message.attachments[0].filename or "evidence.png"
+                        except Exception: pass
+
                     await message.delete()
-                    if not message.author.is_timed_out():
-                        await message.author.timeout(timeout_duration, reason="Heavy media spam (8+ media in 60 seconds)")
+
+                    now_utc = datetime.now(timezone.utc)
+                    should_timeout = True
+                    if message.author.is_timed_out() and message.author.timed_out_until:
+                        if (message.author.timed_out_until - now_utc) >= timedelta(minutes=30):
+                            should_timeout = False
+
+                    if should_timeout:
+                        await message.author.timeout(timedelta(minutes=30), reason="Heavy media spam (8+ media in 60 seconds)")
                         try:
                             await message.author.send(embed=self._create_embed(description=f"⚠️ Anda telah di-timeout selama 30 Menit oleh sistem keamanan karena spam media berat.\n\n*Anda dapat mengajukan banding atas aksi ini dengan mengirim DM ke admin/moderator server.*", color=self.color_error))
                         except: pass
-                        await self.send_spam_log_v2(message.guild, message.author, message.channel.mention, "Terdeteksi mengirim pesan berisi spam atau phising (Sistem Anti-Spam)", "Pengguna terdeteksi mengirim pesan gambar berisi spam secara massal (Heavy Spam). Sistem telah menjatuhkan sanksi Timeout 30 Menit secara otomatis.", str(message.id))
+                        await self.send_spam_log_v2(
+                            message.guild, message.author, message.channel.mention,
+                            "Terdeteksi mengirim pesan berisi spam atau phising (Sistem Anti-Spam)",
+                            "Pengguna terdeteksi mengirim pesan gambar berisi spam secara massal (Heavy Spam). Sistem telah menjatuhkan sanksi Timeout 30 Menit secara otomatis.",
+                            str(message.id),
+                            message_content=message.content,
+                            media_bytes=ev_bytes,
+                            media_filename=ev_filename
+                        )
                         
                         await message.channel.send(
                             embed=self._create_embed(

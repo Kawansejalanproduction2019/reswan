@@ -691,6 +691,99 @@ async def on_command_error(ctx, error):
         try: await ctx.send(embed=embed, delete_after=10)
         except: pass
 
+    # Laporkan error perintah ke Global Webhook Monitor
+    guild_name = ctx.guild.name if ctx.guild else "Direct Message"
+    fields = [
+        {"name": "🌐 Server", "value": f"**{guild_name}** (`{getattr(ctx.guild, 'id', 'DM')}`)", "inline": True},
+        {"name": "👤 Pengguna", "value": f"{ctx.author.mention} (`{ctx.author.id}`)", "inline": True},
+        {"name": "⌨️ Perintah", "value": f"`{ctx.message.clean_content[:150]}`", "inline": False},
+        {"name": "❌ Detail Error", "value": f"```{str(error)[:500]}```", "inline": False}
+    ]
+    await send_global_action_log(
+        title="🚨 Command Error Detected",
+        description=f"Terjadi kesalahan saat memproses perintah di server **{guild_name}**.",
+        fields=fields,
+        color=0xE74C3C
+    )
+
+async def send_global_action_log(title: str, description: str, fields: list = None, color: int = 0x3498DB):
+    """Merekap setiap aktivitas dan error bot ke Webhook terpusat lintas server."""
+    url = os.getenv("ACTION_LOG_WEBHOOK_URL") or os.getenv("LOG_WEBHOOK_URL") or os.getenv("JOIN_WEBHOOK_URL")
+    if not url:
+        return
+    embed = {
+        "title": title,
+        "description": description,
+        "color": color,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "footer": {"text": "RTM Bot Global Monitor • Audit Lintas Server"}
+    }
+    if fields:
+        embed["fields"] = fields
+    payload = {
+        "embeds": [embed],
+        "username": "RTM Bot Action Monitor"
+    }
+    try:
+        session = getattr(bot, "session", None)
+        if not session or session.closed:
+            async with aiohttp.ClientSession() as s:
+                await s.post(url, json=payload)
+        else:
+            await session.post(url, json=payload)
+    except Exception as e:
+        log.debug(f"[GLOBAL_ACTION_LOG_FAIL] {e}")
+
+bot.send_global_action_log = send_global_action_log
+
+@bot.event
+async def on_command_completion(ctx):
+    """Merekap setiap perintah yang berhasil dijalankan di semua server."""
+    guild_name = ctx.guild.name if ctx.guild else "Direct Message"
+    guild_id = getattr(ctx.guild, 'id', 'DM')
+    channel_name = getattr(ctx.channel, 'name', 'DM')
+    cmd_name = f"{ctx.prefix}{ctx.command.qualified_name}"
+    
+    fields = [
+        {"name": "🌐 Server", "value": f"**{guild_name}** (`{guild_id}`)", "inline": True},
+        {"name": "📍 Channel", "value": f"#{channel_name}", "inline": True},
+        {"name": "👤 Pengguna", "value": f"{ctx.author.mention} (`{ctx.author.id}`)", "inline": True},
+        {"name": "⌨️ Perintah", "value": f"`{cmd_name}`", "inline": True},
+        {"name": "💬 Pesan", "value": f"```{ctx.message.clean_content[:300]}```", "inline": False}
+    ]
+    await send_global_action_log(
+        title="⚡ Command Executed",
+        description=f"Perintah **{cmd_name}** berhasil dijalankan oleh {ctx.author.mention}.",
+        fields=fields,
+        color=0x2ECC71
+    )
+
+async def on_app_command_error_handler(interaction: discord.Interaction, error: discord.app_commands.AppCommandError):
+    """Merekap setiap error Slash Command ke Webhook terpusat."""
+    guild_name = interaction.guild.name if interaction.guild else "Direct Message"
+    cmd_name = interaction.command.name if interaction.command else "Unknown"
+    fields = [
+        {"name": "🌐 Server", "value": f"**{guild_name}** (`{getattr(interaction.guild, 'id', 'DM')}`)", "inline": True},
+        {"name": "👤 Pengguna", "value": f"{interaction.user.mention} (`{interaction.user.id}`)", "inline": True},
+        {"name": "⌨️ Slash Command", "value": f"`/{cmd_name}`", "inline": True},
+        {"name": "❌ Error", "value": f"```{str(error)[:500]}```", "inline": False}
+    ]
+    await send_global_action_log(
+        title="🚨 Slash Command Error",
+        description=f"Error pada slash command **/{cmd_name}** di server **{guild_name}**.",
+        fields=fields,
+        color=0xE74C3C
+    )
+    try:
+        if not interaction.response.is_done():
+            await interaction.response.send_message(f"❌ Terjadi kesalahan: `{str(error)[:150]}`", ephemeral=True)
+        else:
+            await interaction.followup.send(f"❌ Terjadi kesalahan: `{str(error)[:150]}`", ephemeral=True)
+    except Exception:
+        pass
+
+bot.tree.on_error = on_app_command_error_handler
+
 async def load_cogs():
     initial_extensions = [
         "cogs.leveling", "cogs.moderation", "cogs.quotes", "cogs.minigames",

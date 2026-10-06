@@ -239,15 +239,21 @@ HELP_CATEGORIES = {
         "desc": "Sistem penegakan disiplin dan pertahanan otomatis server:",
         "color": 0xE74C3C,
         "fields": [
-            {"name": "🔨 /ban <member> [alasan]", "value": "Blokir member permanen dengan proteksi hierarki role."},
+            {"name": "🔨 /ban <member> [alasan]", "value": "Blokir member permanen dari server dengan proteksi hierarki role."},
+            {"name": "🔓 /unban <user_id> [alasan]", "value": "Buka kembali blokir pengguna berdasarkan ID akun Discord."},
             {"name": "👢 /kick <member> [alasan]", "value": "Keluarkan member dari server secara aman."},
-            {"name": "🧹 /softban <member> [alasan]", "value": "Ban dan unban instan untuk membersihkan pesan 7 hari terakhir."},
-            {"name": "⏳ /timeout <member> <durasi> [alasan]", "value": "Bungkam member sementara (cth: 10m, 1h, 1d)."},
-            {"name": "⚠️ /warn & /unwarn <member>", "value": "Catat atau cabut surat peringatan resmi member."},
-            {"name": "🗑️ /clear <jumlah>", "value": "Hapus pesan massal di channel (hingga 100 pesan)."},
-            {"name": "🔒 /lock & /unlock", "value": "Kunci atau buka izin berbicara channel dari member biasa."},
-            {"name": "⏱️ /slowmode <detik>", "value": "Atur batas waktu cooldown kirim pesan di channel."},
-            {"name": "🤖 /cyber_toggle", "value": "Aktifkan atau matikan proteksi anti-phising dan filter AI."}
+            {"name": "🧹 /softban <member> [alasan]", "value": "Ban dan unban instan untuk membersihkan seluruh pesan 7 hari terakhir."},
+            {"name": "⏳ /timeout <member> <durasi> [alasan]", "value": "Bungkam member sementara (contoh: 10m, 1h, 1d)."},
+            {"name": "🔊 /untimeout <member>", "value": "Cabut status bungkam (timeout) member seketika."},
+            {"name": "⚠️ /warn <member> [alasan]", "value": "Catat surat peringatan resmi untuk member."},
+            {"name": "📋 /warnings <member>", "value": "Lihat daftar dan riwayat catatan peringatan resmi member."},
+            {"name": "🗑️ /clear <jumlah>", "value": "Hapus pesan massal di channel (hingga 100 pesan sekaligus)."},
+            {"name": "🔒 /lock & /unlock", "value": "Kunci atau buka kembali izin berbicara channel dari member biasa."},
+            {"name": "⏱️ /slowmode <detik>", "value": "Atur batas waktu jeda cooldown kirim pesan di channel (0 untuk matikan)."},
+            {"name": "🍯 /trap", "value": "Atur channel jebakan (Honey-Pot) untuk auto-timeout 28 hari spammer/phishing."},
+            {"name": "📜 /set_log_channel <channel>", "value": "Atur channel khusus untuk pencatatan log sistem keamanan & moderasi."},
+            {"name": "🚨 /report", "value": "Kirimkan laporan pelanggaran rahasia kepada tim moderator server via form modal."},
+            {"name": "🤖 /cyber_toggle", "value": "Aktifkan atau matikan proteksi anti-phising, anti-scam, dan filter AI."}
         ]
     },
     "finance": {
@@ -295,15 +301,24 @@ HELP_CATEGORIES = {
     },
     "leveling": {
         "title": "⭐ LEVELING, RANK & PROGRESSION",
-        "desc": "Sistem pengalaman (EXP), tingkatan sosial, dan pasar komunitas:",
+        "desc": "Sistem pengalaman (EXP), Voice Tracking, papan aktivitas, dan pasar komunitas:",
         "color": 0x9B59B6,
         "fields": [
-            {"name": "🎖️ /rank [member]", "value": "Lihat kartu profil grafis HD lengkap dengan progress bar & level."},
+            {"name": "🎖️ /rank [member]", "value": "Lihat kartu profil grafis HD lengkap dengan progress bar, level, dan saldo RSWN."},
             {"name": "🏆 /leaderboard (alias /top)", "value": "Tampilkan 10 member dengan perolehan level tertinggi di server."},
             {"name": "📅 /weekly", "value": "Papan peringkat perolehan EXP mingguan server."},
+            {"name": "🎙️ /voicepanel", "value": "Pasang papan live aktivitas voice, rekor room terlama, dan peringkat voice yang selalu di paling bawah channel *(Admin)*."},
+            {"name": "❌ /voicepanel_remove", "value": "Hapus dan nonaktifkan papan aktivitas voice di server *(Admin)*."},
+            {"name": "⏱️ /voicetime [member]", "value": "Cek total waktu aktif di voice channel server all-time, mingguan, & peringkat server."},
+            {"name": "🏆 /voicerecord", "value": "Cek rekor durasi sesi voice channel terlama server dan channel pemegang rekor."},
+            {"name": "⚙️ /setchannelrecord <channel> <jam> [menit] [detik] [sedang_aktif]", "value": "Atur atau adopsi rekor voice room terlama server agar bot melanjutkan hitungan *(Admin/Owner)*."},
+            {"name": "➕ /addvoicetime <jam> [menit] [detik] [member] [weekly]", "value": "Tambahkan durasi voice untuk diri sendiri atau member target *(Admin/Owner)*."},
+            {"name": "✏️ /setvoicetime <jam> [menit] [detik] [member] [weekly]", "value": "Atur ulang total durasi voice diri sendiri atau member target *(Admin/Owner)*."},
             {"name": "🛒 /shop", "value": "Buka katalog toko interaktif untuk membeli item dan badge profil."},
             {"name": "📜 /daily_quest", "value": "Periksa quest harian dan klaim hadiah EXP serta koin RSWN."},
-            {"name": "💸 /transfercoins <member> <jumlah>", "value": "Kirimkan saldo koin RSWN milikmu ke pengguna lain."}
+            {"name": "💸 /transfercoins <member> <jumlah>", "value": "Kirimkan saldo koin RSWN milikmu ke pengguna lain."},
+            {"name": "🏦 /bank (alias /balance)", "value": "Periksa saldo rekening bank RSWN dan status utang/kredit."},
+            {"name": "💼 !work, !daily, !crime, !rob", "value": "Perintah ekonomi kasual untuk mengumpulkan koin RSWN tambahan."}
         ]
     },
     "ai": {
@@ -330,7 +345,8 @@ HELP_CATEGORIES = {
             {"name": "👤 /user [user]", "value": "Lihat kartu informasi lengkap akun, tanggal gabung, dan peran member."},
             {"name": "🖼️ /avatar [user]", "value": "Ambil gambar avatar profil pengguna dalam resolusi tinggi."},
             {"name": "❓ /faq", "value": "Buka menu FAQ interaktif seputar server dan aturan komunitas."},
-            {"name": "💬 /quote <teks>", "value": "Kirim kutipan bijak untuk dikurasi admin dan raih reward EXP."}
+            {"name": "💬 /quote <teks>", "value": "Kirim kutipan bijak untuk dikurasi admin dan raih reward EXP."},
+            {"name": "⚙️ /set_gender", "value": "Buka formulir modal untuk pengaturan role gender otomatis *(Admin)*."}
         ]
     }
 }
