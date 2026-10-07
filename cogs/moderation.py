@@ -51,57 +51,87 @@ def parse_duration(duration_str: str) -> Optional[timedelta]:
     if unit == 'd': return timedelta(days=value)
     return None
 
-async def process_and_send_announcement(cog, interaction, original_ctx, target_channel_obj, github_raw_url, title, username, profile_url, image_url, ping_everyone, poll_obj=None):
-    full_description = ""
-    try:
-        import aiohttp
-        async with aiohttp.ClientSession() as session:
-            async with session.get(github_raw_url) as resp:
-                if resp.status == 200:
-                    full_description = await resp.text()
-                else:
-                    await interaction.followup.send(embed=cog._create_embed(description=f"❌ Gagal mengambil deskripsi dari URL GitHub Raw ({github_raw_url}): Status HTTP {resp.status}. Pastikan URL valid dan publik.", color=cog.color_error), ephemeral=True); return
-    except aiohttp.ClientError as e:
-        await interaction.followup.send(embed=cog._create_embed(description=f"❌ Terjadi kesalahan jaringan saat mengambil deskripsi dari GitHub: {e}. Pastikan URL GitHub Raw benar.", color=cog.color_error), ephemeral=True); return
-    except Exception as e:
-        await interaction.followup.send(embed=cog._create_embed(description=f"❌ Terjadi kesalahan tidak terduga saat mengambil deskripsi: {e}", color=cog.color_error), ephemeral=True); return
+async def process_and_send_announcement(cog, interaction, original_ctx, target_channel_obj, title, description_text, username, profile_url, image_url, ping_everyone, poll_obj=None, github_raw_url=None):
+    full_description = (description_text or "").strip()
+    if not full_description and github_raw_url:
+        try:
+            import aiohttp
+            async with aiohttp.ClientSession() as session:
+                async with session.get(github_raw_url) as resp:
+                    if resp.status == 200:
+                        full_description = (await resp.text()).strip()
+        except Exception:
+            pass
 
-    if not full_description.strip():
-        await interaction.followup.send(embed=cog._create_embed(description="❌ Deskripsi pengumuman dari URL GitHub Raw kosong atau hanya berisi spasi. Pastikan file teks memiliki konten.", color=cog.color_error), ephemeral=True); return
+    if not full_description:
+        await interaction.followup.send(embed=cog._create_embed(description="❌ Deskripsi atau isi pengumuman kosong. Mohon masukkan pesan pengumuman.", color=cog.color_error), ephemeral=True)
+        return
     
     description_chunks = [full_description[i:i+4096] for i in range(0, len(full_description), 4096)]
 
     sent_any_embed = False
     try:
         from cogs.v2_layout import build_v2_card, send_v2_message
+        
+        webhook = None
+        if hasattr(target_channel_obj, "create_webhook") and not isinstance(target_channel_obj, discord.Thread):
+            try:
+                webhook = await cog.get_or_create_announcement_webhook(target_channel_obj, username or "Pengumuman Resmi")
+            except Exception:
+                webhook = None
+
+        if ping_everyone:
+            try:
+                if webhook:
+                    await webhook.send(content="@everyone", username=username or "Pengumuman Resmi", avatar_url=profile_url or (target_channel_obj.guild.icon.url if target_channel_obj.guild.icon else None))
+                else:
+                    await target_channel_obj.send("@everyone")
+            except Exception:
+                pass
+
         for i, chunk in enumerate(description_chunks):
             if not chunk.strip(): continue
-            
             footer_text = f"Pengumuman dari: {username}" if i == 0 else f"Lanjutan Pengumuman ({i+1}/{len(description_chunks)})"
             
-            card = build_v2_card(
-                title=title if i == 0 else None,
-                description=chunk,
-                color=None,
-                footer=footer_text,
-                media_url=image_url if i == 0 and image_url else None
-            )
-            
-            if i == 0 and ping_everyone:
-                try:
-                    await target_channel_obj.send("@everyone")
-                except:
-                    pass
-            
-            result = await send_v2_message(
-                bot=cog.bot, 
-                channel_id=target_channel_obj.id, 
-                components=[card]
-            )
-            if not result or (isinstance(result, dict) and "error_msg" in result):
-                error_detail = result.get("error_msg", "Unknown") if isinstance(result, dict) else "None"
-                raise Exception(f"Gagal mengirim pesan V2: {error_detail}")
-            sent_any_embed = True
+            if webhook:
+                embed = discord.Embed(
+                    title=title if i == 0 else None,
+                    description=chunk,
+                    color=cog.color_announce or 0xFFE000
+                )
+                if i == 0 and image_url:
+                    embed.set_image(url=image_url)
+                embed.set_footer(text=footer_text)
+                await webhook.send(
+                    embed=embed,
+                    username=username or "Pengumuman Resmi",
+                    avatar_url=profile_url or (target_channel_obj.guild.icon.url if target_channel_obj.guild.icon else None)
+                )
+                sent_any_embed = True
+            else:
+                card = build_v2_card(
+                    title=title if i == 0 else None,
+                    description=chunk,
+                    color=None,
+                    footer=footer_text,
+                    media_url=image_url if i == 0 and image_url else None
+                )
+                result = await send_v2_message(
+                    bot=cog.bot, 
+                    channel_id=target_channel_obj.id, 
+                    components=[card]
+                )
+                if not result or (isinstance(result, dict) and "error_msg" in result):
+                    embed = discord.Embed(
+                        title=title if i == 0 else None,
+                        description=chunk,
+                        color=cog.color_announce or 0xFFE000
+                    )
+                    if i == 0 and image_url:
+                        embed.set_image(url=image_url)
+                    embed.set_footer(text=footer_text)
+                    await target_channel_obj.send(embed=embed)
+                sent_any_embed = True
             
         if sent_any_embed and poll_obj:
             try:
@@ -116,7 +146,7 @@ async def process_and_send_announcement(cog, interaction, original_ctx, target_c
 
     if sent_any_embed:
         await interaction.followup.send(embed=cog._create_embed(description=f"✅ Pengumuman berhasil dikirim ke <#{target_channel_obj.id}>!", color=cog.color_success), ephemeral=True)
-        await cog.log_action(original_ctx.guild, "📢 Pengumuman Baru Dibuat", {"Pengirim (Eksekutor)": original_ctx.author.mention, "Pengirim (Tampilan)": f"{username} ({profile_url if profile_url else 'Default'})", "Channel Target": f"<#{target_channel_obj.id}>", "Judul": title, "Deskripsi Sumber": github_raw_url, "Panjang Deskripsi": f"{len(full_description)} karakter", "Fitur Tambahan": f"Ping Everyone: {'Ya' if ping_everyone else 'Tidak'} | Polling: {'Ya' if poll_obj else 'Tidak'}"}, cog.color_announce)
+        await cog.log_action(original_ctx.guild, "📢 Pengumuman Baru Dibuat", {"Pengirim (Eksekutor)": original_ctx.author.mention, "Pengirim (Tampilan)": f"{username} ({profile_url if profile_url else 'Default'})", "Channel Target": f"<#{target_channel_obj.id}>", "Judul": title, "Panjang Pesan": f"{len(full_description)} karakter", "Fitur Tambahan": f"Ping Everyone: {'Ya' if ping_everyone else 'Tidak'} | Polling: {'Ya' if poll_obj else 'Tidak'}"}, cog.color_announce)
 
 class PollModal(discord.ui.Modal, title="Atur Polling (Jajak Pendapat)"):
     poll_question = discord.ui.TextInput(
@@ -131,17 +161,18 @@ class PollModal(discord.ui.Modal, title="Atur Polling (Jajak Pendapat)"):
     poll_opt3 = discord.ui.TextInput(label="Opsi 3 (Kosongkan jika tak perlu)", max_length=50, required=False, row=3)
     poll_opt4 = discord.ui.TextInput(label="Opsi 4 (Kosongkan jika tak perlu)", max_length=50, required=False, row=4)
 
-    def __init__(self, cog, original_ctx, target_channel_obj, github_raw_url, ping_everyone, title, username, profile_url, image_url):
+    def __init__(self, cog, original_ctx, target_channel_obj, ping_everyone, title, content, username, profile_url, image_url, github_raw_url=None):
         super().__init__()
         self.cog = cog
         self.original_ctx = original_ctx
         self.target_channel_obj = target_channel_obj
-        self.github_raw_url = github_raw_url
         self.ping_everyone = ping_everyone
         self.announcement_title = title
+        self.announcement_content = content
         self.username = username
         self.profile_url = profile_url
         self.image_url = image_url
+        self.github_raw_url = github_raw_url
 
     async def on_submit(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
@@ -157,9 +188,9 @@ class PollModal(discord.ui.Modal, title="Atur Polling (Jajak Pendapat)"):
             poll_obj.add_answer(text=answer)
             
         await process_and_send_announcement(
-            self.cog, interaction, self.original_ctx, self.target_channel_obj, self.github_raw_url,
-            self.announcement_title, self.username, self.profile_url, self.image_url,
-            self.ping_everyone, poll_obj
+            self.cog, interaction, self.original_ctx, self.target_channel_obj,
+            self.announcement_title, self.announcement_content, self.username, self.profile_url, self.image_url,
+            self.ping_everyone, poll_obj, self.github_raw_url
         )
 
     async def on_error(self, interaction: discord.Interaction, error: Exception) -> None:
@@ -176,46 +207,54 @@ class AnnouncementModalGlobal(discord.ui.Modal, title="Buat Pengumuman"):
         required=True,
         row=0
     )
-    custom_username = discord.ui.TextInput(
-        label="Pengirim (Contoh: Tim Admin)",
-        placeholder="Contoh: Tim Admin / Pengumuman Resmi",
-        max_length=256,
+    announcement_content = discord.ui.TextInput(
+        label="Isi Pengumuman / Pesan",
+        placeholder="Tuliskan isi pesan pengumuman di sini...",
+        style=discord.TextStyle.paragraph,
+        max_length=4000,
         required=True,
         row=1
     )
-    custom_profile_url = discord.ui.TextInput(
-        label="URL Avatar (Opsional)",
-        placeholder="Contoh: https://example.com/avatar.png",
-        max_length=2000,
+    custom_username = discord.ui.TextInput(
+        label="Nama Pengirim (Webhook)",
+        placeholder="Contoh: Pengumuman Resmi / Tim Admin",
+        max_length=80,
+        default="Pengumuman Resmi",
         required=False,
         row=2
     )
     announcement_image_url = discord.ui.TextInput(
-        label="URL Gambar (Opsional)",
+        label="URL Banner / Gambar (Opsional)",
         placeholder="Contoh: https://example.com/banner.png",
         max_length=2000,
         required=False,
         row=3
     )
+    custom_profile_url = discord.ui.TextInput(
+        label="URL Avatar Pengirim (Opsional)",
+        placeholder="Contoh: https://example.com/avatar.png",
+        max_length=2000,
+        required=False,
+        row=4
+    )
 
-    def __init__(self, cog_instance, original_ctx, target_channel_obj, github_raw_url, ping_everyone, include_poll):
+    def __init__(self, cog_instance, original_ctx, target_channel_obj, ping_everyone, include_poll, github_raw_url=None):
         super().__init__()
         self.cog = cog_instance
         self.original_ctx = original_ctx
         self.target_channel_obj = target_channel_obj
-        self.github_raw_url = github_raw_url
         self.ping_everyone = ping_everyone
         self.include_poll = include_poll
+        self.github_raw_url = github_raw_url
         self.title = f"Pengumuman #{target_channel_obj.name}"[:45]
 
     async def on_submit(self, interaction: discord.Interaction):
         title = self.announcement_title.value.strip()
-        username = self.custom_username.value.strip()
+        content = self.announcement_content.value.strip()
+        username = self.custom_username.value.strip() or "Pengumuman Resmi"
         profile_url = self.custom_profile_url.value.strip()
         image_url = self.announcement_image_url.value.strip()
 
-        if not username:
-            await interaction.response.send_message(embed=self.cog._create_embed(description="❌ Username Pengirim Kustom tidak boleh kosong.", color=self.cog.color_error), ephemeral=True); return
         if profile_url and not (profile_url.startswith("http://") or profile_url.startswith("https://")):
             await interaction.response.send_message(embed=self.cog._create_embed(description="❌ URL Avatar Pengirim tidak valid. Harus dimulai dengan `http://` atau `https://`.", color=self.cog.color_error), ephemeral=True); return
         if image_url and not (image_url.startswith("http://") or image_url.startswith("https://")):
@@ -223,23 +262,24 @@ class AnnouncementModalGlobal(discord.ui.Modal, title="Buat Pengumuman"):
         
         if self.include_poll:
             class ContinuePollView(discord.ui.View):
-                def __init__(self, cog, original_ctx, target_channel_obj, github_raw_url, ping_everyone, title, username, profile_url, image_url):
+                def __init__(self, cog, original_ctx, target_channel_obj, ping_everyone, title, content, username, profile_url, image_url, github_raw_url=None):
                     super().__init__(timeout=300)
                     self.cog = cog
                     self.original_ctx = original_ctx
                     self.target_channel_obj = target_channel_obj
-                    self.github_raw_url = github_raw_url
                     self.ping_everyone = ping_everyone
                     self.announcement_title = title
+                    self.announcement_content = content
                     self.username = username
                     self.profile_url = profile_url
                     self.image_url = image_url
+                    self.github_raw_url = github_raw_url
 
                 @discord.ui.button(label="Lanjut: Isi Polling", style=discord.ButtonStyle.primary, emoji="📋")
                 async def open_poll_modal(self, btn_interaction: discord.Interaction, button: discord.ui.Button):
                     poll_modal = PollModal(
-                        self.cog, self.original_ctx, self.target_channel_obj, self.github_raw_url,
-                        self.ping_everyone, self.announcement_title, self.username, self.profile_url, self.image_url
+                        self.cog, self.original_ctx, self.target_channel_obj,
+                        self.ping_everyone, self.announcement_title, self.announcement_content, self.username, self.profile_url, self.image_url, self.github_raw_url
                     )
                     await btn_interaction.response.send_modal(poll_modal)
                     button.disabled = True
@@ -249,8 +289,8 @@ class AnnouncementModalGlobal(discord.ui.Modal, title="Buat Pengumuman"):
                         pass
 
             view = ContinuePollView(
-                self.cog, self.original_ctx, self.target_channel_obj, self.github_raw_url,
-                self.ping_everyone, title, username, profile_url, image_url
+                self.cog, self.original_ctx, self.target_channel_obj,
+                self.ping_everyone, title, content, username, profile_url, image_url, self.github_raw_url
             )
             await interaction.response.send_message(
                 embed=self.cog._create_embed(description="✅ Data pengumuman disimpan! Klik tombol di bawah untuk mengisi opsi Polling.", color=self.cog.color_info),
@@ -261,8 +301,8 @@ class AnnouncementModalGlobal(discord.ui.Modal, title="Buat Pengumuman"):
             
         await interaction.response.defer(ephemeral=True)
         await process_and_send_announcement(
-            self.cog, interaction, self.original_ctx, self.target_channel_obj, self.github_raw_url,
-            title, username, profile_url, image_url, self.ping_everyone, None
+            self.cog, interaction, self.original_ctx, self.target_channel_obj,
+            title, content, username, profile_url, image_url, self.ping_everyone, None, self.github_raw_url
         )
 
     async def on_error(self, interaction: discord.Interaction, error: Exception) -> None:
@@ -349,7 +389,7 @@ class WelcomeMessageModal(discord.ui.Modal, title="Atur Pesan Selamat Datang"):
             await interaction.followup.send(embed=self.cog._create_embed(description=f"❌ Terjadi kesalahan tak terduga saat memproses formulir: {error}", color=self.cog.color_error), ephemeral=True)
 
 class AnnounceButtonView(discord.ui.View):
-    def __init__(self, bot_instance, cog_instance, original_ctx, target_channel_obj, github_raw_url):
+    def __init__(self, bot_instance, cog_instance, original_ctx, target_channel_obj, github_raw_url=None):
         super().__init__(timeout=60)
         self.bot = bot_instance
         self.cog = cog_instance
@@ -390,7 +430,7 @@ class AnnounceButtonView(discord.ui.View):
         if not self.original_ctx.author.guild_permissions.manage_guild:
             return await interaction.response.send_message("Anda tidak memiliki izin `Manage Server` untuk membuat pengumuman.", ephemeral=True)
         
-        modal = AnnouncementModalGlobal(self.cog, self.original_ctx, self.target_channel_obj, self.github_raw_url, self.ping_everyone, self.include_poll)
+        modal = AnnouncementModalGlobal(self.cog, self.original_ctx, self.target_channel_obj, self.ping_everyone, self.include_poll, self.github_raw_url)
         try:
             await interaction.response.send_modal(modal)
         except discord.Forbidden:
@@ -3334,44 +3374,41 @@ class SentinelGuard(commands.Cog, name="Sentinel Moderation"):
         view_instance = SetupView(self, ctx.author, ctx)
         await ctx.send(embed=embed, view=view_instance)
 
-    @commands.hybrid_command(name="announce", aliases=["pengumuman", "broadcast"], description="Kirim pengumuman V2 via modal")
-    @app_commands.describe(channel_identifier="Tag channel, ID, atau nama channel")
+    @commands.hybrid_command(name="announce", aliases=["pengumuman", "broadcast"], description="Kirim pengumuman langsung via modal (Mendukung Webhook, Polling & Voice Channel)")
+    @app_commands.describe(channel_identifier="Tag channel, ID, atau nama channel (Teks / Voice)")
     @commands.has_permissions(manage_guild=True)
     async def announce(self, ctx, channel_identifier: str):
-        GITHUB_RAW_DESCRIPTION_URL = "https://raw.githubusercontent.com/Abogoboga04/OpenAI/main/announcement.txt"
-
-
         target_channel = None
 
         if channel_identifier.startswith('<#') and channel_identifier.endswith('>'):
             try:
                 channel_id = int(channel_identifier[2:-1])
-                target_channel = ctx.guild.get_channel(channel_id)
-                if not target_channel:
-                    target_channel = self.bot.get_channel(channel_id)
+                target_channel = ctx.guild.get_channel(channel_id) or self.bot.get_channel(channel_id)
             except ValueError:
                 pass
         
         if not target_channel and channel_identifier.isdigit():
             try:
                 channel_id = int(channel_identifier)
-                target_channel = ctx.guild.get_channel(channel_id)
-                if not target_channel:
-                    target_channel = self.bot.get_channel(channel_id)
+                target_channel = ctx.guild.get_channel(channel_id) or self.bot.get_channel(channel_id)
             except ValueError:
                 pass
+        
+        if not target_channel:
+            target_channel = discord.utils.get(ctx.guild.channels, name=channel_identifier.lower().replace('#', ''))
 
-        if not target_channel or not isinstance(target_channel, discord.TextChannel):
+        valid_channel_types = (discord.TextChannel, discord.VoiceChannel, discord.StageChannel, discord.Thread)
+        if not target_channel or not isinstance(target_channel, valid_channel_types):
             await ctx.send(embed=self._create_embed(
-                description=f"❌ Channel '{channel_identifier}' tidak ditemukan atau bukan channel teks yang valid. Mohon gunakan mention channel (misal: `#general`) atau ID channel yang benar. Pastikan bot berada di server tersebut.",
+                description=f"❌ Channel '{channel_identifier}' tidak ditemukan atau tidak mendukung pesan. Mohon gunakan mention channel (`#general` atau channel voice) atau ID channel yang benar.",
                 color=self.color_error
             ))
             return
         
-        view_instance = AnnounceButtonView(self.bot, self, ctx, target_channel, GITHUB_RAW_DESCRIPTION_URL)
+        view_instance = AnnounceButtonView(self.bot, self, ctx, target_channel)
         initial_msg = await ctx.send(embed=self._create_embed(
             title="🔔 Siap Membuat Pengumuman?",
-            description=f"Anda akan membuat pengumuman di channel {target_channel.mention}. **Pengumuman akan dikirim menggunakan format V2 Layout (Native)**. Tekan tombol di bawah untuk mengisi detail lainnya. Deskripsi pengumuman akan diambil otomatis dari file teks di GitHub (`{GITHUB_RAW_DESCRIPTION_URL}`). Anda memiliki **60 detik** untuk mengisi formulir.",
+            description=f"Anda akan membuat pengumuman di channel {target_channel.mention}.\nTekan tombol di bawah untuk mengaktifkan mention `@everyone`, Polling, dan membuka formulir untuk mengisi teks pengumuman langsung. Anda memiliki **60 detik**.",
             color=self.color_info),
             view=view_instance
         )
