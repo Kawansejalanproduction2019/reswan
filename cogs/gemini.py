@@ -369,8 +369,8 @@ class IntelligenceCore(commands.Cog, name="Cyber Defense & AI Raka"):
         - JADWAL PESAN: $$ACTION_SCHEDULE: <tipe(channel/dm)> | <ID_TARGET> | <JAM_HH:MM> | <TGL_DD-MM-YYYY> | <TEMA_PESAN>$$
         - HAPUS ARTIKEL: $$ACTION_DELETE_ARTICLE: <Judul>$$
         - REACT EMOJI: $$ACTION_REACT: <emoji_unicode>$$
-        - KIRIM KE CHANNEL: $$ACTION_CHANNEL: <ID_CHANNEL> | <Pesan Lu>$$
-        - KIRIM PESAN KE DM: $$ACTION_DM: <ID> | <Pesan Lu>$$
+        - KIRIM KE CHANNEL: $$ACTION_CHANNEL: <ID_CHANNEL_ATAU_NAMA> | <Pesan Lu>$$ (Gunakan ID dari [DAFTAR CHANNEL TEKS SERVER INI] atau nama channelnya)
+        - KIRIM PESAN KE DM: $$ACTION_DM: <ID_USER_ATAU_TAG> | <Pesan Lu>$$
         - TAMBAH WHITELIST KATA: $$ACTION_WHITELIST_KATA: <kata>$$
         - HAPUS WHITELIST KATA: $$ACTION_UNWHITELIST_KATA: <kata>$$
 
@@ -467,7 +467,10 @@ class IntelligenceCore(commands.Cog, name="Cyber Defense & AI Raka"):
         if guild:
             roles = [f"{r.name} (ID: {r.id})" for r in guild.roles if r.name != "@everyone"]
             if roles:
-                final_context_str += "\n[DAFTAR ROLE SERVER INI]:\n" + ", ".join(roles) + "\n"
+                final_context_str += "\n[DAFTAR ROLE SERVER INI]:\n" + ", ".join(roles[:25]) + "\n"
+            text_channels = [f"#{c.name} (ID: {c.id})" for c in guild.text_channels if c.permissions_for(guild.me).send_messages]
+            if text_channels:
+                final_context_str += "\n[DAFTAR CHANNEL TEKS SERVER INI]:\n" + ", ".join(text_channels[:35]) + "\n"
 
         if channel_id and channel_id in self.chat_history:
             history_list = list(self.chat_history[channel_id])
@@ -747,28 +750,48 @@ class IntelligenceCore(commands.Cog, name="Cyber Defense & AI Raka"):
                     text += f"\n*(Gagal fitnah ke channel <#{f_cid_str}>: {e})*"
             text = re.sub(r'\$\$ACTION_FITNAH:\s*\d+\s*\|\s*[a-zA-Z0-9]+\s*\|.*?\$\$', '', text, flags=re.IGNORECASE | re.DOTALL).strip()
 
-            dm_matches = re.findall(r'\$\$ACTION_DM:\s*(\d+)\s*\|\s*(.*?)\$\$', text, re.IGNORECASE | re.DOTALL)
+            dm_matches = re.findall(r'\$\$ACTION_DM:\s*([^\s|]+)\s*\|\s*(.*?)\$\$', text, re.IGNORECASE | re.DOTALL)
             for dm_target, dm_msg in dm_matches:
                 try:
-                    target_user = await self.bot.fetch_user(int(dm_target))
-                    msg_to_send = dm_msg.strip()
-                    for chunk in [msg_to_send[i:i+DISCORD_MSG_LIMIT] for i in range(0, len(msg_to_send), DISCORD_MSG_LIMIT)]:
-                        if chunk: await target_user.send(chunk)
-                    text += f"\n*(Sip bos, DM udah meluncur ke <@{dm_target}>)*"
+                    clean_dm = dm_target.strip().replace("<@", "").replace("!", "").replace(">", "")
+                    if clean_dm.isdigit():
+                        target_user = await self.bot.fetch_user(int(clean_dm))
+                        msg_to_send = dm_msg.strip()
+                        for chunk in [msg_to_send[i:i+DISCORD_MSG_LIMIT] for i in range(0, len(msg_to_send), DISCORD_MSG_LIMIT)]:
+                            if chunk: await target_user.send(chunk)
+                        text += f"\n*(Sip bos, DM udah meluncur ke <@{clean_dm}>)*"
                 except discord.Forbidden: text += f"\n*(Gagal DM ke <@{dm_target}>, dia nutup DM-nya)*"
-                except Exception: pass
-            text = re.sub(r'\$\$ACTION_DM:\s*\d+\s*\|.*?\$\$', '', text, flags=re.IGNORECASE | re.DOTALL).strip()
+                except Exception as e:
+                    log.error(f"[ACTION_DM_ERR] {e}")
+            text = re.sub(r'\$\$ACTION_DM:\s*.*?\$\$', '', text, flags=re.IGNORECASE | re.DOTALL).strip()
 
-            ch_matches = re.findall(r'\$\$ACTION_CHANNEL:\s*(\d+)\s*\|\s*(.*?)\$\$', text, re.IGNORECASE | re.DOTALL)
+            ch_matches = re.findall(r'\$\$ACTION_CHANNEL:\s*([^\s|]+)\s*\|\s*(.*?)\$\$', text, re.IGNORECASE | re.DOTALL)
             for ch_target, ch_msg in ch_matches:
                 try:
-                    target_channel = await self.bot.fetch_channel(int(ch_target))
-                    msg_to_send = ch_msg.strip()
-                    for chunk in [msg_to_send[i:i+DISCORD_MSG_LIMIT] for i in range(0, len(msg_to_send), DISCORD_MSG_LIMIT)]:
-                        if chunk: await target_channel.send(chunk)
-                    text += f"\n*(Laporan: Pesan sukses ditembakkan ke channel <#{ch_target}>)*"
-                except Exception as e: text += f"\n*(Gagal ngirim ke channel <#{ch_target}>: {e})*"
-            text = re.sub(r'\$\$ACTION_CHANNEL:\s*\d+\s*\|.*?\$\$', '', text, flags=re.IGNORECASE | re.DOTALL).strip()
+                    clean_target = ch_target.strip().replace("<#", "").replace(">", "").replace("#", "")
+                    target_channel = None
+                    if clean_target.isdigit():
+                        target_channel = self.bot.get_channel(int(clean_target))
+                        if not target_channel:
+                            try:
+                                target_channel = await self.bot.fetch_channel(int(clean_target))
+                            except Exception: pass
+                    else:
+                        guild_obj = send_target.guild if isinstance(send_target, discord.Message) else (send_target.guild if hasattr(send_target, 'guild') else None)
+                        if guild_obj:
+                            target_channel = discord.utils.get(guild_obj.text_channels, name=clean_target.lower())
+
+                    if target_channel:
+                        msg_to_send = ch_msg.strip()
+                        for chunk in [msg_to_send[i:i+DISCORD_MSG_LIMIT] for i in range(0, len(msg_to_send), DISCORD_MSG_LIMIT)]:
+                            if chunk: await target_channel.send(chunk)
+                        text += f"\n*(Laporan: Pesan sukses ditembakkan ke channel <#{target_channel.id}>)*"
+                    else:
+                        text += f"\n*(Gagal ngirim ke channel '{ch_target}': Channel tidak ditemukan)*"
+                except Exception as e:
+                    log.error(f"[ACTION_CHANNEL_ERR] {e}")
+                    text += f"\n*(Gagal ngirim ke channel {ch_target}: {e})*"
+            text = re.sub(r'\$\$ACTION_CHANNEL:\s*.*?\$\$', '', text, flags=re.IGNORECASE | re.DOTALL).strip()
                 
             sent_msg = None
             if isinstance(send_target, discord.Message):
@@ -1246,18 +1269,28 @@ class IntelligenceCore(commands.Cog, name="Cyber Defense & AI Raka"):
         prefix = "!"
 
         # Fitur membalas pesan berawalan prefix (!) tapi bukan command
-        if message.content.startswith(prefix) and not message.content.startswith(prefix + " "):
+        if message.content.startswith(prefix):
             content_body = message.content[len(prefix):].strip()
             if content_body:
                 first_word = content_body.split()[0].lower()
                 valid_cmds = [cmd.name for cmd in self.bot.commands] + [alias for cmd in self.bot.commands for alias in cmd.aliases]
-                if first_word not in valid_cmds:
+                
+                is_ai_cmd_without_subcommand = False
+                if first_word == "ai":
+                    sub_words = content_body.split()[1:]
+                    ai_subcommands = ["rangkum", "summary", "tldr", "auto_tag_toggle", "ngobrol", "selesai", "reset", "atur", "hapus_semua_jadwal", "hj", "reset_jadwal", "tanya"]
+                    if not sub_words or sub_words[0].lower() not in ai_subcommands:
+                        is_ai_cmd_without_subcommand = True
+                        content_body = " ".join(sub_words) if sub_words else ""
+                
+                if (first_word not in valid_cmds or is_ai_cmd_without_subcommand) and content_body:
                     try:
                         async with message.channel.typing():
                             images = await self.get_images_from_message(message)
                             ctx_data = self.get_brain_context(content_body, getattr(message, 'guild', None), message.channel.id)
                             await self.process_and_send_response(message, message.author, ctx_data, content_body, images, guild_id=guild_id)
-                    except: pass
+                    except Exception as e:
+                        log.error(f"[PREFIX_CHAT_ERROR] {e}")
                     return
 
         if not message.guild and not message.content.startswith(prefix):
@@ -1266,11 +1299,12 @@ class IntelligenceCore(commands.Cog, name="Cyber Defense & AI Raka"):
                     images = await self.get_images_from_message(message)
                     ctx_data = self.get_brain_context(message.content, None, message.channel.id)
                     await self.process_and_send_response(message, message.author, ctx_data, message.content, images, guild_id=guild_id)
-            except: pass
+            except Exception as e:
+                log.error(f"[DM_CHAT_ERROR] {e}")
             return
 
-        # Perbaikan: Bot akan merespons jika di-tag ATAU jika pesannya di-reply (meskipun tag dimatikan oleh user)
-        if message.guild and (self.bot.user in message.mentions or is_reply_to_bot) and str(message.guild.id) in self.auto_config.get("active_guilds", []):
+        # Perbaikan: Bot akan merespons jika di-tag ATAU jika pesannya di-reply (di semua server)
+        if message.guild and (self.bot.user in message.mentions or is_reply_to_bot):
             try:
                 async with message.channel.typing():
                     bot_id = self.bot.user.id
@@ -1285,7 +1319,8 @@ class IntelligenceCore(commands.Cog, name="Cyber Defense & AI Raka"):
                         prompt = f"Nge-tag lu dan bilang: {clean_content}"
                         
                     await self.process_and_send_response(message, message.author, ctx_data, prompt, images, guild_id=guild_id)
-            except: pass
+            except Exception as e:
+                log.error(f"[MENTION_CHAT_ERROR] {e}")
             return
 
         expert_active = False
