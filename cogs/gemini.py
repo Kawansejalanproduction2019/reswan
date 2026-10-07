@@ -1056,7 +1056,6 @@ class IntelligenceCore(commands.Cog, name="Cyber Defense & AI Raka"):
             if target_images:
                 fresh_config   = load_json_file(CYBER_CONFIG_FILE, {})
                 blocked_hashes = fresh_config.get("blocked_image_hashes", [])
-                blocked_descs  = fresh_config.get("blocked_image_descriptions", [])
 
                 log.info(f"[IMG_CHECK] Hashes di DB: {len(blocked_hashes)} → {blocked_hashes}")
 
@@ -1079,26 +1078,6 @@ class IntelligenceCore(commands.Cog, name="Cyber Defense & AI Raka"):
 
                     if violation_found:
                         break
-
-                    log.info(f"[IMG_AI] Hash tidak cocok, lanjut ke AI...")
-                    blocked_descs_str = ", ".join(blocked_descs) if blocked_descs else "Tidak ada larangan spesifik."
-                    prompt_ai = (
-                        "Sebagai sistem moderasi keamanan absolut, jawab HANYA YA atau TIDAK.\n"
-                        "1. Ada promosi crypto palsu, airdrop, phising, link berbahaya, giveaway?\n"
-                        f"2. Visual cocok dengan deskripsi ini: {blocked_descs_str}?\n\n"
-                        "Mencurigakan → YA | Aman → TIDAK"
-                    )
-                    try:
-                        res_desc = await generate_smart_response([prompt_ai, img])
-                        hasil_ai = res_desc.text.strip().upper()
-                        log.info(f"[IMG_AI] Hasil: {hasil_ai}")
-                        if "YA" in hasil_ai:
-                            violation_found  = True
-                            violation_reason = "AI Deep Scan: Terdeteksi phising/scam."
-                            action_to_take   = "ban"
-                            break
-                    except Exception as e:
-                        log.error(f"[IMG_AI] Error: {e}")
 
                 if violation_found:
                     log.warning(f"[IMG_ACTION] {action_to_take} | {violation_reason}")
